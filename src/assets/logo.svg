@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="596 266 808 1228">
+  <defs>
+    <linearGradient id="hopes-logo-gradient" x1="700" y1="280" x2="1300" y2="1500" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a45f0" /><stop offset="0.45" stop-color="#0d87fb" /><stop offset="1" stop-color="#1dd2fd" />
+    </linearGradient>
+  </defs>
+  <path d="M600 1362V400A129 129 0 0 1 858 400V608C900 545 965 525 1040 525C1245 525 1400 675 1400 900V1366A124 124 0 0 1 1152 1366V960C1152 870 1100 815 1015 815C920 815 858 890 858 965V1362A129 129 0 0 1 600 1362Z" fill="url(#hopes-logo-gradient)" />
+</svg>
