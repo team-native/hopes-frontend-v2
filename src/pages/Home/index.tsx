@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
+import type { PDFDocumentLoadingTask } from 'pdfjs-dist'
 import AppLayout, { type AppSection } from '../../components/layout/AppLayout'
 import Icon, { type IconName } from '../../components/common/Icon'
 
@@ -26,8 +27,20 @@ type MockAnswer = {
   heading: string
   body: string
   steps?: string[]
+  bullets?: string[]
   code?: string
   reference?: string
+  citation?: string
+  locationActions?: boolean
+}
+
+type LocalAttachment = {
+  id: string
+  file: File
+  previewUrl?: string
+  uploadProgress: number
+  pageCount?: number
+  uploadError?: string
 }
 
 const mockAnswers = {
@@ -62,11 +75,29 @@ const mockAnswers = {
     heading: '예시 답변',
     body: '현재는 화면 확인을 위한 목업 답변만 제공하고 있어요. 실제 질문에 맞는 답변은 서버 연동 후 표시됩니다.',
   },
+  attachment: {
+    category: '자료 첨부',
+    heading: '첨부 자료 확인',
+    body: '파일은 대화에 첨부했어요. 실제 파일 내용을 읽고 요약하는 기능은 서버 연결 후 사용할 수 있습니다.',
+  },
+  dormRules: {
+    category: '자료 요약',
+    heading: '외출 규정 요약',
+    body: '생활수칙 자료에 포함된 외출 관련 예시 요약입니다.',
+    bullets: ['평일 외출은 사감 선생님 승인 후 가능해요.', '주말 외출은 금요일까지 신청해야 해요.', '복귀 시간은 일요일 저녁 9시예요.'],
+  },
+  location: {
+    category: '학교 생활',
+    heading: '현재 위치 확인은 hopes 앱에서만 할 수 있어요',
+    body: '웹에서는 학교 지도와 건물 정보를 안내해 드려요.',
+    locationActions: true,
+  },
 } satisfies Record<string, MockAnswer>
 
 function getMockAnswer(question: string): MockAnswer {
   const normalizedQuestion = question.toLowerCase()
 
+  if (/위치|어디야|어디 있/.test(normalizedQuestion)) return mockAnswers.location
   if (/기숙사|하루 일과|와이파이|외출/.test(normalizedQuestion)) return mockAnswers.dorm
   if (/입학|준비/.test(normalizedQuestion)) return mockAnswers.admission
   if (/동아리/.test(normalizedQuestion)) return mockAnswers.club
@@ -74,9 +105,18 @@ function getMockAnswer(question: string): MockAnswer {
   return mockAnswers.fallback
 }
 
+function getAttachmentAnswer(attachments: LocalAttachment[]): MockAnswer {
+  const pdfAttachment = attachments.find(({ file }) => file.name.toLowerCase().endsWith('.pdf'))
+  const reference = pdfAttachment?.file.name ?? attachments[0].file.name
+  const answer = /생활수칙|생활규정|외출/.test(reference) ? mockAnswers.dormRules : mockAnswers.attachment
+  const pages = pdfAttachment?.pageCount ? ` · 1-${pdfAttachment.pageCount}쪽 기반` : ' · 첨부 자료 기반'
+  return { ...answer, citation: `${reference}${pages}` }
+}
+
 function HomePage() {
   const [view, setView] = useState<AppSection | 'conversation'>('home')
   const [conversationTitle, setConversationTitle] = useState(suggestedQuestions[2].title)
+  const [conversationAttachments, setConversationAttachments] = useState<LocalAttachment[]>([])
   const [draft, setDraft] = useState('')
   const [department, setDepartment] = useState('소프트웨어개발과')
   const [major, setMajor] = useState('Frontend')
@@ -85,8 +125,12 @@ function HomePage() {
 
   const section: AppSection = view === 'conversation' ? 'chat' : view
 
-  function startConversation(question: string) {
+  function startConversation(question: string, attachments: LocalAttachment[] = []) {
+    conversationAttachments.forEach((attachment) => {
+      if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl)
+    })
     setConversationTitle(question)
+    setConversationAttachments(attachments)
     setDraft('')
     setView('conversation')
   }
@@ -96,11 +140,11 @@ function HomePage() {
     window.setTimeout(() => setToast(''), 2200)
   }
 
-  function submitQuestion(event: FormEvent<HTMLFormElement>) {
+  function submitQuestion(event: FormEvent<HTMLFormElement>, attachments: LocalAttachment[] = [], questionOverride = draft) {
     event.preventDefault()
-    const question = draft.trim()
+    const question = questionOverride.trim() || (attachments.length > 0 ? '첨부 자료 요약해줘' : '')
     if (!question) return
-    startConversation(question)
+    startConversation(question, attachments)
   }
 
   return (
@@ -132,6 +176,7 @@ function HomePage() {
           onDraftChange={setDraft}
           onSubmit={submitQuestion}
           onToast={showToast}
+          attachments={conversationAttachments}
         />
       ) : (
         <CollectionView section={view} onOpenQuestion={startConversation} />
@@ -330,21 +375,156 @@ function Composer({ draft, onDraftChange, onSubmit, placeholder }: ComposerProps
 type ConversationViewProps = {
   title: string
   draft: string
+  attachments: LocalAttachment[]
   onDraftChange: (value: string) => void
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onSubmit: (event: FormEvent<HTMLFormElement>, attachments: LocalAttachment[], question: string) => void
   onToast: (message: string) => void
 }
 
-function ConversationView({ title, draft, onDraftChange, onSubmit, onToast }: ConversationViewProps) {
-  const answer = getMockAnswer(title)
+function ConversationView({ title, draft, attachments, onDraftChange, onSubmit, onToast }: ConversationViewProps) {
+  const answer: MockAnswer = attachments.length > 0 ? getAttachmentAnswer(attachments) : getMockAnswer(title)
+  const [selectedAttachments, setSelectedAttachments] = useState<LocalAttachment[]>([])
+  const [attachmentError, setAttachmentError] = useState('')
+  const [dropzoneOpen, setDropzoneOpen] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const ownedAttachmentsRef = useRef<LocalAttachment[]>([])
+  const uploadTimersRef = useRef<Map<string, number>>(new Map())
+  const pdfTasksRef = useRef(new Map<string, PDFDocumentLoadingTask>())
+
+  useEffect(() => () => {
+    uploadTimersRef.current.forEach((timer) => window.clearTimeout(timer))
+    pdfTasksRef.current.forEach((task) => { void task.destroy().catch(() => undefined) })
+    ownedAttachmentsRef.current.forEach((attachment) => {
+      if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl)
+    })
+  }, [])
+
+  function addFiles(fileList: FileList | File[]) {
+    const incomingFiles = Array.from(fileList)
+    const supportedExtensions = ['jpg', 'jpeg', 'png', 'heic', 'pdf']
+    const supportedFiles = incomingFiles.filter((file) => {
+      const extension = file.name.split('.').pop()?.toLowerCase()
+      return extension && supportedExtensions.includes(extension)
+    })
+    const validFiles = supportedFiles.filter((file) => file.size <= 20 * 1024 * 1024)
+    const remainingSlots = Math.max(0, 5 - selectedAttachments.length)
+    const acceptedFiles = validFiles.slice(0, remainingSlots)
+
+    const newAttachments = acceptedFiles.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      previewUrl: /\.(jpe?g|png)$/i.test(file.name) ? URL.createObjectURL(file) : undefined,
+      uploadProgress: 30,
+      pageCount: undefined,
+      uploadError: undefined,
+    }))
+    ownedAttachmentsRef.current.push(...newAttachments)
+    setSelectedAttachments((current) => [...current, ...newAttachments])
+    newAttachments.forEach((attachment) => { void prepareAttachment(attachment) })
+
+    if (supportedFiles.length < incomingFiles.length) {
+      setAttachmentError('이미지(JPG·PNG·HEIC)와 PDF만 첨부할 수 있어요.')
+    } else if (validFiles.length < supportedFiles.length) {
+      setAttachmentError('파일당 최대 20MB까지 첨부할 수 있어요.')
+    } else if (validFiles.length > remainingSlots) {
+      setAttachmentError('한 번에 최대 5개까지 첨부할 수 있어요.')
+    } else {
+      setAttachmentError('')
+    }
+
+    setDropzoneOpen(false)
+  }
+
+  async function prepareAttachment(attachment: LocalAttachment) {
+    let pageCount: number | undefined
+    try {
+      if (attachment.file.name.toLowerCase().endsWith('.pdf')) {
+        const pdfjsLib = await import('pdfjs-dist')
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
+        const task = pdfjsLib.getDocument({ data: await attachment.file.arrayBuffer() })
+        pdfTasksRef.current.set(attachment.id, task)
+        pageCount = (await task.promise).numPages
+        pdfTasksRef.current.delete(attachment.id)
+      }
+
+      if (!ownedAttachmentsRef.current.some(({ id }) => id === attachment.id)) return
+      const timer = window.setTimeout(() => {
+        setSelectedAttachments((current) => current.map((item) => (
+          item.id === attachment.id ? { ...item, uploadProgress: 100, pageCount } : item
+        )))
+        uploadTimersRef.current.delete(attachment.id)
+      }, 1200)
+      uploadTimersRef.current.set(attachment.id, timer)
+    } catch {
+      pdfTasksRef.current.delete(attachment.id)
+      if (!ownedAttachmentsRef.current.some(({ id }) => id === attachment.id)) return
+      setSelectedAttachments((current) => current.map((item) => (
+        item.id === attachment.id
+          ? { ...item, uploadProgress: 100, uploadError: 'PDF를 읽지 못했어요. 파일을 확인해 주세요.' }
+          : item
+      )))
+    }
+  }
+
+  function handleFileSelection(event: ChangeEvent<HTMLInputElement>) {
+    if (event.currentTarget.files) addFiles(event.currentTarget.files)
+    event.currentTarget.value = ''
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    setDragActive(false)
+    if (event.dataTransfer.files.length > 0) addFiles(event.dataTransfer.files)
+  }
+
+  function removeSelectedFile(id: string) {
+    const uploadTimer = uploadTimersRef.current.get(id)
+    if (uploadTimer !== undefined) window.clearTimeout(uploadTimer)
+    uploadTimersRef.current.delete(id)
+    const pdfTask = pdfTasksRef.current.get(id)
+    if (pdfTask) void pdfTask.destroy().catch(() => undefined)
+    pdfTasksRef.current.delete(id)
+    const removedAttachment = ownedAttachmentsRef.current.find((attachment) => attachment.id === id)
+    if (removedAttachment?.previewUrl) URL.revokeObjectURL(removedAttachment.previewUrl)
+    ownedAttachmentsRef.current = ownedAttachmentsRef.current.filter((attachment) => attachment.id !== id)
+    setSelectedAttachments((current) => current.filter((attachment) => attachment.id !== id))
+    setAttachmentError('')
+  }
+
+  function handleConversationSubmit(event: FormEvent<HTMLFormElement>) {
+    if (selectedAttachments.some((attachment) => attachment.uploadProgress < 100 || attachment.uploadError)) {
+      event.preventDefault()
+      return
+    }
+    const question = draft.trim() || (selectedAttachments.length > 0 ? '첨부 자료 요약해줘' : '')
+    if (!question) {
+      event.preventDefault()
+      return
+    }
+
+    onSubmit(event, selectedAttachments, question)
+    uploadTimersRef.current.forEach((timer) => window.clearTimeout(timer))
+    uploadTimersRef.current.clear()
+    pdfTasksRef.current.forEach((task) => { void task.destroy().catch(() => undefined) })
+    pdfTasksRef.current.clear()
+    ownedAttachmentsRef.current = []
+    setSelectedAttachments([])
+    setAttachmentError('')
+  }
 
   return (
-    <main className="flex min-h-[calc(100vh-105px)] flex-1 flex-col px-5 pb-4 pt-5 md:min-h-screen md:px-8 md:pt-5">
+    <main className="relative flex min-h-[calc(100vh-105px)] flex-1 flex-col px-5 pb-4 pt-5 md:min-h-screen md:px-8 md:pt-5">
       <header className="flex items-start justify-between">
         <div><h1 className="text-xl font-bold md:text-2xl">{answer.category}</h1><p className="mt-1 text-xs text-sub">소프트웨어개발과 · {answer.category}</p></div>
         <button aria-label="대화 옵션" className="rounded-lg px-2 py-1 text-lg text-sub hover:bg-white">···</button>
       </header>
       <section className="mx-auto flex w-full max-w-[654px] flex-1 flex-col justify-end gap-4 py-8">
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap justify-end gap-2" aria-label="전송한 첨부 파일">
+            {attachments.map((attachment) => <AttachmentItem key={attachment.id} file={attachment.file} previewUrl={attachment.previewUrl} variant="sent" />)}
+          </div>
+        )}
         <div className="flex justify-end"><div className="max-w-[85%] rounded-[19px] rounded-br-md bg-primary px-4 py-3 text-sm text-white shadow-[0_6px_15px_rgba(95,134,239,0.2)]">{title}</div></div>
         <div className="flex items-start gap-3">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#e9eef8] bg-white text-primary shadow-sm"><img src="/src/assets/logo.svg" alt="" className="size-5" /></span>
@@ -371,9 +551,110 @@ function ConversationView({ title, draft, onDraftChange, onSubmit, onToast }: Co
           <button onClick={() => onToast('공유 링크를 준비했어요.')} className="flex items-center gap-1 hover:text-primary"><Icon name="share" className="size-3.5" />공유</button>
         </div>
       </section>
-      <Composer draft={draft} onDraftChange={onDraftChange} onSubmit={onSubmit} placeholder="추가 질문 입력..." />
+      <form onSubmit={handleConversationSubmit} className="mx-auto w-full max-w-[654px] rounded-[20px] border border-[#edf1f8] bg-white p-3 shadow-[0_6px_20px_rgba(37,56,95,0.1)]">
+        {attachmentError && (
+          <div role="alert" className="mb-3 flex items-start gap-2 rounded-xl bg-[#fbf0f1] px-3 py-2.5 text-xs text-error">
+            <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+            <span>{attachmentError}</span>
+          </div>
+        )}
+        {selectedAttachments.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {selectedAttachments.map((attachment) => (
+              <AttachmentItem
+                key={attachment.id}
+                file={attachment.file}
+                previewUrl={attachment.previewUrl}
+                pageCount={attachment.pageCount}
+                uploadProgress={attachment.uploadProgress}
+                uploadError={attachment.uploadError}
+                onRemove={() => removeSelectedFile(attachment.id)}
+              />
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          <button type="button" aria-label="자료 첨부" onClick={() => setDropzoneOpen(true)} className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#f5f8ff] text-primary hover:bg-[#edf3ff]">
+            <Icon name="plus" className="size-[18px]" />
+          </button>
+          <input value={draft} onChange={(event) => onDraftChange(event.target.value)} placeholder={selectedAttachments.length > 0 ? '자료에 대해 질문하기' : '추가 질문 입력...'} aria-label="추가 질문 입력" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#aab3c5]" />
+          <button type="submit" disabled={(!draft.trim() && selectedAttachments.length === 0) || selectedAttachments.some((attachment) => attachment.uploadProgress < 100 || attachment.uploadError)} aria-label="질문 보내기" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_4px_12px_rgba(95,134,239,0.25)] transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-[#b9cef7]">
+            <Icon name="arrow-up" className="size-[18px]" />
+          </button>
+        </div>
+      </form>
+      {dropzoneOpen && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#edf3ff]/85 p-5 backdrop-blur-[1px] md:p-8">
+          <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.heic,.pdf" multiple className="sr-only" onChange={handleFileSelection} />
+          <button type="button" aria-label="첨부 닫기" onClick={() => setDropzoneOpen(false)} className="absolute right-4 top-4 flex size-9 items-center justify-center rounded-full bg-white text-sub shadow-sm hover:text-ink">
+            <Icon name="x" className="size-5" />
+          </button>
+          <div
+            onDragOver={(event) => { event.preventDefault(); setDragActive(true) }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handleDrop}
+            className={`flex h-[min(42vh,320px)] w-full max-w-[664px] flex-col items-center justify-center rounded-[22px] border-2 border-dashed px-5 text-center transition ${dragActive ? 'border-primary bg-[#edf3ff]' : 'border-[#bfd2ff] bg-white/75'}`}
+          >
+            <span className="mb-3 flex size-16 items-center justify-center rounded-full bg-[#eaf1ff] text-primary"><Icon name="upload" className="size-7" /></span>
+            <h2 className="text-base font-semibold text-ink">여기에 놓으면 첨부돼요</h2>
+            <p className="mt-2 text-xs text-sub">이미지(JPG·PNG·HEIC)와 PDF를 첨부할 수 있어요</p>
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-4 rounded-lg border border-line bg-white px-3 py-2 text-xs font-medium text-brand hover:bg-[#f7f9fc]">파일 선택</button>
+          </div>
+        </div>
+      )}
       <p className="mt-2 text-center text-[11px] text-[#aab3c5]">현재는 화면 확인용 목업 답변입니다.</p>
     </main>
+  )
+}
+
+function AttachmentItem({ file, previewUrl, pageCount, uploadProgress = 100, uploadError, onRemove, variant = 'composer' }: { file: File; previewUrl?: string; pageCount?: number; uploadProgress?: number; uploadError?: string; onRemove?: () => void; variant?: 'composer' | 'sent' }) {
+  const isImageFile = /\.(jpe?g|png|heic)$/i.test(file.name)
+
+  if (variant === 'sent') {
+    return (
+      <span className="inline-flex max-w-[220px] items-center gap-2 rounded-xl border border-[#edf1f8] bg-white px-2.5 py-2 text-xs text-ink">
+        <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#edf3ff] text-primary">
+          {previewUrl ? <img src={previewUrl} alt={file.name} className="size-full object-cover" /> : <Icon name={isImageFile ? 'image' : 'file'} className="size-4" />}
+        </span>
+        <span className="truncate">{file.name}</span>
+      </span>
+    )
+  }
+
+  if (isImageFile) {
+    return (
+      <div className="relative size-14">
+        <span className="flex size-full items-center justify-center overflow-hidden rounded-xl border border-[#edf1f8] bg-[#f7f9fc] text-primary">
+          {previewUrl ? <img src={previewUrl} alt={file.name} className="size-full object-cover" /> : <Icon name="image" className="size-5" />}
+        </span>
+        {onRemove && (
+          <button type="button" aria-label={`${file.name} 업로드 취소`} title="업로드 취소" onClick={onRemove} className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-[#202432] text-white shadow-sm">
+            <Icon name="x" className="size-4" />
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className={`flex h-12 w-[220px] min-w-[180px] max-w-full items-center gap-2 rounded-xl border px-2.5 ${uploadError ? 'border-[#f2c9cc] bg-[#fff8f8]' : 'border-[#edf1f8] bg-white'}`}>
+      <span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${uploadError ? 'bg-[#fbeaec] text-error' : 'bg-[#edf3ff] text-primary'}`}><Icon name="file" className="size-4" /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-medium text-ink">{file.name}</span>
+        {uploadError ? (
+          <span className="mt-0.5 block truncate text-[11px] text-error">{uploadError}</span>
+        ) : uploadProgress < 100 ? (
+          <span className="mt-0.5 block text-[11px] text-sub">업로드 중 · {uploadProgress}%</span>
+        ) : pageCount ? (
+          <span className="mt-0.5 block text-[11px] text-sub">PDF · {pageCount}쪽</span>
+        ) : null}
+      </span>
+      {onRemove && (
+        <button type="button" aria-label={`${file.name} 업로드 취소`} title="업로드 취소" onClick={onRemove} className="flex size-6 shrink-0 items-center justify-center rounded-md text-[#aab3c5] transition hover:bg-[#f2f5fb] hover:text-sub">
+          <Icon name="x" className="size-4" />
+        </button>
+      )}
+    </div>
   )
 }
 
