@@ -1,6 +1,7 @@
 import { Clock, House, MessageCircle, Plus, Settings, Users, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ROUTES } from '../../constants/routes'
+import Avatar from '../common/Avatar'
 import LogoMark from '../common/LogoMark'
 import NativeBadge from '../common/NativeBadge'
 
@@ -134,12 +135,7 @@ function Sidebar({
 
       {/* 사용자 */}
       <div className="mt-md flex items-center gap-2.5 rounded-md bg-bg-canvas py-2.5 pr-2 pl-3">
-        <span
-          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-bg-brand-soft text-label-strong font-medium text-text-brand"
-          aria-hidden
-        >
-          {user.name.charAt(0)}
-        </span>
+        <Avatar name={user.name} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-label-strong font-medium">{user.name}</p>
           <p className="truncate text-caption text-text-secondary">
