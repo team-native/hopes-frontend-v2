@@ -1,0 +1,397 @@
+import { useState, type FormEvent } from 'react'
+import AppLayout, { type AppSection } from '../../components/layout/AppLayout'
+import Icon, { type IconName } from '../../components/common/Icon'
+
+const recentQuestions = [
+  { title: '기숙사 하루 일과가 어떻게 돼?', age: '어제' },
+  { title: 'Frontend는 뭐부터 공부하면 좋아?', age: '2일 전' },
+  { title: '동아리는 언제 정해?', age: '5일 전' },
+]
+
+const popularQuestions = [
+  { title: '전공 동아리 면접 후기 공유', meta: '전체 · ♡ 34' },
+  { title: '취업 준비 언제부터 시작했어?', meta: '9기 · ♡ 21' },
+  { title: '기숙사 와이파이 다들 잘 돼?', meta: '10기 · ♡ 12' },
+]
+
+const suggestedQuestions: { title: string; category: string; icon: IconName }[] = [
+  { title: '기숙사 하루 일과가 어떻게 돼?', category: '학교생활', icon: 'bed' },
+  { title: '입학하려면 뭘 준비해야 해?', category: '입학', icon: 'file' },
+  { title: 'Frontend는 뭐부터 공부하면 좋아?', category: '전공 · Frontend', icon: 'code' },
+  { title: '후배한테 해주고 싶은 조언 있어?', category: '학교생활', icon: 'heart' },
+]
+
+type MockAnswer = {
+  category: string
+  heading: string
+  body: string
+  steps?: string[]
+  code?: string
+  reference?: string
+}
+
+const mockAnswers = {
+  dorm: {
+    category: '학교생활',
+    heading: '기숙사 하루 일과',
+    body: '평일에는 기상 후 아침 식사와 수업을 하고, 방과 후에는 저녁 식사와 자율 학습 시간을 보내요. 이후 점호를 마치고 정해진 시간에 취침하는 흐름이에요. 세부 시간은 학년이나 기숙사 운영 일정에 따라 달라질 수 있어요.',
+    steps: ['기상 및 아침 식사', '정규 수업과 방과 후 일정', '저녁 식사와 자율 학습', '점호 후 취침'],
+  },
+  frontend: {
+    category: '전공 공부',
+    heading: 'Frontend 시작 순서',
+    body: '처음에는 화면을 직접 만들어 보는 것부터 시작하는 걸 추천해요. HTML·CSS로 간단한 페이지를 만들고, JavaScript 기초 문법을 익힌 뒤 작은 프로젝트를 완성해 보세요.',
+    steps: ['HTML·CSS로 간단한 페이지 만들기', 'JavaScript 기초 문법 익히기', 'React로 작은 프로젝트 완성하기'],
+    code: '<button class="primary">질문하기</button>',
+    reference: '학교 전공 소개 페이지 보기',
+  },
+  admission: {
+    category: '입학',
+    heading: '입학 준비 체크리스트',
+    body: '모집 요강과 전형 일정을 먼저 확인하고, 필요한 서류와 평가 항목을 정리해 두세요. 전형 내용은 해마다 달라질 수 있으니 학교의 최신 안내를 기준으로 준비하는 게 좋아요.',
+    steps: ['최신 모집 요강 확인하기', '전형 일정과 제출 서류 정리하기', '학교 공식 안내에서 변경 사항 확인하기'],
+  },
+  club: {
+    category: '학교생활',
+    heading: '동아리 선택과 면접 준비',
+    body: '관심 있는 분야와 동아리 활동 내용을 먼저 살펴보세요. 면접에서는 지원한 이유와 해보고 싶은 활동을 구체적으로 이야기할 수 있도록 정리해 두면 도움이 돼요.',
+    steps: ['동아리별 활동 내용 찾아보기', '관심 분야와 지원 동기 정리하기', '해보고 싶은 활동을 구체적으로 준비하기'],
+  },
+  fallback: {
+    category: '선배 답변',
+    heading: '예시 답변',
+    body: '현재는 화면 확인을 위한 목업 답변만 제공하고 있어요. 실제 질문에 맞는 답변은 서버 연동 후 표시됩니다.',
+  },
+} satisfies Record<string, MockAnswer>
+
+function getMockAnswer(question: string): MockAnswer {
+  const normalizedQuestion = question.toLowerCase()
+
+  if (/기숙사|하루 일과|와이파이|외출/.test(normalizedQuestion)) return mockAnswers.dorm
+  if (/입학|준비/.test(normalizedQuestion)) return mockAnswers.admission
+  if (/동아리/.test(normalizedQuestion)) return mockAnswers.club
+  if (/frontend|프론트|전공 공부|공부/.test(normalizedQuestion)) return mockAnswers.frontend
+  return mockAnswers.fallback
+}
+
+function HomePage() {
+  const [view, setView] = useState<AppSection | 'conversation'>('home')
+  const [conversationTitle, setConversationTitle] = useState(suggestedQuestions[2].title)
+  const [draft, setDraft] = useState('')
+  const [department, setDepartment] = useState('소프트웨어개발과')
+  const [major, setMajor] = useState('Frontend')
+  const [openFilter, setOpenFilter] = useState<'department' | 'major' | null>(null)
+  const [toast, setToast] = useState('')
+
+  const section: AppSection = view === 'conversation' ? 'chat' : view
+
+  function startConversation(question: string) {
+    setConversationTitle(question)
+    setDraft('')
+    setView('conversation')
+  }
+
+  function showToast(message: string) {
+    setToast(message)
+    window.setTimeout(() => setToast(''), 2200)
+  }
+
+  function submitQuestion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const question = draft.trim()
+    if (!question) return
+    startConversation(question)
+  }
+
+  return (
+    <AppLayout
+      activeSection={section}
+      onNewChat={() => setView('chat')}
+      onRecentChat={() => startConversation(recentQuestions[0].title)}
+      onSectionChange={(next) => setView(next)}
+    >
+      {view === 'home' ? (
+        <HomeView onStartChat={() => setView('chat')} onOpenQuestion={startConversation} onNotify={() => showToast('새로운 알림이 없어요.')} />
+      ) : view === 'chat' ? (
+        <NewChatView
+          department={department}
+          major={major}
+          openFilter={openFilter}
+          onFilterToggle={setOpenFilter}
+          onDepartmentChange={setDepartment}
+          onMajorChange={setMajor}
+          onOpenQuestion={startConversation}
+          draft={draft}
+          onDraftChange={setDraft}
+          onSubmit={submitQuestion}
+        />
+      ) : view === 'conversation' ? (
+        <ConversationView
+          title={conversationTitle}
+          draft={draft}
+          onDraftChange={setDraft}
+          onSubmit={submitQuestion}
+          onToast={showToast}
+        />
+      ) : (
+        <CollectionView section={view} onOpenQuestion={startConversation} />
+      )}
+      {toast && (
+        <div role="status" className="fixed bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#202432] px-4 py-2.5 text-xs text-white shadow-lg">
+          <span className="flex size-5 items-center justify-center rounded-full bg-primary"><Icon name="alert" className="size-3" /></span>
+          {toast}
+        </div>
+      )}
+    </AppLayout>
+  )
+}
+
+type HomeViewProps = {
+  onStartChat: () => void
+  onOpenQuestion: (question: string) => void
+  onNotify: () => void
+}
+
+function HomeView({ onStartChat, onOpenQuestion, onNotify }: HomeViewProps) {
+  return (
+    <main className="mx-auto w-full max-w-[1080px] px-5 pb-10 pt-5 md:px-8 md:pt-6">
+      <header className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-[22px] font-bold leading-tight md:text-2xl"><span className="text-brand">안녕하세요,</span> 임서하님</h1>
+          <p className="mt-1 text-sm text-sub">인공지능과 · 10기</p>
+        </div>
+        <button onClick={onNotify} aria-label="알림" className="flex size-10 items-center justify-center rounded-xl bg-white text-sub shadow-[0_3px_12px_rgba(26,42,78,0.08)] transition hover:text-primary">
+          <Icon name="bell" />
+        </button>
+      </header>
+
+      <section className="mx-auto mb-4 max-w-[854px] overflow-hidden rounded-[22px] border border-[#edf1f8] bg-[radial-gradient(ellipse_at_100%_100%,rgba(95,134,239,0.17),transparent_30%),linear-gradient(110deg,#fff_15%,#f1f5ff_100%)] px-6 py-6 shadow-[0_5px_18px_rgba(37,56,95,0.06)] md:px-7 md:py-6">
+        <h2 className="max-w-md text-[22px] font-bold leading-[1.4] md:text-2xl"><span className="text-brand">선배</span>에게 묻는<br /><span className="text-brand">가장 솔직한</span> 학교 이야기</h2>
+        <p className="mt-2 text-sm text-sub">기숙사, 전공, 취업 질문에 선배 경험으로 답해요.</p>
+        <button onClick={onStartChat} className="mt-3 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-hover">채팅 시작하기</button>
+      </section>
+
+      <div className="mx-auto grid max-w-[854px] grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr]">
+        <ListPanel title="이어서 하기" action="더보기" onAction={() => onOpenQuestion(recentQuestions[0].title)}>
+          {recentQuestions.map((item) => (
+            <button key={item.title} onClick={() => onOpenQuestion(item.title)} className="flex min-h-[50px] w-full items-center justify-between gap-3 border-b border-[#edf0f5] text-left last:border-0">
+              <span className="truncate text-sm">{item.title}</span><span className="shrink-0 text-xs text-[#9aa4ba]">{item.age}</span>
+            </button>
+          ))}
+        </ListPanel>
+        <ListPanel title="커뮤니티 인기글" action="더보기" onAction={() => onOpenQuestion(popularQuestions[0].title)}>
+          {popularQuestions.map((item) => (
+            <button key={item.title} onClick={() => onOpenQuestion(item.title)} className="flex min-h-[50px] w-full items-center justify-between gap-3 border-b border-[#edf0f5] text-left last:border-0">
+              <span className="truncate text-sm">{item.title}</span><span className="shrink-0 text-xs text-[#9aa4ba]">{item.meta}</span>
+            </button>
+          ))}
+        </ListPanel>
+        <section className="rounded-[21px] border border-[#edf1f8] bg-white p-4 shadow-[0_5px_16px_rgba(37,56,95,0.06)] md:col-span-2 xl:col-span-1">
+          <h2 className="mb-4 text-xs font-medium text-sub">질문 잘하는 방법</h2>
+          <div className="space-y-4">
+            <Tip number="1" detail="질문 전에," title="학과·전공을 먼저 골라요" />
+            <Tip number="2" detail="‘기숙사 하루’ 보다," title="‘1학년 기숙사 평일 루틴 알려줘’" />
+          </div>
+        </section>
+      </div>
+    </main>
+  )
+}
+
+type ListPanelProps = {
+  title: string
+  action: string
+  onAction: () => void
+  children: React.ReactNode
+}
+
+function ListPanel({ title, action, onAction, children }: ListPanelProps) {
+  return (
+    <section className="rounded-[21px] border border-[#edf1f8] bg-white px-4 py-3.5 shadow-[0_5px_16px_rgba(37,56,95,0.06)]">
+      <header className="mb-1 flex items-center justify-between">
+        <h2 className="text-xs font-medium text-sub">{title}</h2>
+        <button onClick={onAction} className="text-xs font-medium text-brand hover:underline">{action}</button>
+      </header>
+      {children}
+    </section>
+  )
+}
+
+function Tip({ number, detail, title }: { number: string; detail: string; title: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#edf3ff] text-xs font-medium text-brand">{number}</span>
+      <p className="text-xs leading-5 text-sub">{detail}<br /><strong className="font-semibold text-ink">{title}</strong></p>
+    </div>
+  )
+}
+
+type NewChatViewProps = {
+  department: string
+  major: string
+  openFilter: 'department' | 'major' | null
+  onFilterToggle: (filter: 'department' | 'major' | null) => void
+  onDepartmentChange: (value: string) => void
+  onMajorChange: (value: string) => void
+  onOpenQuestion: (question: string) => void
+  draft: string
+  onDraftChange: (value: string) => void
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+}
+
+function NewChatView({ department, major, openFilter, onFilterToggle, onDepartmentChange, onMajorChange, onOpenQuestion, draft, onDraftChange, onSubmit }: NewChatViewProps) {
+  const departments = ['소프트웨어개발과', '스마트IoT과', '인공지능과']
+  const majors = ['Frontend', 'Backend', 'AI']
+
+  return (
+    <main className="flex min-h-[calc(100vh-105px)] flex-1 flex-col px-5 pb-4 pt-5 md:min-h-screen md:px-8 md:pt-5">
+      <header className="flex items-center justify-between gap-4">
+        <h1 className="text-xl font-bold md:text-2xl">새 대화</h1>
+        <div className="flex items-center gap-2">
+          <FilterMenu label={department} menu="department" value={department} values={departments} openFilter={openFilter} onToggle={onFilterToggle} onChange={onDepartmentChange} />
+          <FilterMenu label={major} menu="major" value={major} values={majors} openFilter={openFilter} onToggle={onFilterToggle} onChange={onMajorChange} />
+          <button onClick={() => onOpenQuestion(recentQuestions[0].title)} className="hidden rounded-lg border border-line bg-white px-3 py-2 text-xs font-medium text-brand sm:block">대화 기록</button>
+        </div>
+      </header>
+
+      <section className="mx-auto mt-10 w-full max-w-[654px] text-center md:mt-12">
+        <h2 className="text-[30px] font-bold leading-tight md:text-[36px]">무엇이 <span className="text-brand">궁금한</span>가요?</h2>
+        <p className="mt-2 text-sm text-sub">광주소프트웨어마이스터고 선배에게 편하게 물어보세요.</p>
+        <div className="mt-7 flex items-center justify-between text-left text-xs text-sub">
+          <span>{department} · {major} 추천 질문</span>
+          <button aria-label="추천 질문 새로고침" className="rounded-md p-1.5 text-[#9aa4ba] hover:bg-white hover:text-primary"><Icon name="refresh" className="size-4" /></button>
+        </div>
+        <div className="mt-2 grid grid-cols-1 gap-3 text-left sm:grid-cols-2">
+          {suggestedQuestions.map((question) => (
+            <button key={question.title} onClick={() => onOpenQuestion(question.title)} className="min-h-[112px] rounded-[19px] border border-[#edf1f8] bg-white p-4 text-left shadow-[0_5px_16px_rgba(37,56,95,0.06)] transition hover:-translate-y-0.5 hover:border-[#dbe5fb]">
+              <span className="mb-2 flex size-8 items-center justify-center rounded-[10px] bg-[#edf3ff] text-primary"><Icon name={question.icon} className="size-[17px]" /></span>
+              <span className="block text-sm font-semibold text-ink">{question.title}</span>
+              <span className="mt-1.5 block text-xs text-[#9aa4ba]">{question.category}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <Composer draft={draft} onDraftChange={onDraftChange} onSubmit={onSubmit} placeholder="선배에게 메시지 보내기" />
+      <p className="mt-2 text-center text-[11px] text-[#aab3c5]">선배 답변은 실제 응답 데이터를 바탕으로 한 참고용이에요.</p>
+    </main>
+  )
+}
+
+type FilterMenuProps = {
+  label: string
+  menu: 'department' | 'major'
+  value: string
+  values: string[]
+  openFilter: 'department' | 'major' | null
+  onToggle: (filter: 'department' | 'major' | null) => void
+  onChange: (value: string) => void
+}
+
+function FilterMenu({ label, menu, value, values, openFilter, onToggle, onChange }: FilterMenuProps) {
+  const isOpen = openFilter === menu
+  return (
+    <div className="relative">
+      <button onClick={() => onToggle(isOpen ? null : menu)} aria-expanded={isOpen} className="flex items-center gap-1 rounded-full border border-[#cbd9fb] bg-[#edf3ff] px-3 py-2 text-[11px] font-medium text-brand">
+        <span className="max-w-[108px] truncate">{label}</span><Icon name="chevron-down" className="size-3" />
+      </button>
+      {isOpen && (
+        <div className="absolute right-0 top-full z-10 mt-2 min-w-[150px] rounded-xl border border-line bg-white p-1.5 shadow-lg">
+          {values.map((option) => (
+            <button key={option} onClick={() => { onChange(option); onToggle(null) }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${value === option ? 'bg-[#edf3ff] text-brand' : 'text-ink hover:bg-[#f6f8fb]'}`}>
+              {option}{value === option && <span aria-hidden="true">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type ComposerProps = {
+  draft: string
+  onDraftChange: (value: string) => void
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  placeholder: string
+}
+
+function Composer({ draft, onDraftChange, onSubmit, placeholder }: ComposerProps) {
+  return (
+    <form onSubmit={onSubmit} className="mx-auto mt-auto flex w-full max-w-[654px] items-center gap-3 rounded-full border border-[#edf1f8] bg-white p-2 pl-4 shadow-[0_6px_20px_rgba(37,56,95,0.1)]">
+      <button type="button" aria-label="첨부" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#f5f8ff] text-primary"><Icon name="plus" className="size-[18px]" /></button>
+      <input value={draft} onChange={(event) => onDraftChange(event.target.value)} placeholder={placeholder} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#aab3c5]" aria-label={placeholder} />
+      <button type="submit" disabled={!draft.trim()} aria-label="질문 보내기" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_4px_12px_rgba(95,134,239,0.25)] transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-[#9bb5f4]">
+        <Icon name="arrow-up" className="size-[18px]" />
+      </button>
+    </form>
+  )
+}
+
+type ConversationViewProps = {
+  title: string
+  draft: string
+  onDraftChange: (value: string) => void
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onToast: (message: string) => void
+}
+
+function ConversationView({ title, draft, onDraftChange, onSubmit, onToast }: ConversationViewProps) {
+  const answer = getMockAnswer(title)
+
+  return (
+    <main className="flex min-h-[calc(100vh-105px)] flex-1 flex-col px-5 pb-4 pt-5 md:min-h-screen md:px-8 md:pt-5">
+      <header className="flex items-start justify-between">
+        <div><h1 className="text-xl font-bold md:text-2xl">{answer.category}</h1><p className="mt-1 text-xs text-sub">소프트웨어개발과 · {answer.category}</p></div>
+        <button aria-label="대화 옵션" className="rounded-lg px-2 py-1 text-lg text-sub hover:bg-white">···</button>
+      </header>
+      <section className="mx-auto flex w-full max-w-[654px] flex-1 flex-col justify-end gap-4 py-8">
+        <div className="flex justify-end"><div className="max-w-[85%] rounded-[19px] rounded-br-md bg-primary px-4 py-3 text-sm text-white shadow-[0_6px_15px_rgba(95,134,239,0.2)]">{title}</div></div>
+        <div className="flex items-start gap-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#e9eef8] bg-white text-primary shadow-sm"><img src="/src/assets/logo.svg" alt="" className="size-5" /></span>
+          <article className="min-w-0 flex-1 rounded-[19px] border border-[#edf1f8] bg-white p-4 shadow-[0_5px_16px_rgba(37,56,95,0.06)]">
+            <h2 className="text-base font-semibold">{answer.heading}</h2>
+            <p className="mt-2 text-sm leading-6 text-ink">{answer.body}</p>
+            {answer.steps && (
+              <ol className="mt-2 list-inside list-decimal space-y-1 text-sm marker:text-primary">
+                {answer.steps.map((step) => <li key={step}>{step}</li>)}
+              </ol>
+            )}
+            {answer.code && (
+              <div className="mt-3 rounded-xl border border-[#edf1f8] bg-[#f7f9fc] p-3 text-xs text-sub">
+                <div className="mb-2 flex items-center justify-between"><span>html</span><button onClick={() => onToast('코드를 복사했어요.')} className="flex items-center gap-1 hover:text-primary"><Icon name="copy" className="size-3.5" />복사</button></div>
+                <code className="text-ink">{answer.code}</code>
+              </div>
+            )}
+            {answer.reference && <a href="#school" onClick={(event) => event.preventDefault()} className="mt-3 inline-block text-xs text-brand underline">{answer.reference}</a>}
+          </article>
+        </div>
+        <div className="flex gap-3 pl-11 text-xs text-[#9aa4ba]">
+          <button onClick={() => onToast('답변을 복사했어요.')} className="flex items-center gap-1 hover:text-primary"><Icon name="copy" className="size-3.5" />복사</button>
+          <button onClick={() => onToast('답변을 저장했어요.')} className="flex items-center gap-1 hover:text-primary"><Icon name="bookmark" className="size-3.5" />저장</button>
+          <button onClick={() => onToast('공유 링크를 준비했어요.')} className="flex items-center gap-1 hover:text-primary"><Icon name="share" className="size-3.5" />공유</button>
+        </div>
+      </section>
+      <Composer draft={draft} onDraftChange={onDraftChange} onSubmit={onSubmit} placeholder="추가 질문 입력..." />
+      <p className="mt-2 text-center text-[11px] text-[#aab3c5]">현재는 화면 확인용 목업 답변입니다.</p>
+    </main>
+  )
+}
+
+function CollectionView({ section, onOpenQuestion }: { section: 'community' | 'history'; onOpenQuestion: (question: string) => void }) {
+  const isHistory = section === 'history'
+  const items = isHistory ? recentQuestions.map(({ title, age }) => ({ title, meta: age })) : popularQuestions
+  return (
+    <main className="mx-auto w-full max-w-[900px] px-5 py-8 md:px-8">
+      <h1 className="text-2xl font-bold">{isHistory ? '대화 기록' : '커뮤니티'}</h1>
+      <div className="mt-6 overflow-hidden rounded-[20px] border border-[#edf1f8] bg-white px-5 shadow-[0_5px_16px_rgba(37,56,95,0.06)]">
+        {items.map((item) => (
+          <button key={item.title} onClick={() => onOpenQuestion(item.title)} className="flex min-h-[64px] w-full items-center justify-between gap-4 border-b border-[#edf0f5] text-left last:border-0">
+            <span className="truncate text-sm font-medium">{item.title}</span><span className="shrink-0 text-xs text-sub">{item.meta}</span>
+          </button>
+        ))}
+      </div>
+    </main>
+  )
+}
+
+export default HomePage
