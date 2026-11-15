@@ -53,15 +53,15 @@ function EmailStep({ defaultEmail = '', onSent }: EmailStepProps) {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <h2 className="mt-[17px] text-[25px] leading-8 font-semibold">
-        <span className="text-primary">학교 이메일</span>로 인증해 주세요
+      <h2 className="mt-md text-title">
+        <span className="text-text-brand">학교 이메일</span>로 인증해 주세요
       </h2>
-      <p className="mt-[18px] text-[15px] leading-[22px] text-sub">
+      <p className="mt-md text-label text-text-secondary">
         @{SCHOOL_EMAIL_DOMAIN} 학교 이메일만 가입할 수 있어요.
       </p>
 
       <TextField
-        className="mt-[17px]"
+        className="mt-md"
         id="signup-email"
         label="학교 이메일"
         type="email"
@@ -79,9 +79,9 @@ function EmailStep({ defaultEmail = '', onSent }: EmailStepProps) {
         인증번호 받기
       </Button>
 
-      <p className="mt-[17px] text-center text-[15px] leading-[22px] text-sub">
+      <p className="mt-md text-center text-label text-text-secondary">
         이미 계정이 있으신가요?{' '}
-        <Link to="/login" className="ml-1 font-medium text-primary hover:underline">
+        <Link to="/login" className="ml-1 font-medium text-text-brand hover:underline">
           로그인
         </Link>
       </p>

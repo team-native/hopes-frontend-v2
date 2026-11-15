@@ -80,11 +80,11 @@ function SignupPage() {
             <PasswordForm
               heading={
                 <>
-                  로그인에 쓸 <span className="text-primary">비밀번호</span>를 만들어 주세요
+                  로그인에 쓸 <span className="text-text-brand">비밀번호</span>를 만들어 주세요
                 </>
               }
               description={
-                <p className="mt-[18px] flex items-center gap-1.5 text-sm leading-5 font-medium text-primary">
+                <p className="mt-md flex items-center gap-1.5 text-caption font-medium text-text-brand">
                   <CheckIcon />
                   {email} 인증 완료
                 </p>

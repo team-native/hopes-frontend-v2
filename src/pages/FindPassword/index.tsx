@@ -36,7 +36,7 @@ function FindPasswordPage() {
           icon="lock"
           title={
             <>
-              <span className="text-primary">비밀번호</span>를 바꿨어요
+              <span className="text-text-brand">비밀번호</span>를 바꿨어요
             </>
           }
           description="새 비밀번호로 다시 로그인해 주세요."
@@ -72,11 +72,11 @@ function FindPasswordPage() {
             <PasswordForm
               heading={
                 <>
-                  <span className="text-primary">새 비밀번호</span>를 만들어 주세요
+                  <span className="text-text-brand">새 비밀번호</span>를 만들어 주세요
                 </>
               }
               description={
-                <p className="mt-[18px] text-[15px] leading-[22px] text-sub">이전에 쓰던 비밀번호와 다르게 만들어 주세요.</p>
+                <p className="mt-md text-label text-text-secondary">이전에 쓰던 비밀번호와 다르게 만들어 주세요.</p>
               }
               labelPrefix="새 "
               submitText="비밀번호 변경"

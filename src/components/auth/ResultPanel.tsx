@@ -24,16 +24,16 @@ const ICONS = {
 function ResultPanel({ icon, title, description, buttonText, onButtonClick }: ResultPanelProps) {
   return (
     <section className="flex flex-col items-center text-center" aria-live="polite">
-      <div className="flex size-20 items-center justify-center rounded-full bg-primary/10 text-primary">
+      <div className="flex size-20 items-center justify-center rounded-full bg-bg-brand-soft text-text-brand">
         <svg viewBox="0 0 32 32" className="size-8" fill="none" aria-hidden>
           {ICONS[icon]}
         </svg>
       </div>
 
-      <h2 className="mt-4 text-[25px] leading-8 font-medium">{title}</h2>
-      <p className="mt-[19px] text-[15px] leading-5 text-sub">{description}</p>
+      <h2 className="mt-4 text-title font-medium">{title}</h2>
+      <p className="mt-lg text-label text-text-secondary">{description}</p>
 
-      <Button className="mt-[18px]" onClick={onButtonClick}>
+      <Button className="mt-md" onClick={onButtonClick}>
         {buttonText}
       </Button>
     </section>

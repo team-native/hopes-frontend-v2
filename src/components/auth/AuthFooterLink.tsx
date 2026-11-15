@@ -11,9 +11,9 @@ interface AuthFooterLinkProps {
 /** 폼 맨 아래 "이미 계정이 있으신가요? 로그인" 한 줄 */
 function AuthFooterLink({ question, linkText, to }: AuthFooterLinkProps) {
   return (
-    <p className="mt-[17px] text-center text-[15px] leading-[22px] text-sub">
+    <p className="mt-md text-center text-label text-text-secondary">
       {question}{' '}
-      <Link to={to} className="ml-1 font-medium text-primary hover:underline">
+      <Link to={to} className="ml-1 font-medium text-text-brand hover:underline">
         {linkText}
       </Link>
     </p>

@@ -102,8 +102,8 @@ function CodeInput({
               focusAt(value.length)
             }
           }}
-          className={`h-[60px] w-full min-w-0 rounded-[14px] border bg-white text-center text-[28px] font-semibold outline-none transition disabled:cursor-not-allowed ${
-            invalid ? 'border-error' : 'border-line focus:border-focus'
+          className={`h-[60px] w-full min-w-0 rounded-sm border bg-bg-surface text-center text-title outline-none transition disabled:cursor-not-allowed ${
+            invalid ? 'border-border-danger' : 'border-border-default focus:border-border-brand'
           }`}
         />
       ))}

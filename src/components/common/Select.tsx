@@ -71,11 +71,11 @@ function Select({ label, placeholder, options, value, onChange, errorMessage, cl
     }
   }
 
-  const borderClass = errorMessage ? 'border-error' : open ? 'border-focus' : 'border-line focus-visible:border-focus'
+  const borderClass = errorMessage ? 'border-border-danger' : open ? 'border-border-brand' : 'border-border-default focus-visible:border-border-brand'
 
   return (
     <div className={className}>
-      <p id={labelId} className="mb-2 text-[15px] leading-5 font-medium text-sub">
+      <p id={labelId} className="mb-2 text-label font-medium text-text-secondary">
         {label}
       </p>
 
@@ -92,12 +92,12 @@ function Select({ label, placeholder, options, value, onChange, errorMessage, cl
           aria-describedby={errorMessage ? errorId : undefined}
           onClick={() => (open ? setOpen(false) : openList())}
           onKeyDown={handleKeyDown}
-          className={`flex h-[52px] w-full items-center justify-between rounded-xl border bg-white px-4 text-left text-base outline-none transition ${borderClass}`}
+          className={`flex h-[52px] w-full items-center justify-between rounded-sm border bg-bg-surface px-4 text-left text-body outline-none transition ${borderClass}`}
         >
-          <span className={`truncate ${value ? '' : 'text-placeholder'}`}>{value || placeholder}</span>
+          <span className={`truncate ${value ? '' : 'text-text-tertiary'}`}>{value || placeholder}</span>
           <svg
             viewBox="0 0 16 16"
-            className={`size-4 shrink-0 text-sub transition-transform ${open ? 'rotate-180' : ''}`}
+            className={`size-4 shrink-0 text-icon-muted transition-transform ${open ? 'rotate-180' : ''}`}
             fill="none"
             aria-hidden
           >
@@ -110,7 +110,7 @@ function Select({ label, placeholder, options, value, onChange, errorMessage, cl
             id={listId}
             role="listbox"
             aria-labelledby={labelId}
-            className="absolute inset-x-0 top-full z-20 mt-1.5 rounded-2xl border border-line bg-white p-1.5 shadow-[0_8px_24px_rgba(23,27,42,0.12)]"
+            className="absolute inset-x-0 top-full z-20 mt-1.5 rounded-md border border-border-default bg-bg-surface p-1.5 shadow-cloud-md"
           >
             {options.map((option, index) => {
               const selected = option === value
@@ -125,8 +125,8 @@ function Select({ label, placeholder, options, value, onChange, errorMessage, cl
                   // 버튼 포커스를 유지하려고 mousedown 기본 동작은 막음
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => choose(index)}
-                  className={`flex h-11 cursor-pointer items-center justify-between rounded-lg px-3 text-[15px] ${
-                    selected ? 'bg-primary/8 font-medium text-primary' : active ? 'bg-[#f4f6fa]' : ''
+                  className={`flex h-11 cursor-pointer items-center justify-between rounded-sm px-3 text-label ${
+                    selected ? 'bg-bg-brand-soft font-medium text-text-brand' : active ? 'bg-bg-canvas' : ''
                   }`}
                 >
                   {option}

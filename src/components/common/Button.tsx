@@ -25,8 +25,8 @@ function Button({
   ...rest
 }: ButtonProps) {
   const color = inactive
-    ? 'bg-primary-disabled'
-    : 'bg-primary enabled:hover:bg-primary-hover enabled:active:scale-[0.99]'
+    ? 'bg-bg-brand-disabled'
+    : 'bg-bg-brand enabled:shadow-cloud-brand enabled:hover:bg-bg-brand-pressed enabled:active:scale-[0.99]'
 
   return (
     <button
@@ -35,8 +35,8 @@ function Button({
       aria-busy={loading}
       aria-disabled={inactive || undefined}
       {...rest}
-      className={`h-[50px] w-full rounded-xl text-base font-medium text-white transition disabled:cursor-not-allowed ${color} ${
-        loading ? 'disabled:bg-primary-loading' : 'disabled:bg-primary-disabled'
+      className={`h-[50px] w-full rounded-sm text-body-strong text-text-on-brand transition disabled:cursor-not-allowed ${color} ${
+        loading ? 'disabled:bg-bg-brand-loading' : 'disabled:bg-bg-brand-disabled'
       } ${className}`}
     >
       {loading && loadingText ? loadingText : children}

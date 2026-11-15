@@ -21,7 +21,7 @@ function TextField({ label, invalid, errorMessage, rightSlot, id, className = ''
 
   return (
     <div className={className}>
-      <label htmlFor={inputId} className="mb-2 block text-[15px] leading-5 font-medium text-sub">
+      <label htmlFor={inputId} className="mb-2 block text-label font-medium text-text-secondary">
         {label}
       </label>
       <div className="relative">
@@ -30,9 +30,9 @@ function TextField({ label, invalid, errorMessage, rightSlot, id, className = ''
           aria-invalid={isInvalid}
           aria-describedby={errorMessage ? errorId : undefined}
           {...inputProps}
-          className={`h-[52px] w-full rounded-xl border bg-white px-4 text-base outline-none transition placeholder:text-placeholder ${
+          className={`h-[52px] w-full rounded-sm border bg-bg-surface px-4 text-body outline-none transition placeholder:text-text-tertiary ${
             rightSlot ? 'pr-12' : ''
-          } ${isInvalid ? 'border-error' : 'border-line focus:border-focus'}`}
+          } ${isInvalid ? 'border-border-danger' : 'border-border-default focus:border-border-brand'}`}
         />
         {rightSlot && <div className="absolute inset-y-0 right-3 flex items-center">{rightSlot}</div>}
       </div>

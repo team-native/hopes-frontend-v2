@@ -54,13 +54,13 @@ function EmailStep({ defaultEmail = '', onSent }: EmailStepProps) {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <h2 className="mt-[17px] text-[25px] leading-8 font-semibold">
-        가입한 <span className="text-primary">학교 이메일</span>을 입력해 주세요
+      <h2 className="mt-md text-title">
+        가입한 <span className="text-text-brand">학교 이메일</span>을 입력해 주세요
       </h2>
-      <p className="mt-[18px] text-[15px] leading-[22px] text-sub">인증번호를 보내 본인 확인을 할게요.</p>
+      <p className="mt-md text-label text-text-secondary">인증번호를 보내 본인 확인을 할게요.</p>
 
       <TextField
-        className="mt-[17px]"
+        className="mt-md"
         id="find-password-email"
         label="학교 이메일"
         type="email"

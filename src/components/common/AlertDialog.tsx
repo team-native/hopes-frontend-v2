@@ -35,17 +35,17 @@ function AlertDialog({ open, title, description, confirmText = '확인', onClose
       onClose={onClose}
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
-      className="m-auto w-[320px] max-w-[calc(100vw-32px)] rounded-[28px] bg-white px-6 pt-[26px] pb-[19px] text-center text-ink shadow-xl outline-none backdrop:bg-toast/36"
+      className="m-auto w-[320px] max-w-[calc(100vw-32px)] rounded-xl bg-bg-surface px-6 pt-xl pb-lg text-center text-text-primary shadow-cloud-md outline-none backdrop:bg-bg-inverse/36"
     >
-      <h2 id={titleId} className="text-[19px] leading-7 font-semibold">
+      <h2 id={titleId} className="text-heading">
         {title}
       </h2>
       {description && (
-        <p id={descriptionId} className="mt-[7px] text-[15px] leading-[22px] text-sub">
+        <p id={descriptionId} className="mt-xs text-label text-text-secondary">
           {description}
         </p>
       )}
-      <Button className="mt-[23px] h-[52px]!" onClick={onClose}>
+      <Button className="mt-xl h-[52px]!" onClick={onClose}>
         {confirmText}
       </Button>
     </dialog>

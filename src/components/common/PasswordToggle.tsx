@@ -11,7 +11,7 @@ function PasswordToggle({ visible, onToggle }: PasswordToggleProps) {
       onClick={onToggle}
       aria-label={visible ? '비밀번호 숨기기' : '비밀번호 보기'}
       aria-pressed={visible}
-      className="flex size-8 items-center justify-center rounded-lg text-placeholder transition hover:text-sub"
+      className="flex size-8 items-center justify-center rounded-sm text-icon-muted transition hover:text-icon-default"
     >
       <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden>
         <path

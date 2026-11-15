@@ -36,13 +36,13 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <h2 className="text-[30px] leading-9 font-bold">로그인</h2>
-      <p className="mt-1.5 text-[15px] leading-[22px] text-sub">학교 이메일로 로그인하고 바로 질문을 시작하세요.</p>
+      <h2 className="text-title">로그인</h2>
+      <p className="mt-1.5 text-label text-text-secondary">학교 이메일로 로그인하고 바로 질문을 시작하세요.</p>
 
       {!isOnline && (
         <div
           role="status"
-          className="mt-5 flex items-center gap-2.5 rounded-xl bg-toast px-4 py-3 text-[13px] text-white"
+          className="mt-5 flex items-center gap-2.5 rounded-sm bg-bg-inverse px-4 py-3 text-caption text-text-on-brand"
         >
           <svg viewBox="0 0 16 16" className="size-4 shrink-0" fill="none" aria-hidden>
             <path
@@ -56,7 +56,7 @@ function LoginForm() {
         </div>
       )}
 
-      <div className="mt-[17px] space-y-[18px]">
+      <div className="mt-md space-y-md">
         <TextField
           id="email"
           label="이메일"
@@ -88,22 +88,22 @@ function LoginForm() {
         />
       </div>
 
-      <div className="mt-[19px] flex items-center justify-between">
-        <Checkbox className="text-[15px] leading-5" checked={keepLogin} onChange={(e) => setKeepLogin(e.target.checked)}>
+      <div className="mt-lg flex items-center justify-between">
+        <Checkbox className="text-label" checked={keepLogin} onChange={(e) => setKeepLogin(e.target.checked)}>
           로그인 유지
         </Checkbox>
-        <Link to="/find-password" className="text-[15px] leading-5 font-medium text-primary hover:underline">
+        <Link to="/find-password" className="text-label font-medium text-text-brand hover:underline">
           비밀번호 찾기
         </Link>
       </div>
 
-      <Button type="submit" className="mt-[18px]" loading={isLoading} loadingText="로그인 중..." disabled={!isOnline}>
+      <Button type="submit" className="mt-md" loading={isLoading} loadingText="로그인 중..." disabled={!isOnline}>
         로그인
       </Button>
 
-      <p className="mt-[17px] text-center text-[15px] leading-[22px] text-sub">
+      <p className="mt-md text-center text-label text-text-secondary">
         계정이 없으신가요?{' '}
-        <Link to="/signup" className="ml-1 font-medium text-primary hover:underline">
+        <Link to="/signup" className="ml-1 font-medium text-text-brand hover:underline">
           회원가입
         </Link>
       </p>

@@ -57,13 +57,13 @@ function ProfileStep({ onSubmit }: ProfileStepProps) {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <h2 className="mt-[17px] text-[25px] leading-8 font-semibold">
-        <span className="text-primary">선배</span>에게 보여줄 기본 정보를 알려주세요
+      <h2 className="mt-md text-title">
+        <span className="text-text-brand">선배</span>에게 보여줄 기본 정보를 알려주세요
       </h2>
-      <p className="mt-[18px] text-[15px] leading-[22px] text-sub">커뮤니티에는 이름 대신 기수만 표시돼요.</p>
+      <p className="mt-md text-label text-text-secondary">커뮤니티에는 이름 대신 기수만 표시돼요.</p>
 
       <TextField
-        className="mt-[17px]"
+        className="mt-md"
         id="signup-name"
         label="이름"
         autoComplete="name"
@@ -73,7 +73,7 @@ function ProfileStep({ onSubmit }: ProfileStepProps) {
         errorMessage={nameError}
       />
 
-      <div className="mt-[18px] grid grid-cols-2 gap-3">
+      <div className="mt-md grid grid-cols-2 gap-3">
         <Select
           label="과"
           placeholder="과 선택"
@@ -95,7 +95,7 @@ function ProfileStep({ onSubmit }: ProfileStepProps) {
       {/* 약관 동의 */}
       <fieldset className="mt-5">
         <legend className="sr-only">약관 동의</legend>
-        <div className="space-y-2 text-[15px] leading-5">
+        <div className="space-y-2 text-label">
           <Checkbox
             className="font-semibold"
             checked={agreeAll}
@@ -120,9 +120,9 @@ function ProfileStep({ onSubmit }: ProfileStepProps) {
         가입 완료
       </Button>
 
-      <p className="mt-[17px] text-center text-[15px] leading-[22px] text-sub">
+      <p className="mt-md text-center text-label text-text-secondary">
         이미 계정이 있으신가요?{' '}
-        <Link to="/login" className="ml-1 font-medium text-primary hover:underline">
+        <Link to="/login" className="ml-1 font-medium text-text-brand hover:underline">
           로그인
         </Link>
       </p>
@@ -148,7 +148,7 @@ function AgreementRow({ checked, onChange, children }: AgreementRowProps) {
         // TODO: 약관 내용 화면(또는 팝업) 시안이 나오면 연결
         onClick={() => {}}
         aria-label={`${children} 내용 보기`}
-        className="shrink-0 text-[13px] text-placeholder transition hover:text-sub"
+        className="shrink-0 text-caption text-text-tertiary transition hover:text-text-secondary"
       >
         보기
       </button>

@@ -113,25 +113,25 @@ function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, o
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <h2 className="mt-[17px] text-[25px] leading-8 font-semibold">
-        메일로 받은 <span className="text-primary">인증번호</span>를 입력해 주세요
+      <h2 className="mt-md text-title">
+        메일로 받은 <span className="text-text-brand">인증번호</span>를 입력해 주세요
       </h2>
-      {description && <p className="mt-[18px] text-[15px] leading-[22px] text-sub">{description}</p>}
+      {description && <p className="mt-md text-label text-text-secondary">{description}</p>}
 
       {/* 인증번호를 보낸 이메일 (수정 불가, "변경"으로 돌아가기) */}
-      <div className={description ? 'mt-[17px]' : 'mt-[18px]'}>
-        <p id="code-email-label" className="mb-1.5 text-[15px] leading-5 font-medium text-sub">
+      <div className={description ? 'mt-md' : 'mt-md'}>
+        <p id="code-email-label" className="mb-1.5 text-label font-medium text-text-secondary">
           학교 이메일
         </p>
         <div
           aria-labelledby="code-email-label"
-          className="flex h-[58px] items-center justify-between rounded-xl border border-line bg-[#f7f9fc] px-4"
+          className="flex h-[58px] items-center justify-between rounded-sm border border-border-default bg-bg-surface-soft px-4"
         >
-          <span className="truncate text-[17px]">{email}</span>
+          <span className="truncate text-body">{email}</span>
           <button
             type="button"
             onClick={onChangeEmail}
-            className="ml-3 shrink-0 text-[15px] font-medium text-primary hover:underline"
+            className="ml-3 shrink-0 text-label font-medium text-text-brand hover:underline"
           >
             변경
           </button>
@@ -140,13 +140,13 @@ function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, o
 
       {/* 5회 틀려서 잠김 */}
       {isLocked && (
-        <FieldError className="mt-4 gap-2 rounded-xl bg-error-bg px-4 py-2.5 leading-[22px]">
+        <FieldError className="mt-4 gap-2 rounded-sm bg-bg-danger-soft px-4 py-2.5 leading-[22px]">
           인증번호를 {MAX_ATTEMPTS}회 틀렸어요. {LOCK_MINUTES}분 뒤에 다시 시도해 주세요.
         </FieldError>
       )}
 
-      <div className={isLocked ? 'mt-4' : 'mt-[17px]'}>
-        <p className="mb-2 text-[15px] leading-5 font-medium text-sub">인증번호 {CODE_LENGTH}자리</p>
+      <div className={isLocked ? 'mt-4' : 'mt-md'}>
+        <p className="mb-2 text-label font-medium text-text-secondary">인증번호 {CODE_LENGTH}자리</p>
         <CodeInput
           value={code}
           onChange={(next) => {
@@ -165,9 +165,9 @@ function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, o
 
       {/* 타이머 · 다시 받기 (잠금 중에는 숨김) */}
       {!isLocked && (
-        <div className="mt-[17px] flex items-center justify-between text-[15px] leading-[22px]">
+        <div className="mt-md flex items-center justify-between text-label">
           <span
-            className={`flex items-center gap-1.5 font-medium tabular-nums ${isExpired ? 'text-error' : 'text-primary'}`}
+            className={`flex items-center gap-1.5 font-medium tabular-nums ${isExpired ? 'text-text-danger' : 'text-text-brand'}`}
             aria-label={`남은 시간 ${formatTime(remaining)}`}
           >
             <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden>
@@ -180,7 +180,7 @@ function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, o
             type="button"
             onClick={handleResend}
             disabled={isResending}
-            className="text-sub transition hover:text-ink disabled:opacity-50"
+            className="text-text-secondary transition hover:text-text-primary disabled:opacity-50"
           >
             {isResending ? '보내는 중...' : '인증번호 다시 받기'}
           </button>

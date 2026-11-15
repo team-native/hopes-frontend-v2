@@ -13,13 +13,13 @@ function StepProgress({ title, current, steps }: StepProgressProps) {
 
   return (
     <div>
-      <p className="text-[15px] leading-[22px] font-medium text-sub">{title}</p>
+      <p className="text-label font-medium text-text-secondary">{title}</p>
 
       <ol className="mt-4 flex gap-1.5" aria-label={`${title} ${total}단계 중 ${current}단계`}>
         {steps.map((name, index) => (
           <li
             key={name}
-            className={`h-1 flex-1 rounded-full transition-colors ${index < current ? 'bg-primary' : 'bg-track'}`}
+            className={`h-1 flex-1 rounded-full transition-colors ${index < current ? 'bg-bg-brand' : 'bg-border-subtle'}`}
             aria-current={index + 1 === current ? 'step' : undefined}
           >
             <span className="sr-only">{name}</span>
@@ -27,7 +27,7 @@ function StepProgress({ title, current, steps }: StepProgressProps) {
         ))}
       </ol>
 
-      <p className="mt-[7px] text-sm leading-5 font-medium text-primary">
+      <p className="mt-xs text-caption font-medium text-text-brand">
         {current} / {total} · {steps[current - 1]}
       </p>
     </div>

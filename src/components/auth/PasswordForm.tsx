@@ -5,7 +5,7 @@ import TextField from '../common/TextField'
 import { PASSWORD_RULES, isValidPassword } from '../../utils/password'
 
 interface PasswordFormProps {
-  /** 제목 (예: <><span className="text-primary">새 비밀번호</span>를 만들어 주세요</>) */
+  /** 제목 (예: <><span className="text-text-brand">새 비밀번호</span>를 만들어 주세요</>) */
   heading: ReactNode
   /** 제목 아래 줄 (설명이나 "인증 완료" 표시) */
   description?: ReactNode
@@ -79,11 +79,11 @@ function PasswordForm({ heading, description, labelPrefix = '', submitText, onSu
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <h2 className="mt-[17px] text-[25px] leading-8 font-semibold">{heading}</h2>
+      <h2 className="mt-md text-title">{heading}</h2>
       {description}
 
       <TextField
-        className="mt-[17px]"
+        className="mt-md"
         id={passwordId}
         label={`${labelPrefix}비밀번호`}
         type={showPassword ? 'text' : 'password'}
@@ -101,14 +101,14 @@ function PasswordForm({ heading, description, labelPrefix = '', submitText, onSu
       />
 
       {/* 비밀번호 조건 */}
-      <ul id="password-rules" className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[13px] leading-5">
+      <ul id="password-rules" className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-caption">
         {PASSWORD_RULES.map((rule) => {
           const passed = rule.test(password)
           const failed = showRuleError && !passed
           return (
             <li
               key={rule.label}
-              className={`flex items-center gap-1 ${passed ? 'text-primary' : failed ? 'text-error' : 'text-placeholder'}`}
+              className={`flex items-center gap-1 ${passed ? 'text-text-brand' : failed ? 'text-text-danger' : 'text-text-tertiary'}`}
             >
               {failed ? <CrossIcon /> : <CheckIcon />}
               {rule.label}
@@ -132,7 +132,7 @@ function PasswordForm({ heading, description, labelPrefix = '', submitText, onSu
         rightSlot={<PasswordToggle visible={showConfirm} onToggle={() => setShowConfirm((v) => !v)} />}
       />
       {isMatch && isPasswordValid && !serverError && (
-        <p className="mt-2 flex items-center gap-1 text-[13px] leading-5 text-primary">
+        <p className="mt-2 flex items-center gap-1 text-caption text-text-brand">
           <CheckIcon />
           비밀번호가 일치해요
         </p>
