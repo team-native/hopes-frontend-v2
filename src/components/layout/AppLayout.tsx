@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import logo from '../../assets/logo.svg'
 import Icon from '../common/Icon'
 
 export type AppSection = 'home' | 'chat' | 'community' | 'history'
 
 type AppLayoutProps = {
-  activeSection: AppSection
+  activeSection: AppSection | 'profile'
   activeRecentChat?: string
   children: ReactNode
   onNewChat: () => void
@@ -82,14 +83,14 @@ function AppLayout({ activeSection, activeRecentChat, children, onNewChat, onRec
           </button>
         ))}
 
-        <button className="mt-auto flex items-center gap-2 rounded-xl bg-[#f6f8fb] px-3 py-2.5 text-left">
+        <Link to="/my-page" aria-current={activeSection === 'profile' ? 'page' : undefined} className={`mt-auto flex items-center gap-2 rounded-xl px-3 py-2.5 text-left ${activeSection === 'profile' ? 'bg-[#eaf0fd]' : 'bg-[#f6f8fb]'}`}>
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#eaf0fd] text-xs font-semibold text-primary">임</span>
           <span className="min-w-0 flex-1">
             <span className="block text-xs font-semibold">임서하</span>
             <span className="block truncate text-[11px] text-sub">인공지능과 · 10기</span>
           </span>
           <Icon name="settings" className="size-[17px] text-[#9aa4ba]" />
-        </button>
+        </Link>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

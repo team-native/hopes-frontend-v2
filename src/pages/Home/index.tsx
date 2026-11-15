@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { PDFDocumentLoadingTask } from 'pdfjs-dist'
 import AppLayout, { type AppSection } from '../../components/layout/AppLayout'
 import Icon, { type IconName } from '../../components/common/Icon'
@@ -115,9 +115,13 @@ function getAttachmentAnswer(attachments: LocalAttachment[]): MockAnswer {
 }
 
 function HomePage() {
+  const [searchParams] = useSearchParams()
+  const initialQuestion = searchParams.get('question')
   const navigate = useNavigate()
-  const [view, setView] = useState<AppSection | 'conversation'>('home')
-  const [conversationTitle, setConversationTitle] = useState(suggestedQuestions[2].title)
+  const [view, setView] = useState<AppSection | 'conversation'>(() => (
+    initialQuestion ? 'conversation' : searchParams.get('view') === 'chat' ? 'chat' : 'home'
+  ))
+  const [conversationTitle, setConversationTitle] = useState(initialQuestion ?? suggestedQuestions[2].title)
   const [conversationAttachments, setConversationAttachments] = useState<LocalAttachment[]>([])
   const [draft, setDraft] = useState('')
   const [department, setDepartment] = useState('소프트웨어개발과')

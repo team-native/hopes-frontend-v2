@@ -1,8 +1,10 @@
 import { Route, Routes } from 'react-router-dom'
 import FindPasswordPage from './pages/FindPassword'
 import CommunityPage from './pages/Community'
+import HistoryPage from './pages/History'
 import HomePage from './pages/Home'
 import LoginPage from './pages/Login'
+import MyPage from './pages/MyPage'
 import SignupPage from './pages/Signup'
 
 function App() {
@@ -10,6 +12,8 @@ function App() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/community" element={<CommunityPage />} />
+      <Route path="/history" element={<HistoryPage />} />
+      <Route path="/my-page" element={<MyPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/find-password" element={<FindPasswordPage />} />
