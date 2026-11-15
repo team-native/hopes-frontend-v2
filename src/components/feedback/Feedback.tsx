@@ -14,7 +14,11 @@ export function NoticeRow({ message, actionText, onAction }: NoticeRowProps) {
       <Info className="size-4 shrink-0 text-icon-brand" strokeWidth={1.75} aria-hidden />
       <p className="min-w-0 flex-1 text-[11px] leading-4 whitespace-pre-line text-text-secondary">{message}</p>
       {actionText && (
-        <button type="button" onClick={onAction} className="shrink-0 text-caption font-semibold text-text-brand hover:underline">
+        <button
+          type="button"
+          onClick={onAction}
+          className="shrink-0 text-caption font-semibold text-text-brand hover:underline"
+        >
           {actionText}
         </button>
       )}
@@ -39,7 +43,11 @@ export function InlineError({ title, description, retryText = '다시 시도', o
       </p>
       {description && <p className="mt-1.5 text-caption text-text-secondary">{description}</p>}
       {onRetry && (
-        <button type="button" onClick={onRetry} className="mt-1.5 text-caption text-text-tertiary underline-offset-2 hover:underline">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-1.5 text-caption text-text-tertiary underline-offset-2 hover:underline"
+        >
           {retryText}
         </button>
       )}
@@ -59,7 +67,10 @@ interface EmptyStateProps {
 export function EmptyState({ title, description, icon: Icon = MessageCircle, actionText, onAction }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center py-md text-center">
-      <span className="flex size-16 items-center justify-center rounded-full border border-border-subtle bg-bg-surface shadow-cloud-sm" aria-hidden>
+      <span
+        className="flex size-16 items-center justify-center rounded-full border border-border-subtle bg-bg-surface shadow-cloud-sm"
+        aria-hidden
+      >
         <Icon className="size-6 text-icon-brand" strokeWidth={1.75} />
       </span>
       <p className="mt-md text-label-strong">{title}</p>

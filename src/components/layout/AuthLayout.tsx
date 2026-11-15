@@ -76,7 +76,10 @@ function Hero({ description }: { description: ReactNode }) {
 /** 오른쪽 아래 구름 장식 */
 function Clouds() {
   return (
-    <div className="pointer-events-none absolute right-0 bottom-0 h-[220px] w-[460px] opacity-80 blur-[2px]" aria-hidden>
+    <div
+      className="pointer-events-none absolute right-0 bottom-0 h-[220px] w-[460px] opacity-80 blur-[2px]"
+      aria-hidden
+    >
       <div className="absolute -right-10 -bottom-24 size-[300px] rounded-full bg-gradient-to-b from-[#f1f4fd] to-[#e3e9fb]" />
       <div className="absolute right-24 -bottom-28 size-[260px] rounded-full bg-gradient-to-b from-[#f4f6fd] to-[#e8edfb]" />
       <div className="absolute right-60 -bottom-36 size-[240px] rounded-full bg-gradient-to-b from-[#f6f8fe] to-[#ecf0fc]" />

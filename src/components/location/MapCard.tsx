@@ -25,7 +25,10 @@ function MapCard({ label, onClick }: MapCardProps) {
       <span className="absolute top-[47%] left-[9%] h-[26%] w-[37%] rounded-sm bg-bg-surface/70" aria-hidden />
       <span className="absolute top-[55%] left-[60%] h-[38%] w-[28%] rounded-sm bg-bg-surface/70" aria-hidden />
       {/* 핀 */}
-      <span className="absolute top-1/2 left-1/2 flex size-[30%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-bg-brand/15" aria-hidden>
+      <span
+        className="absolute top-1/2 left-1/2 flex size-[30%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-bg-brand/15"
+        aria-hidden
+      >
         <span className="flex size-9 items-center justify-center rounded-full bg-bg-brand text-icon-on-brand shadow-cloud-brand">
           <MapPin className="size-4" strokeWidth={2} />
         </span>

@@ -15,7 +15,13 @@ import { HeroCard, PopularPostRow, TipCard } from '../../components/home/HomeCar
 import SectionHeader from '../../components/layout/SectionHeader'
 import MapCard from '../../components/location/MapCard'
 import { ProfileCard, ProfileStats } from '../../components/profile/ProfileCards'
-import { AccountCard, ContactCard, PromptCard, SettingsNav, type SettingsMenu } from '../../components/settings/SettingsCards'
+import {
+  AccountCard,
+  ContactCard,
+  PromptCard,
+  SettingsNav,
+  type SettingsMenu,
+} from '../../components/settings/SettingsCards'
 import { COHORTS, DEPARTMENTS } from '../../constants/school'
 import AnswerBubble from '../../components/chat/AnswerBubble'
 import AnswerReactions from '../../components/chat/AnswerReactions'
@@ -77,7 +83,8 @@ const SAMPLE_POST: Post = {
   id: 'p1',
   board: '10기',
   title: '기숙사 와이파이 다들 잘 돼?',
-  content: '3층 끝방인데 저녁만 되면 와이파이가 너무 느려져서 과제 제출이 힘들어. 다른 층은 어떤지, 해결 방법 아는 사람 있으면 알려줘!',
+  content:
+    '3층 끝방인데 저녁만 되면 와이파이가 너무 느려져서 과제 제출이 힘들어. 다른 층은 어떤지, 해결 방법 아는 사람 있으면 알려줘!',
   authorCohort: '10기',
   timeAgo: '10분 전',
   likeCount: 12,
@@ -210,7 +217,11 @@ function DevComponentsPage() {
           <SuggestionRow text="기숙사 하루 일과가 어떻게 돼?" onClick={() => console.log('suggestion')} />
         </Specimen>
         <Specimen name="Web/Question Card" className="w-[362px]">
-          <QuestionCard question="기숙사 하루 일과가 어떻게 돼?" category="학교생활" onClick={() => console.log('question')} />
+          <QuestionCard
+            question="기숙사 하루 일과가 어떻게 돼?"
+            category="학교생활"
+            onClick={() => console.log('question')}
+          />
         </Specimen>
       </Group>
 
@@ -237,7 +248,14 @@ function DevComponentsPage() {
           <CommentList comments={SAMPLE_COMMENTS} />
         </Specimen>
         <Specimen name="Community/Board Select" className="w-[362px]">
-          <Select variant="inline" label="게시판" placeholder="선택" options={COHORTS} value={board} onChange={setBoard} />
+          <Select
+            variant="inline"
+            label="게시판"
+            placeholder="선택"
+            options={COHORTS}
+            value={board}
+            onChange={setBoard}
+          />
         </Specimen>
         <Specimen name="Community/FAB Write">
           <WriteFab onClick={() => setModalOpen(true)} />
@@ -278,7 +296,13 @@ function DevComponentsPage() {
           <SectionHeader title="질문 잘하는 방법" />
         </Specimen>
         <Specimen name="Profile/Profile Card" className="w-[362px]">
-          <ProfileCard name="임서하" department="인공지능과" cohort="10기" email="s26055@gsm.hs.kr" onEdit={() => console.log('edit')} />
+          <ProfileCard
+            name="임서하"
+            department="인공지능과"
+            cohort="10기"
+            email="s26055@gsm.hs.kr"
+            onEdit={() => console.log('edit')}
+          />
         </Specimen>
         <Specimen name="Profile/Stats" className="w-[280px]">
           <ProfileStats
@@ -293,7 +317,11 @@ function DevComponentsPage() {
 
       <Group title="6. 설정 · 알림">
         <Specimen name="Notify/Notice Row" className="w-[362px]">
-          <NoticeRow message={'맞춤 추천을 불러오지 못했어요.\n기본 질문을 보여드려요.'} actionText="다시 시도" onAction={() => {}} />
+          <NoticeRow
+            message={'맞춤 추천을 불러오지 못했어요.\n기본 질문을 보여드려요.'}
+            actionText="다시 시도"
+            onAction={() => {}}
+          />
         </Specimen>
         <Specimen name="Feedback/Inline Error" className="w-[362px]">
           <InlineError
@@ -303,7 +331,12 @@ function DevComponentsPage() {
           />
         </Specimen>
         <Specimen name="Feedback/Empty State" className="w-[362px]">
-          <EmptyState title="아직 게시글이 없어요" description="이 게시판의 첫 글을 남겨보세요." actionText="글쓰기" onAction={() => {}} />
+          <EmptyState
+            title="아직 게시글이 없어요"
+            description="이 게시판의 첫 글을 남겨보세요."
+            actionText="글쓰기"
+            onAction={() => {}}
+          />
         </Specimen>
         <Specimen name="Settings/Prompt Card" className="w-[362px]">
           <PromptCard value={prompt} onChange={setPrompt} />

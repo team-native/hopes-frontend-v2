@@ -24,7 +24,12 @@ export function ProfileCard({ name, department, cohort, email, onEdit }: Profile
         </div>
       </div>
       {onEdit && (
-        <Button size="sm" variant="secondary" className="mt-md w-full border-border-subtle text-text-brand!" onClick={onEdit}>
+        <Button
+          size="sm"
+          variant="secondary"
+          className="mt-md w-full border-border-subtle text-text-brand!"
+          onClick={onEdit}
+        >
           프로필 수정
         </Button>
       )}

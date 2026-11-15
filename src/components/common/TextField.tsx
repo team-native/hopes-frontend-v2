@@ -30,7 +30,7 @@ function TextField({ label, invalid, errorMessage, rightSlot, id, className = ''
           aria-invalid={isInvalid}
           aria-describedby={errorMessage ? errorId : undefined}
           {...inputProps}
-          className={`h-[52px] w-full rounded-sm border bg-bg-surface px-4 text-body outline-none transition placeholder:text-text-tertiary ${
+          className={`h-[52px] w-full rounded-sm border bg-bg-surface px-4 text-body transition outline-none placeholder:text-text-tertiary ${
             rightSlot ? 'pr-12' : ''
           } ${isInvalid ? 'border-border-danger' : 'border-border-default focus:border-border-brand'}`}
         />

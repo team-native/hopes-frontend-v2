@@ -52,7 +52,7 @@ export function ContactCard({ email, message, onEmailChange, onMessageChange }: 
           value={email}
           onChange={(e) => onEmailChange(e.target.value)}
           placeholder="이메일"
-          className="mt-xs h-11 w-full rounded-sm border border-border-default bg-bg-surface px-4 text-label outline-none transition placeholder:text-text-tertiary focus:border-border-brand"
+          className="mt-xs h-11 w-full rounded-sm border border-border-default bg-bg-surface px-4 text-label transition outline-none placeholder:text-text-tertiary focus:border-border-brand"
         />
       </label>
       <TextArea
@@ -119,10 +119,16 @@ export function SettingsNav({ active, onSelect, onLogout }: SettingsNavProps) {
                 onClick={() => onSelect(key)}
                 aria-current={isActive ? 'page' : undefined}
                 className={`${itemClass} ${
-                  isActive ? 'bg-bg-brand-soft font-medium text-text-brand' : 'text-text-secondary hover:bg-bg-canvas hover:text-text-primary'
+                  isActive
+                    ? 'bg-bg-brand-soft font-medium text-text-brand'
+                    : 'text-text-secondary hover:bg-bg-canvas hover:text-text-primary'
                 }`}
               >
-                <Icon className={`size-4 ${isActive ? 'text-icon-brand' : 'text-icon-muted'}`} strokeWidth={1.75} aria-hidden />
+                <Icon
+                  className={`size-4 ${isActive ? 'text-icon-brand' : 'text-icon-muted'}`}
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
                 {label}
               </button>
             </li>

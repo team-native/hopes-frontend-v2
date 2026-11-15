@@ -14,7 +14,10 @@ interface HeroCardProps {
 export function HeroCard({ title, description, actionText, onAction }: HeroCardProps) {
   return (
     <section className="relative overflow-hidden rounded-lg bg-gradient-to-br from-blue-50 to-bg-canvas-deep p-xl">
-      <div className="pointer-events-none absolute -right-8 -bottom-14 size-36 rounded-full bg-bg-brand-soft" aria-hidden />
+      <div
+        className="pointer-events-none absolute -right-8 -bottom-14 size-36 rounded-full bg-bg-brand-soft"
+        aria-hidden
+      />
       <div className="relative">
         <h2 className="text-heading font-bold whitespace-pre-line">{title}</h2>
         <p className="mt-xs text-caption text-text-secondary">{description}</p>
@@ -66,7 +69,10 @@ export function PopularPostRow({ board, title, likeCount, onClick }: PopularPost
     >
       <Badge>{board}</Badge>
       <span className="min-w-0 flex-1 truncate text-caption font-medium">{title}</span>
-      <span className="flex shrink-0 items-center gap-0.5 text-[11px] text-text-tertiary" aria-label={`좋아요 ${likeCount}개`}>
+      <span
+        className="flex shrink-0 items-center gap-0.5 text-[11px] text-text-tertiary"
+        aria-label={`좋아요 ${likeCount}개`}
+      >
         <Heart className="size-3" strokeWidth={1.75} aria-hidden />
         {likeCount}
       </span>

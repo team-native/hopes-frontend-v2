@@ -18,7 +18,15 @@ interface ModalProps {
  * 팝업 공통 틀 (가운데 + 어두운 배경)
  * 브라우저 기본 <dialog>를 써서 Esc 닫기, 뒤 화면 막기, Tab 포커스 가두기가 자동이에요.
  */
-function Modal({ open, onClose, labelledBy, describedBy, closeOnBackdrop = false, className = '', children }: ModalProps) {
+function Modal({
+  open,
+  onClose,
+  labelledBy,
+  describedBy,
+  closeOnBackdrop = false,
+  className = '',
+  children,
+}: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {

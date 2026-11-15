@@ -102,7 +102,7 @@ function CodeInput({
               focusAt(value.length)
             }
           }}
-          className={`h-[60px] w-full min-w-0 rounded-sm border bg-bg-surface text-center text-title outline-none transition disabled:cursor-not-allowed ${
+          className={`h-[60px] w-full min-w-0 rounded-sm border bg-bg-surface text-center text-title transition outline-none disabled:cursor-not-allowed ${
             invalid ? 'border-border-danger' : 'border-border-default focus:border-border-brand'
           }`}
         />

@@ -48,7 +48,10 @@ interface PdfCardProps {
 export function PdfCard({ name, pages, onRemove }: PdfCardProps) {
   return (
     <div className="flex min-w-0 items-center gap-2.5 rounded-md border border-border-subtle bg-bg-surface py-2 pr-2 pl-2.5">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-bg-brand-soft text-icon-brand" aria-hidden>
+      <span
+        className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-bg-brand-soft text-icon-brand"
+        aria-hidden
+      >
         <FileText className="size-4" strokeWidth={1.75} />
       </span>
       <div className="min-w-0 flex-1">

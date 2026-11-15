@@ -56,9 +56,7 @@ function EmailStep({ defaultEmail = '', onSent }: EmailStepProps) {
       <h2 className="mt-md text-title">
         <span className="text-text-brand">학교 이메일</span>로 인증해 주세요
       </h2>
-      <p className="mt-md text-label text-text-secondary">
-        @{SCHOOL_EMAIL_DOMAIN} 학교 이메일만 가입할 수 있어요.
-      </p>
+      <p className="mt-md text-label text-text-secondary">@{SCHOOL_EMAIL_DOMAIN} 학교 이메일만 가입할 수 있어요.</p>
 
       <TextField
         className="mt-md"

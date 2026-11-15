@@ -12,7 +12,15 @@ interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 
 }
 
 /** 아이콘만 있는 동그란 버튼 */
-function IconButton({ icon: Icon, label, variant = 'ghost', dot = false, className = '', type = 'button', ...rest }: IconButtonProps) {
+function IconButton({
+  icon: Icon,
+  label,
+  variant = 'ghost',
+  dot = false,
+  className = '',
+  type = 'button',
+  ...rest
+}: IconButtonProps) {
   return (
     <button
       type={type}

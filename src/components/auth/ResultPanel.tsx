@@ -11,7 +11,15 @@ interface ResultPanelProps {
 }
 
 const ICONS = {
-  check: <path d="M7 16.5 13 22.5 25 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />,
+  check: (
+    <path
+      d="M7 16.5 13 22.5 25 10"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  ),
   lock: (
     <>
       <rect x="8.5" y="14" width="15" height="11" rx="2.5" stroke="currentColor" strokeWidth="2.2" />

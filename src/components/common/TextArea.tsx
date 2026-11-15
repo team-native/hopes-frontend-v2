@@ -26,7 +26,7 @@ function TextArea({ label, errorMessage, id, className = '', rows = 4, ...rest }
         aria-invalid={Boolean(errorMessage)}
         aria-describedby={errorMessage ? errorId : undefined}
         {...rest}
-        className={`block w-full resize-none rounded-sm border bg-bg-surface px-4 py-3 text-label outline-none transition placeholder:text-text-tertiary ${
+        className={`block w-full resize-none rounded-sm border bg-bg-surface px-4 py-3 text-label transition outline-none placeholder:text-text-tertiary ${
           errorMessage ? 'border-border-danger' : 'border-border-default focus:border-border-brand'
         }`}
       />

@@ -86,7 +86,11 @@ function Select({
     }
   }
 
-  const borderClass = errorMessage ? 'border-border-danger' : open ? 'border-border-brand' : 'border-border-default focus-visible:border-border-brand'
+  const borderClass = errorMessage
+    ? 'border-border-danger'
+    : open
+      ? 'border-border-brand'
+      : 'border-border-default focus-visible:border-border-brand'
 
   return (
     <div className={className}>
@@ -109,7 +113,7 @@ function Select({
           aria-describedby={errorMessage ? errorId : undefined}
           onClick={() => (open ? setOpen(false) : openList())}
           onKeyDown={handleKeyDown}
-          className={`flex w-full items-center justify-between gap-2 rounded-sm border bg-bg-surface px-4 text-left outline-none transition ${
+          className={`flex w-full items-center justify-between gap-2 rounded-sm border bg-bg-surface px-4 text-left transition outline-none ${
             isInline ? 'h-11 text-label' : 'h-[52px] text-body'
           } ${borderClass}`}
         >
@@ -127,7 +131,13 @@ function Select({
             fill="none"
             aria-hidden
           >
-            <path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="m4 6 4 4 4-4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </button>
 

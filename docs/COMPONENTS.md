@@ -27,12 +27,12 @@ npm run dev
 
 피그마 `카테고리/이름` → 클래스 `유틸리티-카테고리-이름`
 
-| 피그마 | 배경 | 글자 | 테두리 |
-|---|---|---|---|
-| `bg/brand` | `bg-bg-brand` | | |
-| `text/secondary` | | `text-text-secondary` | |
-| `border/default` | | | `border-border-default` |
-| `icon/muted` | | `text-icon-muted` (아이콘 색) | |
+| 피그마           | 배경          | 글자                          | 테두리                  |
+| ---------------- | ------------- | ----------------------------- | ----------------------- |
+| `bg/brand`       | `bg-bg-brand` |                               |                         |
+| `text/secondary` |               | `text-text-secondary`         |                         |
+| `border/default` |               |                               | `border-border-default` |
+| `icon/muted`     |               | `text-icon-muted` (아이콘 색) |                         |
 
 ```tsx
 // ✅ 좋아요
@@ -46,14 +46,14 @@ npm run dev
 
 자주 쓰는 의미 토큰
 
-| 용도 | 클래스 |
-|---|---|
-| 페이지 배경 / 카드 배경 | `bg-bg-canvas` / `bg-bg-surface` |
-| 메인 파랑 배경 · 눌렀을 때 | `bg-bg-brand` · `bg-bg-brand-pressed` |
-| 연파랑 배경 (선택됨, 배지) | `bg-bg-brand-soft` |
-| 기본 · 보조 · 흐린 글자 | `text-text-primary` · `text-text-secondary` · `text-text-tertiary` |
-| 파란 글자 · 빨간 글자 | `text-text-brand` · `text-text-danger` |
-| 연한 · 기본 · 선택 테두리 | `border-border-subtle` · `border-border-default` · `border-border-brand` |
+| 용도                       | 클래스                                                                   |
+| -------------------------- | ------------------------------------------------------------------------ |
+| 페이지 배경 / 카드 배경    | `bg-bg-canvas` / `bg-bg-surface`                                         |
+| 메인 파랑 배경 · 눌렀을 때 | `bg-bg-brand` · `bg-bg-brand-pressed`                                    |
+| 연파랑 배경 (선택됨, 배지) | `bg-bg-brand-soft`                                                       |
+| 기본 · 보조 · 흐린 글자    | `text-text-primary` · `text-text-secondary` · `text-text-tertiary`       |
+| 파란 글자 · 빨간 글자      | `text-text-brand` · `text-text-danger`                                   |
+| 연한 · 기본 · 선택 테두리  | `border-border-subtle` · `border-border-default` · `border-border-brand` |
 
 > 토큰표에 없어서 임시로 만든 토큰: `bg-bg-brand-loading`, `bg-bg-brand-disabled`, `bg-bg-inverse`, `border-border-danger` (디자이너 확인 중)
 
@@ -61,24 +61,24 @@ npm run dev
 
 크기 · 줄 간격 · 굵기가 한 번에 들어가요. `text-[15px]`처럼 직접 쓰지 말고 아래 중에서 골라 주세요.
 
-| 클래스 | 크기 / 줄 간격 | 용도 |
-|---|---|---|
-| `text-display` | 40 / 52 | 가장 큰 제목 |
-| `text-title` | 28 / 38 | 화면 제목 |
-| `text-heading` | 20 / 28 | 카드 · 팝업 제목 |
-| `text-body` · `text-body-strong` | 16 / 26 | 본문 · 굵은 본문 |
-| `text-label` · `text-label-strong` | 14 / 20 | 라벨, 목록, 버튼 |
-| `text-caption` | 13 / 18 | 작은 설명, 에러 문구 |
+| 클래스                             | 크기 / 줄 간격 | 용도                 |
+| ---------------------------------- | -------------- | -------------------- |
+| `text-display`                     | 40 / 52        | 가장 큰 제목         |
+| `text-title`                       | 28 / 38        | 화면 제목            |
+| `text-heading`                     | 20 / 28        | 카드 · 팝업 제목     |
+| `text-body` · `text-body-strong`   | 16 / 26        | 본문 · 굵은 본문     |
+| `text-label` · `text-label-strong` | 14 / 20        | 라벨, 목록, 버튼     |
+| `text-caption`                     | 13 / 18        | 작은 설명, 에러 문구 |
 
 굵기만 바꾸고 싶으면 `font-medium`, `font-semibold`를 같이 써요.
 
 ### 간격 · 모서리 · 그림자
 
-| 종류 | 클래스 |
-|---|---|
+| 종류            | 클래스                                                                                                                           |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | 간격 (4의 배수) | `2xs` 4 · `xs` 8 · `sm` 12 · `md` 16 · `lg` 20 · `xl` 24 · `2xl` 32 · `3xl` 40 · `4xl` 48 · `5xl` 64 → `mt-md`, `gap-sm`, `p-lg` |
-| 모서리 | `rounded-sm` 12 (버튼 · 입력창) · `rounded-md` 16 · `rounded-lg` 22 (카드) · `rounded-xl` 28 (팝업) · `rounded-full` |
-| 그림자 | `shadow-cloud-sm` (카드) · `shadow-cloud-md` (팝업) · `shadow-cloud-brand` (주요 버튼) |
+| 모서리          | `rounded-sm` 12 (버튼 · 입력창) · `rounded-md` 16 · `rounded-lg` 22 (카드) · `rounded-xl` 28 (팝업) · `rounded-full`             |
+| 그림자          | `shadow-cloud-sm` (카드) · `shadow-cloud-md` (팝업) · `shadow-cloud-brand` (주요 버튼)                                           |
 
 `mt-4`(=16) 같은 숫자 클래스도 같은 4px 단위라 써도 괜찮아요.
 
@@ -90,79 +90,79 @@ npm run dev
 
 ### 공통 (`common/`)
 
-| 피그마 | 컴포넌트 | 주요 props |
-|---|---|---|
-| — | `Button` | `size`: `lg`(꽉 찬 50) · `sm` / `variant`: `primary` · `secondary` · `soft` / `loading`, `inactive` |
-| — | `TextField` | `label`, `errorMessage`, `rightSlot` (오른쪽 아이콘) |
-| Form/Text Area | `TextArea` | `label?`, `rows`, `errorMessage` |
-| Form/Search Field | `SearchField` | `value`, `onChange`, `onSearch` |
-| Web/Dropdown | `Select` | `label`, `options`, `value`, `onChange` / `variant="inline"` → "게시판 · 10기" 모양 |
-| Form/Checkbox | `Checkbox` | `checked`, `onChange`, children(글자) |
-| Form/OTP Digit | `CodeInput` | `value`, `onChange`, `length` (기본 6) |
-| Nav/Icon Button(Boxed) | `IconButton` | `icon`(lucide 아이콘), `label`(필수), `variant`: `ghost` · `boxed`, `dot` |
-| Icon/Tile | `IconTile` | `icon`, `size`: `sm` · `md` |
-| Community/Board Badge | `Badge` | children (예: "10기") |
-| Profile/Avatar | `Avatar` | `name`, `size`: `sm` · `md` |
-| — | `Modal` | `open`, `onClose`, `className` (팝업 틀) |
-| — | `AlertDialog` | `open`, `title`, `description`, `onClose` (확인 버튼 하나짜리 팝업) |
-| — | `FieldError` | children (빨간 에러 문구) |
-| — | `LogoMark` · `NativeBadge` | 로고 박스 · Native 배지 |
+| 피그마                 | 컴포넌트                   | 주요 props                                                                                          |
+| ---------------------- | -------------------------- | --------------------------------------------------------------------------------------------------- |
+| —                      | `Button`                   | `size`: `lg`(꽉 찬 50) · `sm` / `variant`: `primary` · `secondary` · `soft` / `loading`, `inactive` |
+| —                      | `TextField`                | `label`, `errorMessage`, `rightSlot` (오른쪽 아이콘)                                                |
+| Form/Text Area         | `TextArea`                 | `label?`, `rows`, `errorMessage`                                                                    |
+| Form/Search Field      | `SearchField`              | `value`, `onChange`, `onSearch`                                                                     |
+| Web/Dropdown           | `Select`                   | `label`, `options`, `value`, `onChange` / `variant="inline"` → "게시판 · 10기" 모양                 |
+| Form/Checkbox          | `Checkbox`                 | `checked`, `onChange`, children(글자)                                                               |
+| Form/OTP Digit         | `CodeInput`                | `value`, `onChange`, `length` (기본 6)                                                              |
+| Nav/Icon Button(Boxed) | `IconButton`               | `icon`(lucide 아이콘), `label`(필수), `variant`: `ghost` · `boxed`, `dot`                           |
+| Icon/Tile              | `IconTile`                 | `icon`, `size`: `sm` · `md`                                                                         |
+| Community/Board Badge  | `Badge`                    | children (예: "10기")                                                                               |
+| Profile/Avatar         | `Avatar`                   | `name`, `size`: `sm` · `md`                                                                         |
+| —                      | `Modal`                    | `open`, `onClose`, `className` (팝업 틀)                                                            |
+| —                      | `AlertDialog`              | `open`, `title`, `description`, `onClose` (확인 버튼 하나짜리 팝업)                                 |
+| —                      | `FieldError`               | children (빨간 에러 문구)                                                                           |
+| —                      | `LogoMark` · `NativeBadge` | 로고 박스 · Native 배지                                                                             |
 
 ### 채팅 (`chat/`)
 
-| 피그마 | 컴포넌트 | 주요 props |
-|---|---|---|
-| (입력창) | `ChatInput` | `onSend(message)`, `onAttach`, `disabled` |
-| Chat/Bubble User | `UserBubble` | children (내 메시지) |
-| Chat/Bubble Answer | `AnswerBubble` | `content` (**마크다운 글**), `footer` |
-| Chat/Answer Reactions | `AnswerReactions` | `onSelect(key)` — 기본 버튼: 좋아요 · 더 물어보기 · 공유 |
-| Chat/Related Questions | `RelatedQuestions` | `questions`, `onSelect(question)` |
-| Chat/Suggestion Row | `SuggestionRow` | `text`, `icon?`, `onClick` |
-| Web/Question Card | `QuestionCard` | `question`, `category`, `onClick` |
+| 피그마                 | 컴포넌트           | 주요 props                                               |
+| ---------------------- | ------------------ | -------------------------------------------------------- |
+| (입력창)               | `ChatInput`        | `onSend(message)`, `onAttach`, `disabled`                |
+| Chat/Bubble User       | `UserBubble`       | children (내 메시지)                                     |
+| Chat/Bubble Answer     | `AnswerBubble`     | `content` (**마크다운 글**), `footer`                    |
+| Chat/Answer Reactions  | `AnswerReactions`  | `onSelect(key)` — 기본 버튼: 좋아요 · 더 물어보기 · 공유 |
+| Chat/Related Questions | `RelatedQuestions` | `questions`, `onSelect(question)`                        |
+| Chat/Suggestion Row    | `SuggestionRow`    | `text`, `icon?`, `onClick`                               |
+| Web/Question Card      | `QuestionCard`     | `question`, `category`, `onClick`                        |
 
 `AnswerBubble`은 AI 답변(마크다운)을 그대로 넘기면 제목, 번호 목록, 코드 블록(복사 버튼), 인용, 링크를 시안 모양으로 그려 줘요.
 
 ### 첨부 (`attach/Attachments.tsx`)
 
-| 피그마 | 컴포넌트 | 주요 props |
-|---|---|---|
-| Attach/Image Thumb | `ImageThumb` | `src?`, `onRemove?` |
-| Attach/PDF Card | `PdfCard` | `name`, `pages?`, `onRemove?` |
-| Attach/PDF Chip | `PdfChip` | `name`, `onClick?` |
+| 피그마             | 컴포넌트     | 주요 props                    |
+| ------------------ | ------------ | ----------------------------- |
+| Attach/Image Thumb | `ImageThumb` | `src?`, `onRemove?`           |
+| Attach/PDF Card    | `PdfCard`    | `name`, `pages?`, `onRemove?` |
+| Attach/PDF Chip    | `PdfChip`    | `name`, `onClick?`            |
 
 ### 커뮤니티 (`community/`)
 
 데이터 모양은 [`community/types.ts`](../src/components/community/types.ts)의 `Post`, `Comment`를 써요.
 
-| 피그마 | 컴포넌트 | 주요 props |
-|---|---|---|
-| Community/Post Card | `PostCard` | `post`, `onClick` |
-| Community/Post Detail | `PostDetail` | `post`, `onToggleLike`, `onCommentClick`, `onMoreClick` |
-| Community/Comment List | `CommentList` | `comments`, `onMoreClick` |
-| Community/Like · Comment Chip | `LikeChip` · `CommentChip` (`ReactionChips.tsx`) | `count`, `liked?`, `onClick` |
-| Community/Board Select | `Select` + `variant="inline"` | 위 공통 참고 |
-| Community/FAB Write | `WriteFab` | `onClick` |
-| Web/Modal (글쓰기) | `WritePostModal` | `open`, `onClose`, `boards`, `onSubmit(values)` |
+| 피그마                        | 컴포넌트                                         | 주요 props                                              |
+| ----------------------------- | ------------------------------------------------ | ------------------------------------------------------- |
+| Community/Post Card           | `PostCard`                                       | `post`, `onClick`                                       |
+| Community/Post Detail         | `PostDetail`                                     | `post`, `onToggleLike`, `onCommentClick`, `onMoreClick` |
+| Community/Comment List        | `CommentList`                                    | `comments`, `onMoreClick`                               |
+| Community/Like · Comment Chip | `LikeChip` · `CommentChip` (`ReactionChips.tsx`) | `count`, `liked?`, `onClick`                            |
+| Community/Board Select        | `Select` + `variant="inline"`                    | 위 공통 참고                                            |
+| Community/FAB Write           | `WriteFab`                                       | `onClick`                                               |
+| Web/Modal (글쓰기)            | `WritePostModal`                                 | `open`, `onClose`, `boards`, `onSubmit(values)`         |
 
 ### 홈 · 프로필 · 레이아웃
 
-| 피그마 | 컴포넌트 | 위치 |
-|---|---|---|
-| (사이드바) | `Sidebar` — `activeMenu`, `recentChats`, `activeChatId`, `user` | `layout/Sidebar.tsx` |
-| Layout/Section Header | `SectionHeader` — `title`, `action?` | `layout/SectionHeader.tsx` |
-| Home/Hero Card · Tip Card · Popular Post Row | `HeroCard` · `TipCard` · `PopularPostRow` | `home/HomeCards.tsx` |
-| Profile/Profile Card · Stats | `ProfileCard` · `ProfileStats` | `profile/ProfileCards.tsx` |
-| Location/Map Card | `MapCard` (지금은 그림, 실제 지도 연동 전) | `location/MapCard.tsx` |
+| 피그마                                       | 컴포넌트                                                        | 위치                       |
+| -------------------------------------------- | --------------------------------------------------------------- | -------------------------- |
+| (사이드바)                                   | `Sidebar` — `activeMenu`, `recentChats`, `activeChatId`, `user` | `layout/Sidebar.tsx`       |
+| Layout/Section Header                        | `SectionHeader` — `title`, `action?`                            | `layout/SectionHeader.tsx` |
+| Home/Hero Card · Tip Card · Popular Post Row | `HeroCard` · `TipCard` · `PopularPostRow`                       | `home/HomeCards.tsx`       |
+| Profile/Profile Card · Stats                 | `ProfileCard` · `ProfileStats`                                  | `profile/ProfileCards.tsx` |
+| Location/Map Card                            | `MapCard` (지금은 그림, 실제 지도 연동 전)                      | `location/MapCard.tsx`     |
 
 ### 설정 · 알림
 
-| 피그마 | 컴포넌트 | 위치 |
-|---|---|---|
-| Settings/Prompt · Contact · Account Card | `PromptCard` · `ContactCard` · `AccountCard` | `settings/SettingsCards.tsx` |
-| Web/Settings Nav | `SettingsNav` — `active`, `onSelect`, `onLogout` | `settings/SettingsCards.tsx` |
-| Notify/Notice Row | `NoticeRow` | `feedback/Feedback.tsx` |
-| Feedback/Inline Error | `InlineError` | `feedback/Feedback.tsx` |
-| Feedback/Empty State | `EmptyState` | `feedback/Feedback.tsx` |
+| 피그마                                   | 컴포넌트                                         | 위치                         |
+| ---------------------------------------- | ------------------------------------------------ | ---------------------------- |
+| Settings/Prompt · Contact · Account Card | `PromptCard` · `ContactCard` · `AccountCard`     | `settings/SettingsCards.tsx` |
+| Web/Settings Nav                         | `SettingsNav` — `active`, `onSelect`, `onLogout` | `settings/SettingsCards.tsx` |
+| Notify/Notice Row                        | `NoticeRow`                                      | `feedback/Feedback.tsx`      |
+| Feedback/Inline Error                    | `InlineError`                                    | `feedback/Feedback.tsx`      |
+| Feedback/Empty State                     | `EmptyState`                                     | `feedback/Feedback.tsx`      |
 
 ### 인증 화면 전용 (`auth/`)
 
@@ -194,7 +194,9 @@ function CommunityPage({ posts }: { posts: Post[] }) {
         posts.map((post) => <PostCard key={post.id} post={post} onClick={() => openPost(post.id)} />)
       )}
 
-      <Button size="sm" variant="secondary">더 보기</Button>
+      <Button size="sm" variant="secondary">
+        더 보기
+      </Button>
     </section>
   )
 }

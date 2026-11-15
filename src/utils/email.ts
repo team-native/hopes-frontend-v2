@@ -14,6 +14,9 @@ export function isSchoolEmail(email: string) {
 export function hasWrongEmailDomain(email: string) {
   const at = email.indexOf('@')
   if (at === -1) return false
-  const domain = email.slice(at + 1).trim().toLowerCase()
+  const domain = email
+    .slice(at + 1)
+    .trim()
+    .toLowerCase()
   return !SCHOOL_EMAIL_DOMAIN.startsWith(domain)
 }

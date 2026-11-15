@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /*
  * hopes v1.5 Design System 토큰 (Web 1440 기준)
@@ -9,7 +9,7 @@
 @theme {
   /* ---------- Font ---------- */
   /* 피그마는 SF Pro. 웹은 모든 OS에서 같게 보이도록 Pretendard 사용 */
-  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 
   /* ---------- Color: Primitives (원색) ---------- */
   --color-blue-50: #f4f8fe;

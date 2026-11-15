@@ -50,7 +50,9 @@ const markdownComponents: Components = {
   h2: (props) => <h3 className="mb-2 text-heading" {...props} />,
   h3: (props) => <h3 className="mb-2 text-body-strong" {...props} />,
   p: (props) => <p className="my-2 first:mt-0 last:mb-0" {...props} />,
-  ol: (props) => <ol className="my-2 list-decimal space-y-1 pl-5 marker:font-medium marker:text-text-brand" {...props} />,
+  ol: (props) => (
+    <ol className="my-2 list-decimal space-y-1 pl-5 marker:font-medium marker:text-text-brand" {...props} />
+  ),
   ul: (props) => <ul className="my-2 list-disc space-y-1 pl-5 marker:text-text-brand" {...props} />,
   blockquote: (props) => (
     <blockquote className="my-3 border-l-2 border-border-brand pl-3 text-text-secondary [&>p]:my-0" {...props} />

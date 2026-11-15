@@ -25,7 +25,13 @@ interface PasswordFormProps {
 export function CheckIcon() {
   return (
     <svg viewBox="0 0 12 12" className="size-3 shrink-0" fill="none" aria-hidden>
-      <path d="M2.5 6.2 5 8.5l4.5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M2.5 6.2 5 8.5l4.5-5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }
