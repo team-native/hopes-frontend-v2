@@ -2,9 +2,11 @@ import { useState, type FormEvent } from 'react'
 import { sendPasswordResetCode } from '../../../api/auth'
 import AuthFooterLink from '../../../components/auth/AuthFooterLink'
 import Button from '../../../components/common/Button'
+import FieldError from '../../../components/common/FieldError'
 import TextField from '../../../components/common/TextField'
 import { SCHOOL_EMAIL_DOMAIN } from '../../../constants/school'
 import { hasWrongEmailDomain, isSchoolEmail } from '../../../utils/email'
+import { RETRY_LATER, getErrorCode } from '../../../utils/error'
 
 const DOMAIN_ERROR = `학교 이메일(@${SCHOOL_EMAIL_DOMAIN})만 사용할 수 있어요.`
 const NOT_REGISTERED_ERROR = '가입되지 않은 이메일이에요. 회원가입을 진행해 주세요.'
@@ -22,6 +24,7 @@ function EmailStep({ defaultEmail = '', onSent }: EmailStepProps) {
   const [submitted, setSubmitted] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [isNotRegistered, setIsNotRegistered] = useState(false)
+  const [sendError, setSendError] = useState('')
 
   let errorMessage = ''
   if (hasWrongEmailDomain(email)) {
@@ -39,14 +42,17 @@ function EmailStep({ defaultEmail = '', onSent }: EmailStepProps) {
 
     const trimmed = email.trim()
     setIsSending(true)
+    setSendError('')
     try {
       await sendPasswordResetCode(trimmed)
       onSent(trimmed)
     } catch (error) {
-      if (error instanceof Error && error.message === 'EMAIL_NOT_REGISTERED') {
+      if (getErrorCode(error) === 'EMAIL_NOT_REGISTERED') {
         setIsNotRegistered(true)
+      } else {
+        // 네트워크 · 서버 오류: 버튼은 막지 않고 다시 누를 수 있게 안내만
+        setSendError(`인증번호를 보내지 못했어요. ${RETRY_LATER}`)
       }
-      // TODO: 그 외 에러(네트워크 등) 처리
     } finally {
       setIsSending(false)
     }
@@ -71,9 +77,11 @@ function EmailStep({ defaultEmail = '', onSent }: EmailStepProps) {
           setEmail(e.target.value)
           setSubmitted(false)
           setIsNotRegistered(false)
+          setSendError('')
         }}
         errorMessage={errorMessage}
       />
+      {sendError && !errorMessage && <FieldError>{sendError}</FieldError>}
 
       <Button type="submit" className="mt-5" loading={isSending} disabled={errorMessage !== ''}>
         인증번호 받기

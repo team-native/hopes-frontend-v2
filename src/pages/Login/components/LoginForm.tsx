@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom'
 import { login } from '../../../api/auth'
 import Button from '../../../components/common/Button'
 import Checkbox from '../../../components/common/Checkbox'
+import FieldError from '../../../components/common/FieldError'
 import TextField from '../../../components/common/TextField'
 import { useOnlineStatus } from '../../../hooks/useOnlineStatus'
+import { RETRY_LATER, getErrorCode } from '../../../utils/error'
 
 function LoginForm() {
   const [email, setEmail] = useState('')
@@ -12,6 +14,8 @@ function LoginForm() {
   const [keepLogin, setKeepLogin] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  /** 서버 오류 등 입력값과 상관없는 실패 안내 */
+  const [requestError, setRequestError] = useState('')
   const isOnline = useOnlineStatus()
 
   const hasError = errorMessage !== ''
@@ -22,13 +26,19 @@ function LoginForm() {
 
     setIsLoading(true)
     setErrorMessage('')
+    setRequestError('')
     try {
       await login({ email, password, keepLogin })
       // TODO: 로그인 성공 시 이동할 페이지
-    } catch {
+    } catch (error) {
       // 요청 도중 연결이 끊긴 경우엔 위쪽 오프라인 배너가 대신 안내해요.
       if (!navigator.onLine) return
-      setErrorMessage('이메일 또는 비밀번호가 맞지 않아요. 다시 확인해 주세요.')
+      if (getErrorCode(error) === 'INVALID_CREDENTIALS') {
+        setErrorMessage('이메일 또는 비밀번호가 맞지 않아요. 다시 확인해 주세요.')
+      } else {
+        // 서버 오류 등: 입력값 탓이 아니므로 입력칸을 빨갛게 하지 않고 따로 안내
+        setRequestError(`로그인하지 못했어요. ${RETRY_LATER}`)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -67,6 +77,7 @@ function LoginForm() {
           onChange={(e) => {
             setEmail(e.target.value)
             setErrorMessage('')
+            setRequestError('')
           }}
           invalid={hasError}
           aria-describedby={hasError ? 'password-error' : undefined}
@@ -83,6 +94,7 @@ function LoginForm() {
           onChange={(e) => {
             setPassword(e.target.value)
             setErrorMessage('')
+            setRequestError('')
           }}
           errorMessage={errorMessage}
         />
@@ -96,6 +108,8 @@ function LoginForm() {
           비밀번호 찾기
         </Link>
       </div>
+
+      {requestError && <FieldError className="mt-md">{requestError}</FieldError>}
 
       <Button type="submit" className="mt-md" loading={isLoading} loadingText="로그인 중..." disabled={!isOnline}>
         로그인

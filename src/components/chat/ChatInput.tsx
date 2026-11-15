@@ -53,6 +53,10 @@ function ChatInput({
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={(e) => {
+            // 한글 조합 중 Enter로는 보내지 않음 (마지막 글자가 빠지거나 두 번 보내지는 것 방지)
+            if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault()
+          }}
           placeholder={placeholder}
           disabled={disabled}
           aria-label="메시지"

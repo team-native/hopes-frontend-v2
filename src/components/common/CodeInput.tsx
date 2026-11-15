@@ -91,7 +91,17 @@ function CodeInput({
           autoFocus={autoFocus && index === Math.min(value.length, length - 1)}
           aria-label={`${ariaLabel} ${index + 1}번째 자리`}
           aria-invalid={invalid}
-          onChange={(e) => fillFrom(index, e.target.value.slice(-length))}
+          onChange={(e) => {
+            const raw = e.target.value
+            // 빈 칸 입력 · 자동완성(여러 자리)은 그대로 채우기
+            if (!digit || raw.replace(/\D/g, '').length > 2) {
+              fillFrom(index, raw.slice(-length))
+              return
+            }
+            // 이미 숫자가 있는 칸에 덧입력: 새로 친 글자 하나만 반영 (다음 칸을 덮어쓰지 않게)
+            const caret = e.target.selectionStart ?? raw.length
+            fillFrom(index, raw.slice(Math.max(0, caret - 1), caret))
+          }}
           onKeyDown={handleKeyDown(index)}
           onPaste={handlePaste(index)}
           onFocus={(e) => e.target.select()}

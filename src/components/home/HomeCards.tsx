@@ -21,7 +21,7 @@ export function HeroCard({ title, description, actionText, onAction }: HeroCardP
       <div className="relative">
         <h2 className="text-heading font-bold whitespace-pre-line">{title}</h2>
         <p className="mt-xs text-caption text-text-secondary">{description}</p>
-        <Button size="sm" variant="soft" className="mt-sm bg-bg-surface/70" onClick={onAction}>
+        <Button size="sm" variant="soft" className="mt-sm bg-bg-surface/70!" onClick={onAction}>
           {actionText}
         </Button>
       </div>

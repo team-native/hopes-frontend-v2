@@ -75,8 +75,9 @@ export function EmptyState({ title, description, icon: Icon = MessageCircle, act
       </span>
       <p className="mt-md text-label-strong">{title}</p>
       {description && <p className="mt-1 text-caption text-text-secondary">{description}</p>}
+      {/* 공통 버튼보다 작게: 같은 종류 클래스를 덮어쓰려면 ! (중요도) 필요 */}
       {actionText && (
-        <Button size="sm" className="mt-sm h-8 px-3 text-caption" onClick={onAction}>
+        <Button size="sm" className="mt-sm h-8! px-3! text-caption!" onClick={onAction}>
           {actionText}
         </Button>
       )}

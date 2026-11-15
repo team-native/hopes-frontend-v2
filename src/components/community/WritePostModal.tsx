@@ -103,6 +103,10 @@ function WritePostForm({ titleId, boards, defaultBoard, onClose, onSubmit }: Wri
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => {
+          // 제목 칸에서 Enter를 누르면 바로 등록되지 않게 (한글 조합 중 Enter 포함)
+          if (e.key === 'Enter') e.preventDefault()
+        }}
         placeholder="제목"
         aria-label="제목"
         className={`mt-sm h-11 ${fieldClass}`}

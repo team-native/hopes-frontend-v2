@@ -20,7 +20,8 @@ function SearchField({ value, onChange, onSearch, placeholder = '검색', classN
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') onSearch?.(value)
+          // 한글 조합 중 Enter는 무시 (조합이 끝나기 전 값으로 검색되거나 두 번 검색되는 것 방지)
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing) onSearch?.(value)
         }}
         placeholder={placeholder}
         aria-label={placeholder}

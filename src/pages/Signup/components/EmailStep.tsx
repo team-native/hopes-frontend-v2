@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom'
 import { sendSignupCode } from '../../../api/auth'
 import AlertDialog from '../../../components/common/AlertDialog'
 import Button from '../../../components/common/Button'
+import FieldError from '../../../components/common/FieldError'
 import TextField from '../../../components/common/TextField'
 import { SCHOOL_EMAIL_DOMAIN } from '../../../constants/school'
 import { hasWrongEmailDomain, isSchoolEmail } from '../../../utils/email'
+import { RETRY_LATER, getErrorCode } from '../../../utils/error'
 
 const DOMAIN_ERROR = `학교 이메일(@${SCHOOL_EMAIL_DOMAIN})만 사용할 수 있어요.`
 
@@ -22,6 +24,7 @@ function EmailStep({ defaultEmail = '', onSent }: EmailStepProps) {
   const [submitted, setSubmitted] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [isRegisteredOpen, setIsRegisteredOpen] = useState(false)
+  const [sendError, setSendError] = useState('')
 
   // 다른 도메인을 입력하면 바로, 미완성 상태는 제출했을 때만 에러 표시
   let errorMessage = ''
@@ -38,14 +41,17 @@ function EmailStep({ defaultEmail = '', onSent }: EmailStepProps) {
 
     const trimmed = email.trim()
     setIsSending(true)
+    setSendError('')
     try {
       await sendSignupCode(trimmed)
       onSent(trimmed)
     } catch (error) {
-      if (error instanceof Error && error.message === 'EMAIL_ALREADY_REGISTERED') {
+      if (getErrorCode(error) === 'EMAIL_ALREADY_REGISTERED') {
         setIsRegisteredOpen(true)
+      } else {
+        // 네트워크 · 서버 오류: 버튼은 막지 않고 다시 누를 수 있게 안내만
+        setSendError(`인증번호를 보내지 못했어요. ${RETRY_LATER}`)
       }
-      // TODO: 그 외 에러(네트워크 등) 처리
     } finally {
       setIsSending(false)
     }
@@ -69,9 +75,11 @@ function EmailStep({ defaultEmail = '', onSent }: EmailStepProps) {
         onChange={(e) => {
           setEmail(e.target.value)
           setSubmitted(false)
+          setSendError('')
         }}
         errorMessage={errorMessage}
       />
+      {sendError && !errorMessage && <FieldError>{sendError}</FieldError>}
 
       <Button type="submit" className="mt-5" loading={isSending} disabled={errorMessage !== ''}>
         인증번호 받기
