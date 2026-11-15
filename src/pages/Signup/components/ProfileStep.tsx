@@ -6,6 +6,7 @@ import FieldError from '../../../components/common/FieldError'
 import Select from '../../../components/common/Select'
 import TextField from '../../../components/common/TextField'
 import { COHORTS, DEPARTMENTS } from '../../../constants/school'
+import { RETRY_LATER } from '../../../utils/error'
 
 export interface Profile {
   name: string
@@ -32,6 +33,7 @@ function ProfileStep({ onSubmit }: ProfileStepProps) {
   const [agreePrivacy, setAgreePrivacy] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const agreeAll = agreeTerms && agreePrivacy
   const isComplete = name.trim() !== '' && department !== '' && cohort !== '' && agreeAll
@@ -48,8 +50,12 @@ function ProfileStep({ onSubmit }: ProfileStepProps) {
     if (!isComplete || isSubmitting) return
 
     setIsSubmitting(true)
+    setSubmitError('')
     try {
       await onSubmit({ name: name.trim(), department, cohort, agreeTerms, agreePrivacy })
+    } catch {
+      // 마지막 단계라 실패하면 꼭 알려 줘요 (입력값은 그대로 남아서 다시 누르면 돼요)
+      setSubmitError(`가입하지 못했어요. ${RETRY_LATER}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -115,6 +121,8 @@ function ProfileStep({ onSubmit }: ProfileStepProps) {
         </div>
         {agreeError && <FieldError>{agreeError}</FieldError>}
       </fieldset>
+
+      {submitError && <FieldError className="mt-md">{submitError}</FieldError>}
 
       <Button type="submit" className="mt-5" inactive={!isComplete} loading={isSubmitting} loadingText="가입 중...">
         가입 완료

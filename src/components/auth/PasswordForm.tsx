@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import Button from '../common/Button'
 import PasswordToggle from '../common/PasswordToggle'
 import TextField from '../common/TextField'
+import { RETRY_LATER } from '../../utils/error'
 import { PASSWORD_RULES, isValidPassword } from '../../utils/password'
 
 interface PasswordFormProps {
@@ -76,6 +77,9 @@ function PasswordForm({ heading, description, labelPrefix = '', submitText, onSu
     try {
       const error = await onSubmit(password)
       if (error) setServerError(error)
+    } catch {
+      // onSubmit이 문구를 돌려주지 않고 실패한 경우에도 그냥 멈추지 않도록 기본 안내
+      setServerError(`요청을 처리하지 못했어요. ${RETRY_LATER}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -132,7 +136,11 @@ function PasswordForm({ heading, description, labelPrefix = '', submitText, onSu
         autoComplete="new-password"
         placeholder={`${labelPrefix}비밀번호 다시 입력`}
         value={confirm}
-        onChange={(e) => setConfirm(e.target.value)}
+        onChange={(e) => {
+          setConfirm(e.target.value)
+          // 서버 에러로 막힌 버튼이 확인 칸만 고쳐도 다시 눌리도록
+          setServerError('')
+        }}
         onBlur={() => setConfirmTouched(true)}
         errorMessage={showConfirmError ? '비밀번호가 일치하지 않아요.' : undefined}
         rightSlot={<PasswordToggle visible={showConfirm} onToggle={() => setShowConfirm((v) => !v)} />}

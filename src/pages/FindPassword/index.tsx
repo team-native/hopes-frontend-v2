@@ -7,6 +7,7 @@ import PasswordForm from '../../components/auth/PasswordForm'
 import ResultPanel from '../../components/auth/ResultPanel'
 import StepProgress from '../../components/auth/StepProgress'
 import AuthLayout from '../../components/layout/AuthLayout'
+import { RETRY_LATER, getErrorCode } from '../../utils/error'
 import EmailStep from './components/EmailStep'
 
 /** 비밀번호 찾기 단계 이름 */
@@ -85,10 +86,11 @@ function FindPasswordPage() {
                   await resetPassword(email, password)
                   setIsDone(true)
                 } catch (error) {
-                  if (error instanceof Error && error.message === 'SAME_AS_OLD_PASSWORD') {
+                  if (getErrorCode(error) === 'SAME_AS_OLD_PASSWORD') {
                     return '이전에 쓴 비밀번호와 같아요. 다른 비밀번호를 입력해 주세요.'
                   }
-                  // TODO: 그 외 에러(네트워크 등) 처리
+                  // 네트워크 · 서버 오류 등
+                  return `비밀번호를 바꾸지 못했어요. ${RETRY_LATER}`
                 }
               }}
               footer={footer}

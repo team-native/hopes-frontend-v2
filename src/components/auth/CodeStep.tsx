@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import Button from '../common/Button'
 import CodeInput from '../common/CodeInput'
 import FieldError from '../common/FieldError'
+import { RETRY_LATER, getErrorCode } from '../../utils/error'
 
 /** 인증번호 유효 시간 (초) */
 const CODE_TTL_SECONDS = 5 * 60
@@ -46,6 +47,8 @@ function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, o
   const [isWrong, setIsWrong] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
   const [isResending, setIsResending] = useState(false)
+  /** 네트워크 · 서버 오류 안내 (번호 틀림과 구분) */
+  const [requestError, setRequestError] = useState('')
 
   const remaining = Math.max(0, Math.ceil((expiresAt - now) / 1000))
   const isLocked = now < lockedUntil
@@ -68,13 +71,20 @@ function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, o
     if (code.length < CODE_LENGTH || isExpired || isLocked || isVerifying) return
 
     setIsVerifying(true)
+    setRequestError('')
     try {
       await verifyCode(email, code)
       onVerified()
     } catch (error) {
+      const errorCode = getErrorCode(error)
       // TODO: 실제로는 서버가 횟수를 세고 잠가야 해요. 서버가 잠금 응답을 주면 그걸 우선해요.
-      if (error instanceof Error && error.message === 'TOO_MANY_ATTEMPTS') {
+      if (errorCode === 'TOO_MANY_ATTEMPTS') {
         lock()
+        return
+      }
+      // 번호가 틀린 경우만 횟수를 세요. 네트워크 · 서버 오류는 횟수에 넣지 않고 따로 안내
+      if (errorCode !== 'INVALID_CODE') {
+        setRequestError(`인증번호를 확인하지 못했어요. ${RETRY_LATER}`)
         return
       }
       const nextCount = failCount + 1
@@ -92,6 +102,7 @@ function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, o
   const handleResend = async () => {
     if (isResending || isLocked) return
     setIsResending(true)
+    setRequestError('')
     try {
       await resendCode(email)
       setCode('')
@@ -99,13 +110,18 @@ function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, o
       setFailCount(0)
       setExpiresAt(Date.now() + CODE_TTL_SECONDS * 1000)
       setNow(Date.now())
+    } catch {
+      // 실패하면 타이머 · 횟수는 그대로 두고 안내만
+      setRequestError(`인증번호를 다시 보내지 못했어요. ${RETRY_LATER}`)
     } finally {
       setIsResending(false)
     }
   }
 
   let codeError = ''
-  if (isExpired) {
+  if (requestError) {
+    codeError = requestError
+  } else if (isExpired) {
     codeError = '인증 시간이 지났어요. 인증번호를 다시 받아 주세요.'
   } else if (isWrong) {
     codeError = `인증번호가 맞지 않아요. 다시 확인해 주세요. (${failCount}/${MAX_ATTEMPTS}회)`
@@ -152,6 +168,7 @@ function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, o
           onChange={(next) => {
             setCode(next)
             setIsWrong(false)
+            setRequestError('')
           }}
           length={CODE_LENGTH}
           invalid={isWrong}
