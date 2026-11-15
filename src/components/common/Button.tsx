@@ -2,6 +2,10 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode
+  /** lg: 가로 꽉 찬 큰 버튼(50) / sm: 글자만큼 작은 버튼(36) */
+  size?: 'lg' | 'sm'
+  /** primary: 파랑 / secondary: 흰색 + 테두리 / soft: 연파랑 배경 + 파란 글자 */
+  variant?: 'primary' | 'secondary' | 'soft'
   /** true면 로딩 색 + loadingText 표시, 클릭 막힘 */
   loading?: boolean
   /** 로딩 중 글자 (예: "로그인 중...") */
@@ -13,9 +17,30 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   inactive?: boolean
 }
 
-/** 메인 파란 버튼 (가로 꽉 참) */
+const SIZE_CLASS = {
+  lg: 'h-[50px] w-full text-body-strong',
+  sm: 'h-9 px-3.5 text-label-strong',
+}
+
+function variantClass(variant: NonNullable<ButtonProps['variant']>, inactive: boolean, loading: boolean) {
+  if (variant === 'secondary') {
+    return 'border border-border-default bg-bg-surface text-text-primary enabled:hover:bg-bg-canvas disabled:opacity-50'
+  }
+  if (variant === 'soft') {
+    return 'bg-bg-brand-soft text-text-brand enabled:hover:brightness-[0.97] disabled:opacity-50'
+  }
+  // primary
+  const color = inactive
+    ? 'bg-bg-brand-disabled'
+    : 'bg-bg-brand enabled:shadow-cloud-brand enabled:hover:bg-bg-brand-pressed enabled:active:scale-[0.99]'
+  return `${color} text-text-on-brand ${loading ? 'disabled:bg-bg-brand-loading' : 'disabled:bg-bg-brand-disabled'}`
+}
+
+/** 버튼 (기본: 가로 꽉 찬 파란 버튼) */
 function Button({
   children,
+  size = 'lg',
+  variant = 'primary',
   loading = false,
   loadingText,
   inactive = false,
@@ -24,10 +49,6 @@ function Button({
   type = 'button',
   ...rest
 }: ButtonProps) {
-  const color = inactive
-    ? 'bg-bg-brand-disabled'
-    : 'bg-bg-brand enabled:shadow-cloud-brand enabled:hover:bg-bg-brand-pressed enabled:active:scale-[0.99]'
-
   return (
     <button
       type={type}
@@ -35,9 +56,9 @@ function Button({
       aria-busy={loading}
       aria-disabled={inactive || undefined}
       {...rest}
-      className={`h-[50px] w-full rounded-sm text-body-strong text-text-on-brand transition disabled:cursor-not-allowed ${color} ${
-        loading ? 'disabled:bg-bg-brand-loading' : 'disabled:bg-bg-brand-disabled'
-      } ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-sm transition disabled:cursor-not-allowed ${
+        SIZE_CLASS[size]
+      } ${variantClass(variant, inactive, loading)} ${className}`}
     >
       {loading && loadingText ? loadingText : children}
     </button>

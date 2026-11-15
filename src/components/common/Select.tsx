@@ -12,6 +12,11 @@ interface SelectProps {
   onChange: (value: string) => void
   /** 아래 에러 문구 (있으면 빨간 테두리) */
   errorMessage?: ReactNode
+  /**
+   * stacked: 라벨이 칸 위에 (회원가입 과·기수)
+   * inline: 라벨이 칸 안 왼쪽, 값이 오른쪽 (Community/Board Select "게시판 · 10기")
+   */
+  variant?: 'stacked' | 'inline'
   className?: string
 }
 
@@ -19,7 +24,17 @@ interface SelectProps {
  * 드롭다운 선택 (시안 모양 그대로 직접 만든 목록)
  * 키보드: ↑↓ 이동, Enter/Space 선택, Esc 닫기
  */
-function Select({ label, placeholder, options, value, onChange, errorMessage, className = '' }: SelectProps) {
+function Select({
+  label,
+  placeholder,
+  options,
+  value,
+  onChange,
+  errorMessage,
+  variant = 'stacked',
+  className = '',
+}: SelectProps) {
+  const isInline = variant === 'inline'
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -75,9 +90,11 @@ function Select({ label, placeholder, options, value, onChange, errorMessage, cl
 
   return (
     <div className={className}>
-      <p id={labelId} className="mb-2 text-label font-medium text-text-secondary">
-        {label}
-      </p>
+      {!isInline && (
+        <p id={labelId} className="mb-2 text-label font-medium text-text-secondary">
+          {label}
+        </p>
+      )}
 
       <div ref={rootRef} className="relative">
         <button
@@ -92,9 +109,18 @@ function Select({ label, placeholder, options, value, onChange, errorMessage, cl
           aria-describedby={errorMessage ? errorId : undefined}
           onClick={() => (open ? setOpen(false) : openList())}
           onKeyDown={handleKeyDown}
-          className={`flex h-[52px] w-full items-center justify-between rounded-sm border bg-bg-surface px-4 text-left text-body outline-none transition ${borderClass}`}
+          className={`flex w-full items-center justify-between gap-2 rounded-sm border bg-bg-surface px-4 text-left outline-none transition ${
+            isInline ? 'h-11 text-label' : 'h-[52px] text-body'
+          } ${borderClass}`}
         >
-          <span className={`truncate ${value ? '' : 'text-text-tertiary'}`}>{value || placeholder}</span>
+          {isInline && (
+            <span id={labelId} className="mr-auto shrink-0 text-text-secondary">
+              {label}
+            </span>
+          )}
+          <span className={`truncate ${value ? (isInline ? 'font-semibold' : '') : 'text-text-tertiary'}`}>
+            {value || placeholder}
+          </span>
           <svg
             viewBox="0 0 16 16"
             className={`size-4 shrink-0 text-icon-muted transition-transform ${open ? 'rotate-180' : ''}`}
