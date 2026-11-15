@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# 환경변수 (비밀값) — 실제 값이 든 .env 파일은 올리지 않고, 예시 파일(.env.example)만 올려요
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
