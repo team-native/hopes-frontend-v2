@@ -6,7 +6,7 @@ import Icon from '../common/Icon'
 export type AppSection = 'home' | 'chat' | 'community' | 'history'
 
 type AppLayoutProps = {
-  activeSection: AppSection | 'profile'
+  activeSection: AppSection | 'profile' | 'settings'
   activeRecentChat?: string
   children: ReactNode
   onNewChat: () => void
@@ -83,14 +83,18 @@ function AppLayout({ activeSection, activeRecentChat, children, onNewChat, onRec
           </button>
         ))}
 
-        <Link to="/my-page" aria-current={activeSection === 'profile' ? 'page' : undefined} className={`mt-auto flex items-center gap-2 rounded-xl px-3 py-2.5 text-left ${activeSection === 'profile' ? 'bg-[#eaf0fd]' : 'bg-[#f6f8fb]'}`}>
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#eaf0fd] text-xs font-semibold text-primary">임</span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-xs font-semibold">임서하</span>
-            <span className="block truncate text-[11px] text-sub">인공지능과 · 10기</span>
-          </span>
-          <Icon name="settings" className="size-[17px] text-[#9aa4ba]" />
-        </Link>
+        <div className="mt-auto flex items-center gap-1 rounded-xl bg-[#f6f8fb] p-1.5">
+          <Link to="/my-page" aria-current={activeSection === 'profile' ? 'page' : undefined} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-left hover:bg-white">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#eaf0fd] text-xs font-semibold text-primary">임</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-semibold">임서하</span>
+              <span className="block truncate text-[11px] text-sub">인공지능과 · 10기</span>
+            </span>
+          </Link>
+          <Link to="/settings" aria-label="설정" aria-current={activeSection === 'settings' ? 'page' : undefined} className={`flex size-8 shrink-0 items-center justify-center rounded-lg text-[#9aa4ba] transition hover:bg-white hover:text-primary ${activeSection === 'settings' ? 'bg-white text-primary' : ''}`}>
+            <Icon name="settings" className="size-[17px]" />
+          </Link>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

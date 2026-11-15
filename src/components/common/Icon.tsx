@@ -5,6 +5,7 @@ import {
   Bookmark,
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   Check,
   CircleAlert,
   Clock,
@@ -17,15 +18,20 @@ import {
   History,
   House,
   Image,
+  Info,
   Lock,
+  LogOut,
+  Mail,
   MapPin,
   MessageCircle,
+  Moon,
   Pencil,
   Plus,
   RefreshCw,
   Search,
   Send,
   Settings,
+  SlidersHorizontal,
   Share2,
   Upload,
   UsersRound,
@@ -42,6 +48,7 @@ export type IconName =
   | 'check'
   | 'chevron-down'
   | 'chevron-left'
+  | 'chevron-right'
   | 'clock'
   | 'code'
   | 'copy'
@@ -51,8 +58,12 @@ export type IconName =
   | 'home'
   | 'history'
   | 'image'
+  | 'info'
   | 'lock'
+  | 'logout'
+  | 'mail'
   | 'more'
+  | 'moon'
   | 'pin'
   | 'pencil'
   | 'plus'
@@ -60,6 +71,7 @@ export type IconName =
   | 'send'
   | 'search'
   | 'settings'
+  | 'sliders'
   | 'share'
   | 'trash'
   | 'upload'
@@ -76,6 +88,7 @@ const icons: Record<Exclude<IconName, 'trash'>, LucideIcon> = {
   check: Check,
   'chevron-down': ChevronDown,
   'chevron-left': ChevronLeft,
+  'chevron-right': ChevronRight,
   clock: Clock,
   code: Code,
   copy: Copy,
@@ -85,8 +98,12 @@ const icons: Record<Exclude<IconName, 'trash'>, LucideIcon> = {
   home: House,
   history: History,
   image: Image,
+  info: Info,
   lock: Lock,
+  logout: LogOut,
+  mail: Mail,
   more: Ellipsis,
+  moon: Moon,
   pin: MapPin,
   pencil: Pencil,
   plus: Plus,
@@ -94,6 +111,7 @@ const icons: Record<Exclude<IconName, 'trash'>, LucideIcon> = {
   send: Send,
   search: Search,
   settings: Settings,
+  sliders: SlidersHorizontal,
   share: Share2,
   upload: Upload,
   users: UsersRound,
