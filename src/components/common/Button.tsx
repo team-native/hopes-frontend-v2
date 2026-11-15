@@ -1,0 +1,47 @@
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  children: ReactNode
+  /** true면 로딩 색 + loadingText 표시, 클릭 막힘 */
+  loading?: boolean
+  /** 로딩 중 글자 (예: "로그인 중...") */
+  loadingText?: ReactNode
+  /**
+   * true면 비활성처럼 연한 색으로 보이지만 클릭은 됨
+   * (아직 다 안 채운 폼에서 눌렀을 때 빠진 항목을 알려 줄 때 사용)
+   */
+  inactive?: boolean
+}
+
+/** 메인 파란 버튼 (가로 꽉 참) */
+function Button({
+  children,
+  loading = false,
+  loadingText,
+  inactive = false,
+  disabled,
+  className = '',
+  type = 'button',
+  ...rest
+}: ButtonProps) {
+  const color = inactive
+    ? 'bg-primary-disabled'
+    : 'bg-primary enabled:hover:bg-primary-hover enabled:active:scale-[0.99]'
+
+  return (
+    <button
+      type={type}
+      disabled={disabled || loading}
+      aria-busy={loading}
+      aria-disabled={inactive || undefined}
+      {...rest}
+      className={`h-[50px] w-full rounded-xl text-base font-medium text-white transition disabled:cursor-not-allowed ${color} ${
+        loading ? 'disabled:bg-primary-loading' : 'disabled:bg-primary-disabled'
+      } ${className}`}
+    >
+      {loading && loadingText ? loadingText : children}
+    </button>
+  )
+}
+
+export default Button

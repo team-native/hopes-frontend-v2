@@ -3,42 +3,61 @@ import logo from '../../assets/logo.svg'
 
 interface AuthLayoutProps {
   children: ReactNode
+  /** 왼쪽 큰 제목 아래 설명 문구 (페이지마다 다르면 넘겨주세요) */
+  description?: ReactNode
 }
 
-/** 로그인 · 회원가입 · 비밀번호 찾기 공통 레이아웃 (왼쪽 소개 + 오른쪽 폼) */
-function AuthLayout({ children }: AuthLayoutProps) {
+const DEFAULT_DESCRIPTION = (
+  <>
+    재학생·신입생·입학 희망자를 위한 선배 챗봇.
+    <br />
+    기숙사, 전공, 취업 질문에 선배 경험으로 답해요.
+  </>
+)
+
+const COPYRIGHT = '© hopes · 광주소프트웨어마이스터고'
+
+/**
+ * 로그인 · 회원가입 · 비밀번호 찾기 공통 레이아웃
+ * 시안 기준 1440 × 900: 왼쪽 절반(로고 · 소개 · 카피라이트) + 오른쪽 절반(폼, 세로 가운데)
+ */
+function AuthLayout({ children, description = DEFAULT_DESCRIPTION }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen bg-white">
-      <div className="relative flex min-h-screen flex-col overflow-hidden px-6 py-10 sm:px-12 lg:px-[68px] lg:py-14">
+    <div className="relative min-h-screen overflow-hidden bg-white lg:grid lg:grid-cols-2">
+      {/* 왼쪽 */}
+      <div className="relative z-10 flex flex-col px-6 pt-10 sm:px-12 lg:min-h-screen lg:px-20 lg:py-16">
         <Brand />
-
-        <div className="relative z-10 grid flex-1 items-center gap-12 py-12 lg:grid-cols-2 lg:gap-8">
-          <Hero />
-          <div className="w-full max-w-[405px] lg:justify-self-center">{children}</div>
+        <div className="flex flex-1 items-center py-12 lg:py-0">
+          <Hero description={description} />
         </div>
-
-        <p className="relative z-10 text-xs text-sub/80">© hopes · 광주소프트웨어마이스터고</p>
-
-        <Clouds />
+        <p className="hidden text-sm text-sub/80 lg:block">{COPYRIGHT}</p>
       </div>
+
+      {/* 오른쪽 */}
+      <div className="relative z-10 flex flex-col items-center justify-center px-6 pb-10 sm:px-12 lg:pt-[68px] lg:pr-6 lg:pb-[60px] lg:pl-0">
+        <div className="w-full max-w-[480px]">{children}</div>
+        <p className="mt-16 self-start text-sm text-sub/80 lg:hidden">{COPYRIGHT}</p>
+      </div>
+
+      <Clouds />
     </div>
   )
 }
 
 function Brand() {
   return (
-    <div className="relative z-10 flex items-center gap-3">
-      <div className="flex size-10 items-center justify-center rounded-xl border border-line bg-white shadow-sm">
-        <img src={logo} alt="hopes" className="h-5 w-auto" />
+    <div className="flex items-center gap-3">
+      <div className="flex size-12 items-center justify-center rounded-[14px] border border-line bg-white shadow-sm">
+        <img src={logo} alt="hopes" className="h-6 w-auto" />
       </div>
       <div>
-        <p className="text-base leading-tight font-semibold">hopes</p>
-        <div className="mt-1 flex items-center gap-2">
-          <span className="text-[11px] text-sub">광주소프트웨어마이스터고</span>
-          <span className="flex items-center gap-1 rounded-full border border-line px-2 py-0.5 text-[11px] font-medium">
+        <p className="text-xl leading-6 font-medium">hopes</p>
+        <div className="mt-1.5 flex items-center gap-2">
+          <span className="text-sm text-sub">광주소프트웨어마이스터고</span>
+          <span className="flex items-center gap-1.5 rounded-full border border-line px-3 py-0.5 text-sm font-medium">
             <span className="flex gap-[2px]" aria-hidden>
-              <span className="h-2 w-[3px] skew-x-[-20deg] rounded-sm bg-[#f5c542]" />
-              <span className="h-2 w-[3px] skew-x-[-20deg] rounded-sm bg-[#f5c542]" />
+              <span className="h-2.5 w-[3px] skew-x-[-20deg] rounded-sm bg-[#f5c542]" />
+              <span className="h-2.5 w-[3px] skew-x-[-20deg] rounded-sm bg-[#f5c542]" />
             </span>
             Native
           </span>
@@ -48,19 +67,15 @@ function Brand() {
   )
 }
 
-function Hero() {
+function Hero({ description }: { description: ReactNode }) {
   return (
     <section>
-      <h1 className="text-[28px] leading-snug font-bold tracking-tight sm:text-[32px]">
+      <h1 className="text-[32px] leading-tight font-bold tracking-tight sm:text-[42px] sm:leading-[52px]">
         <span className="text-primary">선배</span>에게 묻는
         <br />
         <span className="text-primary">가장 솔직한</span> 학교 이야기
       </h1>
-      <p className="mt-5 text-sm leading-relaxed text-sub">
-        재학생·신입생·입학 희망자를 위한 선배 챗봇.
-        <br />
-        기숙사, 전공, 취업 질문에 선배 경험으로 답해요.
-      </p>
+      <p className="mt-5 text-base leading-relaxed text-sub sm:text-[17px] sm:leading-[26px]">{description}</p>
     </section>
   )
 }

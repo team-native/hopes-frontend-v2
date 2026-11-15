@@ -3,15 +3,18 @@
 @theme {
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 
-  --color-primary: #5f86ef;
-  --color-primary-hover: #4d75e3;
-  --color-primary-loading: #88a9f2; /* 로딩 중 버튼 */
-  --color-primary-disabled: #b9cef7; /* 비활성 버튼 (오프라인 등) */
+  --color-primary: #2f86f5; /* 메인 파랑 */
+  --color-primary-hover: #1f74e0;
+  --color-primary-loading: #6daaf8; /* 로딩 중 버튼 */
+  --color-primary-disabled: #accffb; /* 비활성 버튼 (오프라인 등) */
   --color-ink: #1b1d29;
   --color-sub: #6b7080;
   --color-line: #e6e9f0;
-  --color-focus: #b7ccf7; /* 입력창 선택(포커스) 테두리 */
+  --color-focus: #b6d5fb; /* 입력창 선택(포커스) 테두리 */
+  --color-placeholder: #b4b8c4;
+  --color-track: #edf1f9; /* 진행바 빈 칸 */
   --color-error: #d1545c;
+  --color-error-bg: #fbf2f2; /* 에러 배너 배경 */
   --color-toast: #171b2a; /* 어두운 알림 배너 */
 }
 
