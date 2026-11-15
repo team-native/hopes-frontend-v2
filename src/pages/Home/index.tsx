@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { PDFDocumentLoadingTask } from 'pdfjs-dist'
 import AppLayout, { type AppSection } from '../../components/layout/AppLayout'
 import Icon, { type IconName } from '../../components/common/Icon'
@@ -114,6 +115,7 @@ function getAttachmentAnswer(attachments: LocalAttachment[]): MockAnswer {
 }
 
 function HomePage() {
+  const navigate = useNavigate()
   const [view, setView] = useState<AppSection | 'conversation'>('home')
   const [conversationTitle, setConversationTitle] = useState(suggestedQuestions[2].title)
   const [conversationAttachments, setConversationAttachments] = useState<LocalAttachment[]>([])
@@ -150,9 +152,10 @@ function HomePage() {
   return (
     <AppLayout
       activeSection={section}
+      activeRecentChat={view === 'conversation' ? conversationTitle : undefined}
       onNewChat={() => setView('chat')}
-      onRecentChat={() => startConversation(recentQuestions[0].title)}
-      onSectionChange={(next) => setView(next)}
+      onRecentChat={(title) => startConversation(title)}
+      onSectionChange={(next) => next === 'community' ? navigate('/community') : setView(next)}
     >
       {view === 'home' ? (
         <HomeView onStartChat={() => setView('chat')} onOpenQuestion={startConversation} onNotify={() => showToast('새로운 알림이 없어요.')} />

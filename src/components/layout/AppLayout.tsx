@@ -6,9 +6,10 @@ export type AppSection = 'home' | 'chat' | 'community' | 'history'
 
 type AppLayoutProps = {
   activeSection: AppSection
+  activeRecentChat?: string
   children: ReactNode
   onNewChat: () => void
-  onRecentChat: () => void
+  onRecentChat: (title: string) => void
   onSectionChange: (section: AppSection) => void
 }
 
@@ -19,7 +20,7 @@ const navigation: { id: AppSection; label: string; icon: 'home' | 'chat' | 'user
   { id: 'history', label: '기록', icon: 'history' },
 ]
 
-function AppLayout({ activeSection, children, onNewChat, onRecentChat, onSectionChange }: AppLayoutProps) {
+function AppLayout({ activeSection, activeRecentChat, children, onNewChat, onRecentChat, onSectionChange }: AppLayoutProps) {
   return (
     <div className="flex min-h-screen bg-[#f6f8fc] text-ink">
       <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-white px-4 py-5 md:flex">
@@ -70,11 +71,12 @@ function AppLayout({ activeSection, children, onNewChat, onRecentChat, onSection
           'Frontend는 뭐부터 공부하면 좋아?',
           '동아리는 언제 정해?',
           '입학하려면 뭘 준비해야 해?',
-        ].map((title, index) => (
+        ].map((title) => (
           <button
             key={title}
-            onClick={onRecentChat}
-            className={`truncate rounded-lg px-2.5 py-2 text-left text-xs transition hover:bg-[#f5f7fb] ${index === 0 ? 'font-medium text-ink' : 'text-sub'}`}
+            onClick={() => onRecentChat(title)}
+            aria-current={activeRecentChat === title ? 'page' : undefined}
+            className={`truncate rounded-lg px-2.5 py-2 text-left text-xs transition hover:bg-[#f5f7fb] ${activeRecentChat === title ? 'bg-[#f6f8fb] font-medium text-ink' : 'text-sub'}`}
           >
             {title}
           </button>
