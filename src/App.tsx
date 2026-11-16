@@ -13,6 +13,8 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/chat" element={<HomePage />} />
+      <Route path="/chat/:conversationId" element={<HomePage />} />
       <Route path="/community" element={<CommunityPage />} />
       <Route path="/history" element={<HistoryPage />} />
       <Route path="/my-page" element={<MyPage />} />

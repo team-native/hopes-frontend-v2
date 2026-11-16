@@ -1,65 +1,54 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import AppLayout, { type AppSection } from '../../components/layout/AppLayout'
-import Icon from '../../components/common/Icon'
-
-type Profile = {
-  name: string
-  bio: string
-}
+import AppLayout from '../../components/layout/AppLayout'
+import Icon, { type IconName } from '../../components/common/Icon'
+import useAppNavigation from '../../hooks/useAppNavigation'
+import useConversations from '../../hooks/useConversations'
+import useProfile from '../../hooks/useProfile'
+import { mockMyComments, mockMyPosts, mockSavedConversations } from '../../mocks/activity'
 
 type ActivityTab = 'posts' | 'comments' | 'saved'
 
-type ActivityItem = {
+type ActivityAction = {
+  label: string
+  icon?: IconName
+  danger?: boolean
+  /** 없으면 아직 구현되지 않은 기능으로 보고 메뉴에서 비활성화한다. */
+  onSelect?: () => void
+}
+
+type ActivityRow = {
+  id: string
+  icon: IconName
   title: string
-  meta: string
   detail?: string
+  meta: string
+  actions: ActivityAction[]
 }
-
-const activityItems: Record<ActivityTab, ActivityItem[]> = {
-  posts: [
-    { title: '기숙사 와이파이 다들 잘 돼?', meta: '10분 전 · ♡ 12 · 댓글 5', detail: '3층 끝방인데 저녁만 되면 너무 느려져서...' },
-    { title: '기숙사 세탁실 이용 시간 아는 사람?', meta: '어제 · ♡ 4 · 댓글 2', detail: '주말에도 밤 10시까지 쓸 수 있는지 궁금해.' },
-  ],
-  comments: [
-    { title: '지금부터 시작해도 충분해. 작은 프로젝트부터 완성해 봐!', meta: '취업 준비 언제부터 시작했어? · 1시간 전' },
-    { title: '관심 분야 정리부터 해두면 도움이 돼.', meta: '취업 준비 언제부터 시작했어? · 2시간 전' },
-    { title: '사감 선생님께 말씀드리면 점검해 주신대!', meta: '기숙사 와이파이 다들 잘 돼? · 어제' },
-    { title: '층마다 운영 시간이 다를 수 있어서 공지 확인해 봐!', meta: '기숙사 세탁실 이용 시간 아는 사람? · 어제' },
-    { title: '관심 분야랑 만들어 보고 싶은 걸 물어봤어.', meta: '전공 동아리 면접 후기 공유 · 2일 전' },
-  ],
-  saved: [
-    { title: '기숙사 하루 일과가 어떻게 돼?', meta: '어제 저장' },
-    { title: 'Frontend는 뭐부터 공부하면 좋아?', meta: '2일 전 저장' },
-    { title: '입학하려면 뭘 준비해야 해?', meta: '5일 전 저장' },
-  ],
-}
-
-const tabs: { id: ActivityTab; label: string; count: number }[] = [
-  { id: 'posts', label: '작성글', count: 2 },
-  { id: 'comments', label: '댓글', count: 5 },
-  { id: 'saved', label: '저장한 대화', count: 3 },
-]
 
 function MyPage() {
-  const navigate = useNavigate()
-  const [profile, setProfile] = useState<Profile>({
-    name: '임서하',
-    bio: '프론트엔드에 관심 많은 10기 학생이에요.',
-  })
-  const [draftProfile, setDraftProfile] = useState(profile)
+  const { openConversation } = useAppNavigation()
+  const { conversations } = useConversations()
+  const { profile, updateProfile } = useProfile()
+  const [draftProfile, setDraftProfile] = useState({ name: profile.name, bio: profile.bio })
   const [isEditing, setIsEditing] = useState(false)
   const [activeTab, setActiveTab] = useState<ActivityTab>('posts')
+  const [posts, setPosts] = useState(mockMyPosts)
+  const [comments, setComments] = useState(mockMyComments)
+  const [saved, setSaved] = useState(mockSavedConversations)
   const [toast, setToast] = useState('')
   const [openActivityMenu, setOpenActivityMenu] = useState<string | null>(null)
 
+  function showToast(message: string) {
+    setToast(message)
+    window.setTimeout(() => setToast(''), 2200)
+  }
+
   function startEditing() {
-    setDraftProfile(profile)
+    setDraftProfile({ name: profile.name, bio: profile.bio })
     setIsEditing(true)
   }
 
   function cancelEditing() {
-    setDraftProfile(profile)
     setIsEditing(false)
   }
 
@@ -67,31 +56,57 @@ function MyPage() {
     event.preventDefault()
     const name = draftProfile.name.trim()
     if (!name) return
-    setProfile({ ...draftProfile, name })
+    updateProfile({ name, bio: draftProfile.bio })
     setIsEditing(false)
-    setToast('프로필을 저장했어요')
-    window.setTimeout(() => setToast(''), 2200)
+    showToast('프로필을 저장했어요')
   }
 
-  function changeSection(section: AppSection) {
-    if (section === 'community') {
-      navigate('/community')
-    } else if (section === 'history') {
-      navigate('/history')
-    } else if (section === 'chat') {
-      navigate('/?view=chat')
-    } else {
-      navigate('/')
-    }
+  // TODO: 삭제·저장 취소는 API 연동 전까지 화면 목록에서만 제거된다(새로고침 시 복구).
+  const rowsByTab: Record<ActivityTab, ActivityRow[]> = {
+    posts: posts.map((post) => ({
+      id: post.id,
+      icon: 'users',
+      title: post.title,
+      detail: post.excerpt,
+      meta: `${post.age} · ♡ ${post.likes} · 댓글 ${post.commentCount}`,
+      actions: [
+        { label: '수정', icon: 'pencil' },
+        { label: '삭제', icon: 'trash', danger: true, onSelect: () => { setPosts((current) => current.filter(({ id }) => id !== post.id)); showToast('작성글을 삭제했어요') } },
+      ],
+    })),
+    comments: comments.map((comment) => ({
+      id: comment.id,
+      icon: 'chat',
+      title: comment.content,
+      meta: `${comment.postTitle} · ${comment.age}`,
+      actions: [
+        { label: '댓글 삭제', icon: 'trash', danger: true, onSelect: () => { setComments((current) => current.filter(({ id }) => id !== comment.id)); showToast('댓글을 삭제했어요') } },
+        { label: '신고' },
+      ],
+    })),
+    saved: saved.map((item) => ({
+      id: item.id,
+      icon: 'bookmark',
+      title: item.title,
+      meta: item.savedAge,
+      actions: [
+        { label: '대화 열기', onSelect: () => openConversation(item.conversationId) },
+        { label: '저장 취소', onSelect: () => { setSaved((current) => current.filter(({ id }) => id !== item.id)); showToast('저장을 취소했어요') } },
+      ],
+    })),
   }
+
+  const tabs: { id: ActivityTab; label: string; count: number }[] = [
+    { id: 'posts', label: '작성글', count: posts.length },
+    { id: 'comments', label: '댓글', count: comments.length },
+    { id: 'saved', label: '저장한 대화', count: saved.length },
+  ]
+
+  const profileMeta = `${profile.department} · ${profile.generation} · ${profile.email}`
+  const activeRows = rowsByTab[activeTab]
 
   return (
-    <AppLayout
-      activeSection="profile"
-      onNewChat={() => navigate('/')}
-      onRecentChat={(title) => navigate(`/?question=${encodeURIComponent(title)}`)}
-      onSectionChange={changeSection}
-    >
+    <AppLayout activeSection="profile">
       <main className="mx-auto w-full max-w-[980px] px-5 pb-10 pt-5 md:px-8 md:pt-6">
         <header className="mb-6 flex items-start justify-between">
           <div>
@@ -108,10 +123,10 @@ function MyPage() {
             {isEditing ? (
               <form onSubmit={saveProfile}>
                 <div className="mb-5 flex items-center gap-3">
-                  <Avatar name={draftProfile.name} />
+                  <Avatar name={draftProfile.name || profile.name} />
                   <div>
                     <h2 className="font-semibold">{draftProfile.name || '이름'}</h2>
-                    <p className="mt-1 text-xs text-sub">인공지능과 · 10기 · s26055@gsm.hs.kr</p>
+                    <p className="mt-1 text-xs text-sub">{profileMeta}</p>
                   </div>
                 </div>
                 <label className="mb-3 block text-xs text-sub">
@@ -134,7 +149,7 @@ function MyPage() {
                   <Avatar name={profile.name} />
                   <div className="min-w-0 flex-1 pt-1">
                     <h2 className="text-base font-semibold">{profile.name}</h2>
-                    <p className="mt-1 truncate text-xs text-sub">인공지능과 · 10기 · s26055@gsm.hs.kr</p>
+                    <p className="mt-1 truncate text-xs text-sub">{profileMeta}</p>
                   </div>
                 </div>
                 <p className="mt-4 text-sm text-ink">{profile.bio}</p>
@@ -144,9 +159,9 @@ function MyPage() {
           </section>
 
           <section className="grid grid-cols-3 divide-x divide-line rounded-[21px] border border-[#edf1f8] bg-white px-2 py-4 shadow-[0_5px_16px_rgba(37,56,95,0.06)] lg:grid-cols-1 lg:divide-x-0 lg:divide-y">
-            <Stat label="작성글" value="2" />
-            <Stat label="댓글" value="5" />
-            <Stat label="대화" value="12" />
+            <Stat label="작성글" value={posts.length} />
+            <Stat label="댓글" value={comments.length} />
+            <Stat label="대화" value={conversations.length} />
           </section>
         </div>
 
@@ -154,7 +169,7 @@ function MyPage() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { setActiveTab(tab.id); setOpenActivityMenu(null) }}
               aria-current={activeTab === tab.id ? 'page' : undefined}
               className={`shrink-0 rounded-full border px-3 py-2 text-xs transition ${activeTab === tab.id ? 'border-[#bfd2ff] bg-[#edf3ff] font-medium text-brand' : 'border-line bg-white text-sub hover:border-[#d7dfef]'}`}
             >
@@ -164,50 +179,46 @@ function MyPage() {
         </nav>
 
         <section className="mt-4 overflow-hidden rounded-[21px] border border-[#edf1f8] bg-white px-4 shadow-[0_5px_16px_rgba(37,56,95,0.06)]" aria-live="polite">
-          {activityItems[activeTab].map((item) => {
-            const menuKey = `${activeTab}-${item.title}-${item.meta}`
-            const actions = activeTab === 'posts' ? ['수정', '삭제'] : activeTab === 'comments' ? ['댓글 삭제', '신고'] : ['저장 취소', '대화 열기']
-
-            return (
-              <article key={menuKey} className="relative flex min-h-[68px] items-center gap-3 border-b border-[#edf0f5] last:border-0">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#edf3ff] text-brand"><Icon name={activeTab === 'posts' ? 'users' : activeTab === 'comments' ? 'chat' : 'bookmark'} className="size-4" /></span>
-                <div className="min-w-0 flex-1 py-3">
-                  <h3 className="truncate text-sm font-medium text-ink">{item.title}</h3>
-                  {item.detail && <p className="mt-1 truncate text-xs text-sub">{item.detail}</p>}
-                </div>
-                <span className="shrink-0 text-[11px] text-[#9aa4ba]">{item.meta}</span>
-                <div className="relative shrink-0">
-                  <button
-                    aria-label={`${item.title} 더보기`}
-                    aria-expanded={openActivityMenu === menuKey}
-                    onClick={() => setOpenActivityMenu((current) => current === menuKey ? null : menuKey)}
-                    className="flex size-7 items-center justify-center rounded-md text-[#9aa4ba] transition hover:bg-[#f5f7fb] hover:text-sub"
-                  >
-                    <Icon name="more" className="size-4" />
-                  </button>
-                  {openActivityMenu === menuKey && (
-                    <div className="absolute right-0 top-full z-20 mt-1 min-w-28 rounded-lg border border-line bg-white p-1 shadow-lg">
-                      {actions.map((action) => (
-                        <button
-                          key={action}
-                          onClick={() => {
-                            setOpenActivityMenu(null)
-                            setToast(`${action} 기능은 화면 목업입니다`)
-                            window.setTimeout(() => setToast(''), 2200)
-                          }}
-                          className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs ${action.includes('삭제') ? 'text-error hover:bg-[#fbf0f1]' : 'text-ink hover:bg-[#f5f7fb]'}`}
-                        >
-                          {action === '수정' && <Icon name="pencil" className="size-4" />}
-                          {action.includes('삭제') && <Icon name="trash" className="size-4" />}
-                          {action}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </article>
-            )
-          })}
+          {activeRows.length === 0 && <p className="py-8 text-center text-xs text-sub">아직 표시할 활동이 없어요.</p>}
+          {activeRows.map((row) => (
+            <article key={row.id} className="relative flex min-h-[68px] items-center gap-3 border-b border-[#edf0f5] last:border-0">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#edf3ff] text-brand"><Icon name={row.icon} className="size-4" /></span>
+              <div className="min-w-0 flex-1 py-3">
+                <h3 className="truncate text-sm font-medium text-ink">{row.title}</h3>
+                {row.detail && <p className="mt-1 truncate text-xs text-sub">{row.detail}</p>}
+              </div>
+              <span className="shrink-0 text-[11px] text-[#9aa4ba]">{row.meta}</span>
+              <div className="relative shrink-0">
+                <button
+                  aria-label={`${row.title} 더보기`}
+                  aria-expanded={openActivityMenu === row.id}
+                  onClick={() => setOpenActivityMenu((current) => current === row.id ? null : row.id)}
+                  className="flex size-7 items-center justify-center rounded-md text-[#9aa4ba] transition hover:bg-[#f5f7fb] hover:text-sub"
+                >
+                  <Icon name="more" className="size-4" />
+                </button>
+                {openActivityMenu === row.id && (
+                  <div className="absolute right-0 top-full z-20 mt-1 min-w-32 rounded-lg border border-line bg-white p-1 shadow-lg">
+                    {row.actions.map((action) => (
+                      <button
+                        key={action.label}
+                        disabled={!action.onSelect}
+                        onClick={() => {
+                          setOpenActivityMenu(null)
+                          action.onSelect?.()
+                        }}
+                        className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs disabled:cursor-not-allowed disabled:text-[#aab3c5] disabled:hover:bg-transparent ${action.danger ? 'text-error hover:bg-[#fbf0f1]' : 'text-ink hover:bg-[#f5f7fb]'}`}
+                      >
+                        {action.icon && <Icon name={action.icon} className="size-4" />}
+                        {action.label}
+                        {!action.onSelect && <span className="ml-auto rounded-full bg-[#f2f4f8] px-1.5 py-0.5 text-[10px] text-sub">준비 중</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </article>
+          ))}
         </section>
       </main>
       {toast && (
@@ -221,10 +232,10 @@ function MyPage() {
 }
 
 function Avatar({ name }: { name: string }) {
-  return <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[#eaf1ff] text-xl font-semibold text-brand">{name.trim().charAt(0) || '임'}</span>
+  return <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[#eaf1ff] text-xl font-semibold text-brand">{name.trim().charAt(0)}</span>
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value }: { label: string; value: number }) {
   return <div className="flex items-center justify-between px-3 py-1.5 lg:px-4"><span className="text-xs text-sub">{label}</span><strong className="text-base font-semibold text-ink">{value}</strong></div>
 }
 

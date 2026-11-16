@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useParams } from 'react-router-dom'
 import type { PDFDocumentLoadingTask } from 'pdfjs-dist'
-import AppLayout, { type AppSection } from '../../components/layout/AppLayout'
+import AppLayout from '../../components/layout/AppLayout'
 import Icon, { type IconName } from '../../components/common/Icon'
-
-const recentQuestions = [
-  { title: '기숙사 하루 일과가 어떻게 돼?', age: '어제' },
-  { title: 'Frontend는 뭐부터 공부하면 좋아?', age: '2일 전' },
-  { title: '동아리는 언제 정해?', age: '5일 전' },
-]
+import useAppNavigation from '../../hooks/useAppNavigation'
+import useConversations from '../../hooks/useConversations'
+import useProfile from '../../hooks/useProfile'
+import type { Conversation, LocalAttachment } from '../../types/conversation'
+import { ATTACHMENT_ACCEPT, MAX_ATTACHMENT_COUNT, canDisplayImage, checkAttachmentFile, matchesFileSignature } from '../../utils/attachments'
+import type { Profile } from '../../types/profile'
+import logo from '../../assets/logo.svg'
 
 const popularQuestions = [
   { title: '전공 동아리 면접 후기 공유', meta: '전체 · ♡ 34' },
@@ -33,15 +34,6 @@ type MockAnswer = {
   reference?: string
   citation?: string
   locationActions?: boolean
-}
-
-type LocalAttachment = {
-  id: string
-  file: File
-  previewUrl?: string
-  uploadProgress: number
-  pageCount?: number
-  uploadError?: string
 }
 
 const mockAnswers = {
@@ -107,38 +99,38 @@ function getMockAnswer(question: string): MockAnswer {
 }
 
 function getAttachmentAnswer(attachments: LocalAttachment[]): MockAnswer {
-  const pdfAttachment = attachments.find(({ file }) => file.name.toLowerCase().endsWith('.pdf'))
+  const pdfAttachment = attachments.find(({ format }) => format === 'pdf')
   const reference = pdfAttachment?.file.name ?? attachments[0].file.name
   const answer = /생활수칙|생활규정|외출/.test(reference) ? mockAnswers.dormRules : mockAnswers.attachment
   const pages = pdfAttachment?.pageCount ? ` · 1-${pdfAttachment.pageCount}쪽 기반` : ' · 첨부 자료 기반'
   return { ...answer, citation: `${reference}${pages}` }
 }
 
+const RECENT_CONVERSATION_COUNT = 3
+
+type HomeScreen = 'home' | 'chat' | 'conversation'
+
 function HomePage() {
-  const [searchParams] = useSearchParams()
-  const initialQuestion = searchParams.get('question')
-  const navigate = useNavigate()
-  const [view, setView] = useState<AppSection | 'conversation'>(() => (
-    initialQuestion ? 'conversation' : searchParams.get('view') === 'chat' ? 'chat' : 'home'
-  ))
-  const [conversationTitle, setConversationTitle] = useState(initialQuestion ?? suggestedQuestions[2].title)
-  const [conversationAttachments, setConversationAttachments] = useState<LocalAttachment[]>([])
+  // 화면 상태는 URL에서 매 렌더마다 계산한다. (/ → 홈, /chat → 새 대화, /chat/:conversationId → 대화)
+  const { conversationId } = useParams()
+  const { pathname } = useLocation()
+  const screen: HomeScreen = conversationId ? 'conversation' : pathname.startsWith('/chat') ? 'chat' : 'home'
+
+  const { goToSection, startNewChat, openConversation } = useAppNavigation()
+  const { conversations, getConversation, createConversation } = useConversations()
+  const { profile } = useProfile()
+  const conversation = conversationId ? getConversation(conversationId) : undefined
+
   const [draft, setDraft] = useState('')
   const [department, setDepartment] = useState('소프트웨어개발과')
   const [major, setMajor] = useState('Frontend')
   const [openFilter, setOpenFilter] = useState<'department' | 'major' | null>(null)
   const [toast, setToast] = useState('')
 
-  const section: AppSection = view === 'conversation' ? 'chat' : view
-
   function startConversation(question: string, attachments: LocalAttachment[] = []) {
-    conversationAttachments.forEach((attachment) => {
-      if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl)
-    })
-    setConversationTitle(question)
-    setConversationAttachments(attachments)
+    const id = createConversation(question, attachments)
     setDraft('')
-    setView('conversation')
+    openConversation(id)
   }
 
   function showToast(message: string) {
@@ -146,24 +138,31 @@ function HomePage() {
     window.setTimeout(() => setToast(''), 2200)
   }
 
+  /** 질문을 받아 새 대화를 만들었으면 true. 첨부는 이때 대화로 소유권이 넘어간다. */
   function submitQuestion(event: FormEvent<HTMLFormElement>, attachments: LocalAttachment[] = [], questionOverride = draft) {
     event.preventDefault()
     const question = questionOverride.trim() || (attachments.length > 0 ? '첨부 자료 요약해줘' : '')
-    if (!question) return
+    if (!question) return false
     startConversation(question, attachments)
+    return true
   }
 
   return (
     <AppLayout
-      activeSection={section}
-      activeRecentChat={view === 'conversation' ? conversationTitle : undefined}
-      onNewChat={() => setView('chat')}
-      onRecentChat={(title) => startConversation(title)}
-      onSectionChange={(next) => next === 'community' ? navigate('/community') : setView(next)}
+      activeSection={screen === 'home' ? 'home' : 'chat'}
+      activeConversationId={conversation?.id}
     >
-      {view === 'home' ? (
-        <HomeView onStartChat={() => setView('chat')} onOpenQuestion={startConversation} onNotify={() => showToast('새로운 알림이 없어요.')} />
-      ) : view === 'chat' ? (
+      {screen === 'home' ? (
+        <HomeView
+          profile={profile}
+          recentConversations={conversations.slice(0, RECENT_CONVERSATION_COUNT)}
+          onStartChat={startNewChat}
+          onOpenConversation={openConversation}
+          onOpenQuestion={startConversation}
+          onShowHistory={() => goToSection('history')}
+          onNotify={() => showToast('새로운 알림이 없어요.')}
+        />
+      ) : screen === 'chat' ? (
         <NewChatView
           department={department}
           major={major}
@@ -172,21 +171,23 @@ function HomePage() {
           onDepartmentChange={setDepartment}
           onMajorChange={setMajor}
           onOpenQuestion={startConversation}
+          onShowHistory={() => goToSection('history')}
           draft={draft}
           onDraftChange={setDraft}
           onSubmit={submitQuestion}
         />
-      ) : view === 'conversation' ? (
+      ) : conversation ? (
         <ConversationView
-          title={conversationTitle}
+          key={conversation.id}
+          title={conversation.title}
           draft={draft}
           onDraftChange={setDraft}
           onSubmit={submitQuestion}
           onToast={showToast}
-          attachments={conversationAttachments}
+          attachments={conversation.attachments ?? []}
         />
       ) : (
-        <CollectionView section={view} onOpenQuestion={startConversation} />
+        <ConversationNotFound onNewChat={startNewChat} onShowHistory={() => goToSection('history')} />
       )}
       {toast && (
         <div role="status" className="fixed bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#202432] px-4 py-2.5 text-xs text-white shadow-lg">
@@ -199,18 +200,22 @@ function HomePage() {
 }
 
 type HomeViewProps = {
+  profile: Profile
+  recentConversations: Conversation[]
   onStartChat: () => void
+  onOpenConversation: (conversationId: string) => void
   onOpenQuestion: (question: string) => void
+  onShowHistory: () => void
   onNotify: () => void
 }
 
-function HomeView({ onStartChat, onOpenQuestion, onNotify }: HomeViewProps) {
+function HomeView({ profile, recentConversations, onStartChat, onOpenConversation, onOpenQuestion, onShowHistory, onNotify }: HomeViewProps) {
   return (
     <main className="mx-auto w-full max-w-[1080px] px-5 pb-10 pt-5 md:px-8 md:pt-6">
       <header className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-[22px] font-bold leading-tight md:text-2xl"><span className="text-brand">안녕하세요,</span> 임서하님</h1>
-          <p className="mt-1 text-sm text-sub">인공지능과 · 10기</p>
+          <h1 className="text-[22px] font-bold leading-tight md:text-2xl"><span className="text-brand">안녕하세요,</span> {profile.name}님</h1>
+          <p className="mt-1 text-sm text-sub">{profile.department} · {profile.generation}</p>
         </div>
         <button onClick={onNotify} aria-label="알림" className="flex size-10 items-center justify-center rounded-xl bg-white text-sub shadow-[0_3px_12px_rgba(26,42,78,0.08)] transition hover:text-primary">
           <Icon name="bell" />
@@ -224,9 +229,10 @@ function HomeView({ onStartChat, onOpenQuestion, onNotify }: HomeViewProps) {
       </section>
 
       <div className="mx-auto grid max-w-[854px] grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr]">
-        <ListPanel title="이어서 하기" action="더보기" onAction={() => onOpenQuestion(recentQuestions[0].title)}>
-          {recentQuestions.map((item) => (
-            <button key={item.title} onClick={() => onOpenQuestion(item.title)} className="flex min-h-[50px] w-full items-center justify-between gap-3 border-b border-[#edf0f5] text-left last:border-0">
+        <ListPanel title="이어서 하기" action="더보기" onAction={onShowHistory}>
+          {recentConversations.length === 0 && <p className="py-4 text-xs text-sub">아직 대화가 없어요.</p>}
+          {recentConversations.map((item) => (
+            <button key={item.id} onClick={() => onOpenConversation(item.id)} className="flex min-h-[50px] w-full items-center justify-between gap-3 border-b border-[#edf0f5] text-left last:border-0">
               <span className="truncate text-sm">{item.title}</span><span className="shrink-0 text-xs text-[#9aa4ba]">{item.age}</span>
             </button>
           ))}
@@ -286,12 +292,13 @@ type NewChatViewProps = {
   onDepartmentChange: (value: string) => void
   onMajorChange: (value: string) => void
   onOpenQuestion: (question: string) => void
+  onShowHistory: () => void
   draft: string
   onDraftChange: (value: string) => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }
 
-function NewChatView({ department, major, openFilter, onFilterToggle, onDepartmentChange, onMajorChange, onOpenQuestion, draft, onDraftChange, onSubmit }: NewChatViewProps) {
+function NewChatView({ department, major, openFilter, onFilterToggle, onDepartmentChange, onMajorChange, onOpenQuestion, onShowHistory, draft, onDraftChange, onSubmit }: NewChatViewProps) {
   const departments = ['소프트웨어개발과', '스마트IoT과', '인공지능과']
   const majors = ['Frontend', 'Backend', 'AI']
 
@@ -302,7 +309,7 @@ function NewChatView({ department, major, openFilter, onFilterToggle, onDepartme
         <div className="flex items-center gap-2">
           <FilterMenu label={department} menu="department" value={department} values={departments} openFilter={openFilter} onToggle={onFilterToggle} onChange={onDepartmentChange} />
           <FilterMenu label={major} menu="major" value={major} values={majors} openFilter={openFilter} onToggle={onFilterToggle} onChange={onMajorChange} />
-          <button onClick={() => onOpenQuestion(recentQuestions[0].title)} className="hidden rounded-lg border border-line bg-white px-3 py-2 text-xs font-medium text-brand sm:block">대화 기록</button>
+          <button onClick={onShowHistory} className="hidden rounded-lg border border-line bg-white px-3 py-2 text-xs font-medium text-brand sm:block">대화 기록</button>
         </div>
       </header>
 
@@ -384,7 +391,7 @@ type ConversationViewProps = {
   draft: string
   attachments: LocalAttachment[]
   onDraftChange: (value: string) => void
-  onSubmit: (event: FormEvent<HTMLFormElement>, attachments: LocalAttachment[], question: string) => void
+  onSubmit: (event: FormEvent<HTMLFormElement>, attachments: LocalAttachment[], question: string) => boolean
   onToast: (message: string) => void
 }
 
@@ -395,47 +402,55 @@ function ConversationView({ title, draft, attachments, onDraftChange, onSubmit, 
   const [dropzoneOpen, setDropzoneOpen] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const ownedAttachmentsRef = useRef<LocalAttachment[]>([])
-  const uploadTimersRef = useRef<Map<string, number>>(new Map())
-  const pdfTasksRef = useRef(new Map<string, PDFDocumentLoadingTask>())
+  // 첨부 리소스 소유권: 전송 전까지는 이 컴포저가 소유하고, 제거·화면 종료 시 해제한다.
+  // 전송하면 미리보기 URL의 소유권은 대화(ConversationProvider)로 넘어간다.
+  const processingJobsRef = useRef(new Map<string, AbortController>())
+  const ownedPreviewUrlsRef = useRef(new Map<string, string>())
 
-  useEffect(() => () => {
-    uploadTimersRef.current.forEach((timer) => window.clearTimeout(timer))
-    pdfTasksRef.current.forEach((task) => { void task.destroy().catch(() => undefined) })
-    ownedAttachmentsRef.current.forEach((attachment) => {
-      if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl)
-    })
+  useEffect(() => {
+    const jobs = processingJobsRef.current
+    const previewUrls = ownedPreviewUrlsRef.current
+    return () => {
+      jobs.forEach((job) => job.abort())
+      jobs.clear()
+      previewUrls.forEach((url) => URL.revokeObjectURL(url))
+      previewUrls.clear()
+    }
   }, [])
+
+  function updateAttachment(id: string, changes: Partial<LocalAttachment>) {
+    setSelectedAttachments((current) => current.map((item) => (item.id === id ? { ...item, ...changes } : item)))
+  }
 
   function addFiles(fileList: FileList | File[]) {
     const incomingFiles = Array.from(fileList)
-    const supportedExtensions = ['jpg', 'jpeg', 'png', 'heic', 'pdf']
-    const supportedFiles = incomingFiles.filter((file) => {
-      const extension = file.name.split('.').pop()?.toLowerCase()
-      return extension && supportedExtensions.includes(extension)
-    })
-    const validFiles = supportedFiles.filter((file) => file.size <= 20 * 1024 * 1024)
-    const remainingSlots = Math.max(0, 5 - selectedAttachments.length)
+    const checks = incomingFiles.map((file) => ({ file, check: checkAttachmentFile(file) }))
+    const validFiles = checks.flatMap(({ file, check }) => (check.ok ? [{ file, format: check.format }] : []))
+    const remainingSlots = Math.max(0, MAX_ATTACHMENT_COUNT - selectedAttachments.length)
     const acceptedFiles = validFiles.slice(0, remainingSlots)
 
-    const newAttachments = acceptedFiles.map((file) => ({
-      id: crypto.randomUUID(),
-      file,
-      previewUrl: /\.(jpe?g|png)$/i.test(file.name) ? URL.createObjectURL(file) : undefined,
-      uploadProgress: 30,
-      pageCount: undefined,
-      uploadError: undefined,
-    }))
-    ownedAttachmentsRef.current.push(...newAttachments)
+    const newAttachments: LocalAttachment[] = acceptedFiles.map(({ file, format }) => {
+      const id = crypto.randomUUID()
+      // JPG·PNG는 모든 브라우저가 표시할 수 있어 바로 미리보기를 만든다. HEIC는 처리 단계에서 지원 여부를 확인한다.
+      const previewUrl = format === 'jpeg' || format === 'png' ? URL.createObjectURL(file) : undefined
+      if (previewUrl) ownedPreviewUrlsRef.current.set(id, previewUrl)
+      return { id, file, format, status: 'processing', previewUrl }
+    })
     setSelectedAttachments((current) => [...current, ...newAttachments])
-    newAttachments.forEach((attachment) => { void prepareAttachment(attachment) })
+    newAttachments.forEach((attachment) => {
+      const job = new AbortController()
+      processingJobsRef.current.set(attachment.id, job)
+      void processAttachment(attachment, job.signal).finally(() => {
+        if (processingJobsRef.current.get(attachment.id) === job) processingJobsRef.current.delete(attachment.id)
+      })
+    })
 
-    if (supportedFiles.length < incomingFiles.length) {
+    if (checks.some(({ check }) => !check.ok && check.reason === 'type')) {
       setAttachmentError('이미지(JPG·PNG·HEIC)와 PDF만 첨부할 수 있어요.')
-    } else if (validFiles.length < supportedFiles.length) {
+    } else if (checks.some(({ check }) => !check.ok && check.reason === 'size')) {
       setAttachmentError('파일당 최대 20MB까지 첨부할 수 있어요.')
     } else if (validFiles.length > remainingSlots) {
-      setAttachmentError('한 번에 최대 5개까지 첨부할 수 있어요.')
+      setAttachmentError(`한 번에 최대 ${MAX_ATTACHMENT_COUNT}개까지 첨부할 수 있어요.`)
     } else {
       setAttachmentError('')
     }
@@ -443,34 +458,55 @@ function ConversationView({ title, draft, attachments, onDraftChange, onSubmit, 
     setDropzoneOpen(false)
   }
 
-  async function prepareAttachment(attachment: LocalAttachment) {
-    let pageCount: number | undefined
+  // 브라우저 안에서만 하는 확인 작업이다. 서버 업로드는 하지 않는다.
+  async function processAttachment(attachment: LocalAttachment, signal: AbortSignal) {
+    const { id, file, format } = attachment
+    let pdfTask: PDFDocumentLoadingTask | undefined
+    const destroyPdfTask = () => { void pdfTask?.destroy().catch(() => undefined) }
+
     try {
-      if (attachment.file.name.toLowerCase().endsWith('.pdf')) {
-        const pdfjsLib = await import('pdfjs-dist')
-        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
-        const task = pdfjsLib.getDocument({ data: await attachment.file.arrayBuffer() })
-        pdfTasksRef.current.set(attachment.id, task)
-        pageCount = (await task.promise).numPages
-        pdfTasksRef.current.delete(attachment.id)
+      const signatureMatches = await matchesFileSignature(file, format)
+      if (signal.aborted) return
+      if (!signatureMatches) {
+        updateAttachment(id, { status: 'error', error: '파일 내용이 형식과 맞지 않아요.' })
+        return
       }
 
-      if (!ownedAttachmentsRef.current.some(({ id }) => id === attachment.id)) return
-      const timer = window.setTimeout(() => {
-        setSelectedAttachments((current) => current.map((item) => (
-          item.id === attachment.id ? { ...item, uploadProgress: 100, pageCount } : item
-        )))
-        uploadTimersRef.current.delete(attachment.id)
-      }, 1200)
-      uploadTimersRef.current.set(attachment.id, timer)
+      if (format === 'pdf') {
+        const pdfjsLib = await import('pdfjs-dist')
+        if (signal.aborted) return
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
+        const data = await file.arrayBuffer()
+        if (signal.aborted) return
+        pdfTask = pdfjsLib.getDocument({ data })
+        signal.addEventListener('abort', destroyPdfTask, { once: true })
+        const pdf = await pdfTask.promise
+        if (signal.aborted) return
+        updateAttachment(id, { status: 'ready', pageCount: pdf.numPages })
+        return
+      }
+
+      if (format === 'heic') {
+        const url = URL.createObjectURL(file)
+        const displayable = await canDisplayImage(url)
+        if (signal.aborted || !displayable) {
+          URL.revokeObjectURL(url)
+          if (!signal.aborted) updateAttachment(id, { status: 'ready', previewUnsupported: true })
+          return
+        }
+        ownedPreviewUrlsRef.current.set(id, url)
+        updateAttachment(id, { status: 'ready', previewUrl: url })
+        return
+      }
+
+      updateAttachment(id, { status: 'ready' })
     } catch {
-      pdfTasksRef.current.delete(attachment.id)
-      if (!ownedAttachmentsRef.current.some(({ id }) => id === attachment.id)) return
-      setSelectedAttachments((current) => current.map((item) => (
-        item.id === attachment.id
-          ? { ...item, uploadProgress: 100, uploadError: 'PDF를 읽지 못했어요. 파일을 확인해 주세요.' }
-          : item
-      )))
+      if (signal.aborted) return
+      updateAttachment(id, { status: 'error', error: format === 'pdf' ? 'PDF를 읽지 못했어요. 파일을 확인해 주세요.' : '파일을 읽지 못했어요.' })
+    } finally {
+      // 쪽수만 필요하므로 성공·실패·취소와 관계없이 PDF 문서와 워커 리소스를 정리한다.
+      signal.removeEventListener('abort', destroyPdfTask)
+      destroyPdfTask()
     }
   }
 
@@ -486,36 +522,30 @@ function ConversationView({ title, draft, attachments, onDraftChange, onSubmit, 
   }
 
   function removeSelectedFile(id: string) {
-    const uploadTimer = uploadTimersRef.current.get(id)
-    if (uploadTimer !== undefined) window.clearTimeout(uploadTimer)
-    uploadTimersRef.current.delete(id)
-    const pdfTask = pdfTasksRef.current.get(id)
-    if (pdfTask) void pdfTask.destroy().catch(() => undefined)
-    pdfTasksRef.current.delete(id)
-    const removedAttachment = ownedAttachmentsRef.current.find((attachment) => attachment.id === id)
-    if (removedAttachment?.previewUrl) URL.revokeObjectURL(removedAttachment.previewUrl)
-    ownedAttachmentsRef.current = ownedAttachmentsRef.current.filter((attachment) => attachment.id !== id)
+    processingJobsRef.current.get(id)?.abort()
+    processingJobsRef.current.delete(id)
+    const previewUrl = ownedPreviewUrlsRef.current.get(id)
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    ownedPreviewUrlsRef.current.delete(id)
     setSelectedAttachments((current) => current.filter((attachment) => attachment.id !== id))
     setAttachmentError('')
   }
 
-  function handleConversationSubmit(event: FormEvent<HTMLFormElement>) {
-    if (selectedAttachments.some((attachment) => attachment.uploadProgress < 100 || attachment.uploadError)) {
-      event.preventDefault()
-      return
-    }
-    const question = draft.trim() || (selectedAttachments.length > 0 ? '첨부 자료 요약해줘' : '')
-    if (!question) {
-      event.preventDefault()
-      return
-    }
+  const hasUnreadyAttachment = selectedAttachments.some(({ status }) => status !== 'ready')
+  const fileErrors = selectedAttachments.filter(({ format, error }) => format !== 'pdf' && error)
+  const hasUnsupportedPreview = selectedAttachments.some(({ previewUnsupported }) => previewUnsupported)
 
-    onSubmit(event, selectedAttachments, question)
-    uploadTimersRef.current.forEach((timer) => window.clearTimeout(timer))
-    uploadTimersRef.current.clear()
-    pdfTasksRef.current.forEach((task) => { void task.destroy().catch(() => undefined) })
-    pdfTasksRef.current.clear()
-    ownedAttachmentsRef.current = []
+  function handleConversationSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (hasUnreadyAttachment) return
+    const question = draft.trim() || (selectedAttachments.length > 0 ? '첨부 자료 요약해줘' : '')
+    if (!question) return
+
+    const accepted = onSubmit(event, selectedAttachments, question)
+    if (!accepted) return
+    // 전송한 첨부의 미리보기 URL은 대화가 소유하므로 여기서는 해제하지 않고 소유 목록에서만 뺀다.
+    processingJobsRef.current.clear()
+    ownedPreviewUrlsRef.current.clear()
     setSelectedAttachments([])
     setAttachmentError('')
   }
@@ -529,12 +559,12 @@ function ConversationView({ title, draft, attachments, onDraftChange, onSubmit, 
       <section className="mx-auto flex w-full max-w-[654px] flex-1 flex-col justify-end gap-4 py-8">
         {attachments.length > 0 && (
           <div className="flex flex-wrap justify-end gap-2" aria-label="전송한 첨부 파일">
-            {attachments.map((attachment) => <AttachmentItem key={attachment.id} file={attachment.file} previewUrl={attachment.previewUrl} variant="sent" />)}
+            {attachments.map((attachment) => <AttachmentItem key={attachment.id} attachment={attachment} variant="sent" />)}
           </div>
         )}
         <div className="flex justify-end"><div className="max-w-[85%] rounded-[19px] rounded-br-md bg-primary px-4 py-3 text-sm text-white shadow-[0_6px_15px_rgba(95,134,239,0.2)]">{title}</div></div>
         <div className="flex items-start gap-3">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#e9eef8] bg-white text-primary shadow-sm"><img src="/src/assets/logo.svg" alt="" className="size-5" /></span>
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#e9eef8] bg-white text-primary shadow-sm"><img src={logo} alt="" className="size-5" /></span>
           <article className="min-w-0 flex-1 rounded-[19px] border border-[#edf1f8] bg-white p-4 shadow-[0_5px_16px_rgba(37,56,95,0.06)]">
             <h2 className="text-base font-semibold">{answer.heading}</h2>
             <p className="mt-2 text-sm leading-6 text-ink">{answer.body}</p>
@@ -570,14 +600,19 @@ function ConversationView({ title, draft, attachments, onDraftChange, onSubmit, 
             {selectedAttachments.map((attachment) => (
               <AttachmentItem
                 key={attachment.id}
-                file={attachment.file}
-                previewUrl={attachment.previewUrl}
-                pageCount={attachment.pageCount}
-                uploadProgress={attachment.uploadProgress}
-                uploadError={attachment.uploadError}
+                attachment={attachment}
                 onRemove={() => removeSelectedFile(attachment.id)}
               />
             ))}
+          </div>
+        )}
+        {selectedAttachments.length > 0 && (
+          <div className="mb-3 space-y-1 text-[11px]">
+            {fileErrors.map((attachment) => (
+              <p key={attachment.id} className="flex items-center gap-1 text-error"><Icon name="alert" className="size-3.5 shrink-0" /><span className="truncate">{attachment.file.name} · {attachment.error}</span></p>
+            ))}
+            {hasUnsupportedPreview && <p className="flex items-center gap-1 text-sub"><Icon name="info" className="size-3.5 shrink-0" />이 브라우저에서는 HEIC 미리보기를 지원하지 않아요. 파일은 그대로 첨부돼요.</p>}
+            <p className="flex items-center gap-1 text-[#9aa4ba]"><Icon name="info" className="size-3.5 shrink-0" />목업 단계라 첨부 파일은 서버로 업로드되지 않아요.</p>
           </div>
         )}
         <div className="flex items-center gap-3">
@@ -585,14 +620,14 @@ function ConversationView({ title, draft, attachments, onDraftChange, onSubmit, 
             <Icon name="plus" className="size-[18px]" />
           </button>
           <input value={draft} onChange={(event) => onDraftChange(event.target.value)} placeholder={selectedAttachments.length > 0 ? '자료에 대해 질문하기' : '추가 질문 입력...'} aria-label="추가 질문 입력" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#aab3c5]" />
-          <button type="submit" disabled={(!draft.trim() && selectedAttachments.length === 0) || selectedAttachments.some((attachment) => attachment.uploadProgress < 100 || attachment.uploadError)} aria-label="질문 보내기" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_4px_12px_rgba(95,134,239,0.25)] transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-[#b9cef7]">
+          <button type="submit" disabled={(!draft.trim() && selectedAttachments.length === 0) || hasUnreadyAttachment} aria-label="질문 보내기" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_4px_12px_rgba(95,134,239,0.25)] transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-[#b9cef7]">
             <Icon name="arrow-up" className="size-[18px]" />
           </button>
         </div>
       </form>
       {dropzoneOpen && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#edf3ff]/85 p-5 backdrop-blur-[1px] md:p-8">
-          <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.heic,.pdf" multiple className="sr-only" onChange={handleFileSelection} />
+          <input ref={fileInputRef} type="file" accept={ATTACHMENT_ACCEPT} multiple className="sr-only" onChange={handleFileSelection} />
           <button type="button" aria-label="첨부 닫기" onClick={() => setDropzoneOpen(false)} className="absolute right-4 top-4 flex size-9 items-center justify-center rounded-full bg-white text-sub shadow-sm hover:text-ink">
             <Icon name="x" className="size-5" />
           </button>
@@ -614,8 +649,9 @@ function ConversationView({ title, draft, attachments, onDraftChange, onSubmit, 
   )
 }
 
-function AttachmentItem({ file, previewUrl, pageCount, uploadProgress = 100, uploadError, onRemove, variant = 'composer' }: { file: File; previewUrl?: string; pageCount?: number; uploadProgress?: number; uploadError?: string; onRemove?: () => void; variant?: 'composer' | 'sent' }) {
-  const isImageFile = /\.(jpe?g|png|heic)$/i.test(file.name)
+function AttachmentItem({ attachment, onRemove, variant = 'composer' }: { attachment: LocalAttachment; onRemove?: () => void; variant?: 'composer' | 'sent' }) {
+  const { file, format, status, previewUrl, previewUnsupported, pageCount, error } = attachment
+  const isImageFile = format !== 'pdf'
 
   if (variant === 'sent') {
     return (
@@ -629,13 +665,15 @@ function AttachmentItem({ file, previewUrl, pageCount, uploadProgress = 100, upl
   }
 
   if (isImageFile) {
+    const statusLabel = status === 'processing' ? '확인 중' : status === 'error' ? '오류' : previewUnsupported ? 'HEIC' : undefined
     return (
-      <div className="relative size-14">
-        <span className="flex size-full items-center justify-center overflow-hidden rounded-xl border border-[#edf1f8] bg-[#f7f9fc] text-primary">
-          {previewUrl ? <img src={previewUrl} alt={file.name} className="size-full object-cover" /> : <Icon name="image" className="size-5" />}
+      <div className="relative size-14" title={error ?? file.name}>
+        <span className={`flex size-full items-center justify-center overflow-hidden rounded-xl border bg-[#f7f9fc] text-primary ${status === 'error' ? 'border-error text-error' : 'border-[#edf1f8]'}`}>
+          {previewUrl ? <img src={previewUrl} alt={file.name} className={`size-full object-cover ${status === 'processing' ? 'opacity-50' : ''}`} /> : <Icon name={status === 'error' ? 'alert' : 'image'} className="size-5" />}
         </span>
+        {statusLabel && <span className={`absolute inset-x-1 bottom-1 rounded bg-white/90 text-center text-[9px] font-medium ${status === 'error' ? 'text-error' : 'text-sub'} ${status === 'processing' ? 'animate-pulse' : ''}`}>{statusLabel}</span>}
         {onRemove && (
-          <button type="button" aria-label={`${file.name} 업로드 취소`} title="업로드 취소" onClick={onRemove} className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-[#202432] text-white shadow-sm">
+          <button type="button" aria-label={`${file.name} 첨부 취소`} title="첨부 취소" onClick={onRemove} className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-[#202432] text-white shadow-sm">
             <Icon name="x" className="size-4" />
           </button>
         )}
@@ -644,20 +682,20 @@ function AttachmentItem({ file, previewUrl, pageCount, uploadProgress = 100, upl
   }
 
   return (
-    <div className={`flex h-12 w-[220px] min-w-[180px] max-w-full items-center gap-2 rounded-xl border px-2.5 ${uploadError ? 'border-[#f2c9cc] bg-[#fff8f8]' : 'border-[#edf1f8] bg-white'}`}>
-      <span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${uploadError ? 'bg-[#fbeaec] text-error' : 'bg-[#edf3ff] text-primary'}`}><Icon name="file" className="size-4" /></span>
+    <div className={`flex h-12 w-[220px] min-w-[180px] max-w-full items-center gap-2 rounded-xl border px-2.5 ${error ? 'border-[#f2c9cc] bg-[#fff8f8]' : 'border-[#edf1f8] bg-white'}`}>
+      <span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${error ? 'bg-[#fbeaec] text-error' : 'bg-[#edf3ff] text-primary'}`}><Icon name="file" className="size-4" /></span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-xs font-medium text-ink">{file.name}</span>
-        {uploadError ? (
-          <span className="mt-0.5 block truncate text-[11px] text-error">{uploadError}</span>
-        ) : uploadProgress < 100 ? (
-          <span className="mt-0.5 block text-[11px] text-sub">업로드 중 · {uploadProgress}%</span>
-        ) : pageCount ? (
-          <span className="mt-0.5 block text-[11px] text-sub">PDF · {pageCount}쪽</span>
-        ) : null}
+        {error ? (
+          <span className="mt-0.5 block truncate text-[11px] text-error">{error}</span>
+        ) : status === 'processing' ? (
+          <span className="mt-0.5 block animate-pulse text-[11px] text-sub">파일 확인 중…</span>
+        ) : (
+          <span className="mt-0.5 block truncate text-[11px] text-sub">PDF{pageCount ? ` · ${pageCount}쪽` : ''} · 첨부 준비됨</span>
+        )}
       </span>
       {onRemove && (
-        <button type="button" aria-label={`${file.name} 업로드 취소`} title="업로드 취소" onClick={onRemove} className="flex size-6 shrink-0 items-center justify-center rounded-md text-[#aab3c5] transition hover:bg-[#f2f5fb] hover:text-sub">
+        <button type="button" aria-label={`${file.name} 첨부 취소`} title="첨부 취소" onClick={onRemove} className="flex size-6 shrink-0 items-center justify-center rounded-md text-[#aab3c5] transition hover:bg-[#f2f5fb] hover:text-sub">
           <Icon name="x" className="size-4" />
         </button>
       )}
@@ -665,18 +703,15 @@ function AttachmentItem({ file, previewUrl, pageCount, uploadProgress = 100, upl
   )
 }
 
-function CollectionView({ section, onOpenQuestion }: { section: 'community' | 'history'; onOpenQuestion: (question: string) => void }) {
-  const isHistory = section === 'history'
-  const items = isHistory ? recentQuestions.map(({ title, age }) => ({ title, meta: age })) : popularQuestions
+function ConversationNotFound({ onNewChat, onShowHistory }: { onNewChat: () => void; onShowHistory: () => void }) {
   return (
-    <main className="mx-auto w-full max-w-[900px] px-5 py-8 md:px-8">
-      <h1 className="text-2xl font-bold">{isHistory ? '대화 기록' : '커뮤니티'}</h1>
-      <div className="mt-6 overflow-hidden rounded-[20px] border border-[#edf1f8] bg-white px-5 shadow-[0_5px_16px_rgba(37,56,95,0.06)]">
-        {items.map((item) => (
-          <button key={item.title} onClick={() => onOpenQuestion(item.title)} className="flex min-h-[64px] w-full items-center justify-between gap-4 border-b border-[#edf0f5] text-left last:border-0">
-            <span className="truncate text-sm font-medium">{item.title}</span><span className="shrink-0 text-xs text-sub">{item.meta}</span>
-          </button>
-        ))}
+    <main className="flex flex-1 flex-col items-center justify-center px-5 py-16 text-center">
+      <span className="flex size-14 items-center justify-center rounded-full bg-[#edf3ff] text-brand"><Icon name="chat" className="size-6" /></span>
+      <h1 className="mt-3 text-base font-semibold">대화를 찾을 수 없어요</h1>
+      <p className="mt-1 text-xs text-sub">삭제되었거나, 새로고침으로 사라진 임시 대화예요.</p>
+      <div className="mt-4 flex gap-2">
+        <button onClick={onShowHistory} className="h-9 rounded-lg border border-line bg-white px-3 text-xs font-medium text-brand">대화 기록</button>
+        <button onClick={onNewChat} className="h-9 rounded-lg bg-primary px-3 text-xs font-medium text-white hover:bg-primary-hover">새 대화</button>
       </div>
     </main>
   )

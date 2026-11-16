@@ -1,27 +1,13 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import AppLayout, { type AppSection } from '../../components/layout/AppLayout'
+import AppLayout from '../../components/layout/AppLayout'
 import Icon from '../../components/common/Icon'
-
-type Conversation = {
-  id: string
-  title: string
-  preview: string
-  age: string
-  daysAgo: number
-}
-
-const initialConversations: Conversation[] = [
-  { id: 'dorm-routine', title: '기숙사 하루 일과가 어떻게 돼?', preview: '평일은 저녁 식사 후 자습, 점호 순서로...', age: '어제', daysAgo: 1 },
-  { id: 'frontend-start', title: 'Frontend는 뭐부터 공부하면 좋아?', preview: '처음에는 HTML·CSS로 간단한 페이지를...', age: '2일 전', daysAgo: 2 },
-  { id: 'club-timing', title: '동아리는 언제 정해?', preview: '보통 3월 첫째 주에 동아리 박람회가...', age: '5일 전', daysAgo: 5 },
-  { id: 'admission-prep', title: '입학하려면 뭘 준비해야 해?', preview: '자기소개서와 면접 준비가 가장 중요해요...', age: '2주 전', daysAgo: 14 },
-  { id: 'department-major', title: '과랑 전공이랑 뭐가 달라?', preview: '과는 학교의 학과를 말하고, 전공은...', age: '3주 전', daysAgo: 21 },
-]
+import useAppNavigation from '../../hooks/useAppNavigation'
+import useConversations from '../../hooks/useConversations'
+import type { Conversation } from '../../types/conversation'
 
 function HistoryPage() {
-  const navigate = useNavigate()
-  const [conversations, setConversations] = useState(initialConversations)
+  const { startNewChat, openConversation: openConversationById } = useAppNavigation()
+  const { conversations, deleteConversation } = useConversations()
   const [search, setSearch] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Conversation | null>(null)
 
@@ -34,37 +20,25 @@ function HistoryPage() {
   const recent = filtered.filter(({ daysAgo }) => daysAgo <= 7)
   const older = filtered.filter(({ daysAgo }) => daysAgo > 7)
 
-  function changeSection(section: AppSection) {
-    if (section === 'community') navigate('/community')
-    else if (section === 'history') navigate('/history')
-    else if (section === 'chat') navigate('/?view=chat')
-    else navigate('/')
-  }
-
   function openConversation(conversation: Conversation) {
-    navigate(`/?question=${encodeURIComponent(conversation.title)}`)
+    openConversationById(conversation.id)
   }
 
   function confirmDelete() {
     if (!deleteTarget) return
-    setConversations((current) => current.filter(({ id }) => id !== deleteTarget.id))
+    deleteConversation(deleteTarget.id)
     setDeleteTarget(null)
   }
 
   return (
-    <AppLayout
-      activeSection="history"
-      onNewChat={() => navigate('/?view=chat')}
-      onRecentChat={(title) => navigate(`/?question=${encodeURIComponent(title)}`)}
-      onSectionChange={changeSection}
-    >
+    <AppLayout activeSection="history">
       <main className="mx-auto w-full max-w-[900px] px-5 pb-10 pt-5 md:px-8 md:pt-6">
         <header className="mb-5 flex items-start justify-between">
           <div>
             <h1 className="text-[22px] font-bold leading-tight md:text-2xl">대화 기록</h1>
             <p className="mt-1 text-sm text-sub">이전 대화를 이어서 볼 수 있어요.</p>
           </div>
-          <button onClick={() => navigate('/?view=chat')} className="h-9 shrink-0 rounded-lg bg-primary px-3 text-xs font-medium text-white transition hover:bg-primary-hover">새 대화</button>
+          <button onClick={startNewChat} className="h-9 shrink-0 rounded-lg bg-primary px-3 text-xs font-medium text-white transition hover:bg-primary-hover">새 대화</button>
         </header>
 
         <label className="flex h-11 items-center gap-2 rounded-full border border-line bg-white px-4 shadow-[0_3px_12px_rgba(26,42,78,0.05)] focus-within:border-focus">
@@ -75,7 +49,7 @@ function HistoryPage() {
 
         {search && <p className="mt-3 text-xs text-sub">검색 결과 {filtered.length}개</p>}
         {filtered.length === 0 ? (
-          <EmptyHistory hasSearch={Boolean(search.trim())} onNewChat={() => navigate('/?view=chat')} />
+          <EmptyHistory hasSearch={Boolean(search.trim())} onNewChat={startNewChat} />
         ) : (
           <div className="mt-5 space-y-4">
             {recent.length > 0 && <ConversationGroup title={search.trim() ? '검색 결과' : '지난 7일'} conversations={recent} onOpen={openConversation} onDelete={setDeleteTarget} />}

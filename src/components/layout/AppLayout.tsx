@@ -2,17 +2,23 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import logo from '../../assets/logo.svg'
 import Icon from '../common/Icon'
+import useConversations from '../../hooks/useConversations'
+import useProfile from '../../hooks/useProfile'
+import useAppNavigation from '../../hooks/useAppNavigation'
 
 export type AppSection = 'home' | 'chat' | 'community' | 'history'
 
 type AppLayoutProps = {
   activeSection: AppSection | 'profile' | 'settings'
-  activeRecentChat?: string
+  /** 현재 열려 있는 대화 ID */
+  activeConversationId?: string
   children: ReactNode
-  onNewChat: () => void
-  onRecentChat: (title: string) => void
-  onSectionChange: (section: AppSection) => void
+  /** 지정하지 않으면 공통 이동 동작(useAppNavigation)을 사용한다. */
+  onNewChat?: () => void
+  onSectionChange?: (section: AppSection) => void
 }
+
+const RECENT_CONVERSATION_COUNT = 4
 
 const navigation: { id: AppSection; label: string; icon: 'home' | 'chat' | 'users' | 'history' }[] = [
   { id: 'home', label: '홈', icon: 'home' },
@@ -21,11 +27,18 @@ const navigation: { id: AppSection; label: string; icon: 'home' | 'chat' | 'user
   { id: 'history', label: '기록', icon: 'history' },
 ]
 
-function AppLayout({ activeSection, activeRecentChat, children, onNewChat, onRecentChat, onSectionChange }: AppLayoutProps) {
+function AppLayout({ activeSection, activeConversationId, children, onNewChat, onSectionChange }: AppLayoutProps) {
+  const { goToSection, startNewChat, openConversation } = useAppNavigation()
+  const { conversations } = useConversations()
+  const { profile } = useProfile()
+  const handleNewChat = onNewChat ?? startNewChat
+  const handleSectionChange = onSectionChange ?? goToSection
+  const recentConversations = conversations.slice(0, RECENT_CONVERSATION_COUNT)
+
   return (
     <div className="flex min-h-screen bg-[#f6f8fc] text-ink">
       <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-white px-4 py-5 md:flex">
-        <a href="/" className="mb-5 flex items-center gap-3 px-1" aria-label="hopes 홈">
+        <Link to="/" className="mb-5 flex items-center gap-3 px-1" aria-label="hopes 홈">
           <span className="flex size-10 items-center justify-center rounded-xl border border-[#e9eef8] bg-white shadow-sm">
             <img src={logo} alt="" className="size-6" />
           </span>
@@ -42,10 +55,10 @@ function AppLayout({ activeSection, activeRecentChat, children, onNewChat, onRec
             </span>
             <span className="mt-0.5 block truncate text-[11px] text-sub">광주소프트웨어마이스터고</span>
           </span>
-        </a>
+        </Link>
 
         <button
-          onClick={onNewChat}
+          onClick={handleNewChat}
           className="mb-4 flex h-10 items-center justify-center gap-2 rounded-xl border border-line bg-white text-sm font-medium shadow-[0_3px_10px_rgba(27,29,41,0.05)] transition hover:border-focus hover:text-primary"
         >
           <Icon name="plus" className="size-4 text-primary" /> 새 대화
@@ -55,7 +68,7 @@ function AppLayout({ activeSection, activeRecentChat, children, onNewChat, onRec
           {navigation.map((item) => (
             <button
               key={item.id}
-              onClick={() => onSectionChange(item.id)}
+              onClick={() => handleSectionChange(item.id)}
               aria-current={activeSection === item.id ? 'page' : undefined}
               className={`flex h-9 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition ${activeSection === item.id ? 'bg-[#eaf0fd] font-medium text-primary' : 'text-sub hover:bg-[#f5f7fb]'}`}
             >
@@ -67,28 +80,23 @@ function AppLayout({ activeSection, activeRecentChat, children, onNewChat, onRec
 
         <div className="my-4 border-t border-line" />
         <div className="mb-2 text-xs text-[#9aa4ba]">최근 대화</div>
-        {[
-          '기숙사 하루 일과가 어떻게 돼?',
-          'Frontend는 뭐부터 공부하면 좋아?',
-          '동아리는 언제 정해?',
-          '입학하려면 뭘 준비해야 해?',
-        ].map((title) => (
+        {recentConversations.map((conversation) => (
           <button
-            key={title}
-            onClick={() => onRecentChat(title)}
-            aria-current={activeRecentChat === title ? 'page' : undefined}
-            className={`truncate rounded-lg px-2.5 py-2 text-left text-xs transition hover:bg-[#f5f7fb] ${activeRecentChat === title ? 'bg-[#f6f8fb] font-medium text-ink' : 'text-sub'}`}
+            key={conversation.id}
+            onClick={() => openConversation(conversation.id)}
+            aria-current={activeConversationId === conversation.id ? 'page' : undefined}
+            className={`truncate rounded-lg px-2.5 py-2 text-left text-xs transition hover:bg-[#f5f7fb] ${activeConversationId === conversation.id ? 'bg-[#f6f8fb] font-medium text-ink' : 'text-sub'}`}
           >
-            {title}
+            {conversation.title}
           </button>
         ))}
 
         <div className="mt-auto flex items-center gap-1 rounded-xl bg-[#f6f8fb] p-1.5">
           <Link to="/my-page" aria-current={activeSection === 'profile' ? 'page' : undefined} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-left hover:bg-white">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#eaf0fd] text-xs font-semibold text-primary">임</span>
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#eaf0fd] text-xs font-semibold text-primary">{profile.name.trim().charAt(0)}</span>
             <span className="min-w-0 flex-1">
-              <span className="block text-xs font-semibold">임서하</span>
-              <span className="block truncate text-[11px] text-sub">인공지능과 · 10기</span>
+              <span className="block truncate text-xs font-semibold">{profile.name}</span>
+              <span className="block truncate text-[11px] text-sub">{profile.department} · {profile.generation}</span>
             </span>
           </Link>
           <Link to="/settings" aria-label="설정" aria-current={activeSection === 'settings' ? 'page' : undefined} className={`flex size-8 shrink-0 items-center justify-center rounded-lg text-[#9aa4ba] transition hover:bg-white hover:text-primary ${activeSection === 'settings' ? 'bg-white text-primary' : ''}`}>
@@ -101,7 +109,7 @@ function AppLayout({ activeSection, activeRecentChat, children, onNewChat, onRec
         <div className="flex items-center gap-2 border-b border-line bg-white px-4 py-2 md:hidden">
           <img src={logo} alt="" className="size-7" />
           <span className="font-semibold">hopes</span>
-          <button onClick={onNewChat} className="ml-auto flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium text-primary">
+          <button onClick={handleNewChat} className="ml-auto flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium text-primary">
             <Icon name="plus" className="size-4" /> 새 대화
           </button>
         </div>
@@ -109,7 +117,7 @@ function AppLayout({ activeSection, activeRecentChat, children, onNewChat, onRec
           {navigation.map((item) => (
             <button
               key={item.id}
-              onClick={() => onSectionChange(item.id)}
+              onClick={() => handleSectionChange(item.id)}
               aria-current={activeSection === item.id ? 'page' : undefined}
               className={`flex flex-col items-center gap-1 rounded-lg py-2 text-[10px] ${activeSection === item.id ? 'text-primary' : 'text-sub'}`}
             >

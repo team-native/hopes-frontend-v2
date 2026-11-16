@@ -1,7 +1,44 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import AppLayout, { type AppSection } from '../../components/layout/AppLayout'
+import AppLayout from '../../components/layout/AppLayout'
 import Icon, { type IconName } from '../../components/common/Icon'
+import useProfile from '../../hooks/useProfile'
+import logo from '../../assets/logo.svg'
+
+// API 연동 전까지 설정값은 이 브라우저(localStorage)에만 저장한다.
+const SETTINGS_STORAGE_KEY = 'hopes.settings'
+
+type StoredSettings = {
+  systemPrompt: string
+  notifications: { answers: boolean; comments: boolean; announcements: boolean }
+}
+
+const defaultSettings: StoredSettings = {
+  systemPrompt: '답변은 3문장 이내로 짧게, 예시를 하나씩 들어줘.',
+  notifications: { answers: true, comments: true, announcements: false },
+}
+
+function loadSettings(): StoredSettings {
+  try {
+    const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY)
+    if (!raw) return defaultSettings
+    const parsed = JSON.parse(raw) as Partial<StoredSettings>
+    return {
+      systemPrompt: typeof parsed.systemPrompt === 'string' ? parsed.systemPrompt : defaultSettings.systemPrompt,
+      notifications: { ...defaultSettings.notifications, ...parsed.notifications },
+    }
+  } catch {
+    return defaultSettings
+  }
+}
+
+function persistSettings(settings: StoredSettings) {
+  try {
+    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+    return true
+  } catch {
+    return false
+  }
+}
 
 type SettingsSection = 'personal' | 'notifications' | 'display' | 'contact' | 'about'
 
@@ -14,28 +51,20 @@ const sections: { id: SettingsSection; label: string; icon: IconName }[] = [
 ]
 
 function SettingsPage() {
-  const navigate = useNavigate()
+  const { profile } = useProfile()
+  const [initialSettings] = useState(loadSettings)
   const [activeSection, setActiveSection] = useState<SettingsSection>('personal')
-  const [systemPrompt, setSystemPrompt] = useState('답변은 3문장 이내로 짧게, 예시를 하나씩 들어줘.')
-  const [notifications, setNotifications] = useState({ answers: true, comments: true, announcements: false })
-  const [darkMode, setDarkMode] = useState(false)
-  const [email, setEmail] = useState('s26055@gsm.hs.kr')
+  const [systemPrompt, setSystemPrompt] = useState(initialSettings.systemPrompt)
+  const [notifications, setNotifications] = useState(initialSettings.notifications)
+  const [email, setEmail] = useState(profile.email)
   const [message, setMessage] = useState('')
   const [contactErrors, setContactErrors] = useState({ email: false, message: false })
-  const [contactSent, setContactSent] = useState(false)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [toast, setToast] = useState('')
 
   function showToast(text: string) {
     setToast(text)
     window.setTimeout(() => setToast(''), 2200)
-  }
-
-  function changeSection(section: AppSection) {
-    if (section === 'community') navigate('/community')
-    else if (section === 'history') navigate('/history')
-    else if (section === 'chat') navigate('/?view=chat')
-    else navigate('/')
   }
 
   function sendContact(event: FormEvent<HTMLFormElement>) {
@@ -46,20 +75,17 @@ function SettingsPage() {
     }
     setContactErrors(errors)
     if (errors.email || errors.message) return
-    setContactSent(true)
+    // TODO: 문의 API 연동 후 실제 전송 및 성공/실패 처리
+    showToast('아직 문의 전송 기능이 준비 중이라 보내지 않았어요')
   }
 
   function saveSettings() {
-    showToast('설정을 저장했어요')
+    const saved = persistSettings({ systemPrompt, notifications })
+    showToast(saved ? '설정을 이 기기에 저장했어요' : '설정을 저장하지 못했어요')
   }
 
   return (
-    <AppLayout
-      activeSection="settings"
-      onNewChat={() => navigate('/?view=chat')}
-      onRecentChat={(title) => navigate(`/?question=${encodeURIComponent(title)}`)}
-      onSectionChange={changeSection}
-    >
+    <AppLayout activeSection="settings">
       <main className="mx-auto w-full max-w-[1050px] px-5 pb-10 pt-5 md:px-8 md:pt-6">
         <header className="mb-6 flex items-start justify-between">
           <div>
@@ -99,7 +125,7 @@ function SettingsPage() {
                   <SettingToggle title="커뮤니티 댓글 알림" description="내 글에 댓글이 달리면 알려드려요." checked={notifications.comments} onChange={(checked) => setNotifications((current) => ({ ...current, comments: checked }))} />
                   <SettingToggle title="공지 알림" description="서비스 공지를 알려드려요." checked={notifications.announcements} onChange={(checked) => setNotifications((current) => ({ ...current, announcements: checked }))} />
                 </div>
-                <div className="mt-3 border-t border-[#edf0f5] pt-2"><h3 className="mb-1 pt-2 text-sm font-semibold">화면</h3><SettingToggle title="다크 모드" description="시스템 설정에 맞춰 전환" checked={darkMode} onChange={setDarkMode} /></div>
+                <div className="mt-3 border-t border-[#edf0f5] pt-2"><h3 className="mb-1 pt-2 text-sm font-semibold">화면</h3><SettingToggle title="다크 모드" description="다크 모드는 준비 중이에요." checked={false} disabled badge="준비 중" onChange={() => {}} /></div>
               </div>
             )}
 
@@ -107,20 +133,15 @@ function SettingsPage() {
               <div>
                 <h2 className="text-base font-semibold">화면</h2>
                 <p className="mt-2 text-xs text-sub">화면 표시 방식을 설정해요.</p>
-                <div className="mt-4"><SettingToggle title="다크 모드" description="시스템 설정에 맞춰 전환" checked={darkMode} onChange={setDarkMode} /></div>
+                <div className="mt-4"><SettingToggle title="다크 모드" description="다크 모드는 준비 중이에요." checked={false} disabled badge="준비 중" onChange={() => {}} /></div>
               </div>
             )}
 
-            {activeSection === 'contact' && (contactSent ? (
-              <div className="flex min-h-[250px] flex-col items-center justify-center text-center">
-                <span className="flex size-14 items-center justify-center rounded-full bg-[#edf3ff] text-brand"><Icon name="mail" className="size-6" /></span>
-                <h2 className="mt-3 text-base font-semibold">문의를 보냈어요</h2>
-                <p className="mt-1 text-xs text-sub">{email}로 답변을 보내드릴게요.</p>
-              </div>
-            ) : (
+            {activeSection === 'contact' && (
               <form onSubmit={sendContact} noValidate>
                 <h2 className="text-base font-semibold">문의하기</h2>
                 <p className="mt-2 text-xs text-sub">서비스 오류나 개선 의견을 보내주세요.</p>
+                <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-[#f7f9fc] px-3 py-2 text-xs text-sub"><Icon name="info" className="size-3.5 shrink-0" />문의 전송 기능은 준비 중이에요. 지금은 작성해도 전송되지 않아요.</p>
                 <label className="mt-4 block text-xs text-sub">답변 받을 이메일
                   <input value={email} onChange={(event) => { setEmail(event.target.value); setContactErrors((current) => ({ ...current, email: false })) }} className={`mt-1.5 h-11 w-full rounded-xl border px-3 text-sm text-ink outline-none focus:border-focus ${contactErrors.email ? 'border-error' : 'border-line'}`} />
                 </label>
@@ -131,12 +152,12 @@ function SettingsPage() {
                 {contactErrors.message && <p className="mt-1 flex items-center gap-1 text-xs text-error"><Icon name="alert" className="size-3.5" />문의 내용을 입력해 주세요.</p>}
                 <div className="mt-3 flex justify-end"><button type="submit" className="h-9 rounded-lg bg-primary px-3 text-xs font-medium text-white hover:bg-primary-hover">문의 보내기</button></div>
               </form>
-            ))}
+            )}
 
             {activeSection === 'about' && (
               <div>
                 <div className="flex items-center gap-3 border-b border-[#edf0f5] pb-4">
-                  <img src="/src/assets/logo.svg" alt="hopes" className="size-12 rounded-xl border border-line p-2" />
+                  <img src={logo} alt="hopes" className="size-12 rounded-xl border border-line p-2" />
                   <div><h2 className="text-sm font-semibold">hopes</h2><p className="mt-1 text-xs text-sub">버전 1.5 · 최신 버전 사용 중</p></div>
                 </div>
                 <div className="divide-y divide-[#edf0f5]">
@@ -154,11 +175,14 @@ function SettingsPage() {
   )
 }
 
-function SettingToggle({ title, description, checked, onChange }: { title: string; description: string; checked: boolean; onChange: (checked: boolean) => void }) {
+function SettingToggle({ title, description, checked, onChange, disabled = false, badge }: { title: string; description: string; checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean; badge?: string }) {
   return (
     <div className="flex min-h-[72px] items-center justify-between gap-4 py-3">
-      <div><h3 className="text-sm font-medium text-ink">{title}</h3><p className="mt-1 text-xs text-sub">{description}</p></div>
-      <button type="button" role="switch" aria-checked={checked} aria-label={title} onClick={() => onChange(!checked)} className={`flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition ${checked ? 'bg-primary' : 'bg-[#dce2ed]'}`}>
+      <div>
+        <h3 className="flex items-center gap-1.5 text-sm font-medium text-ink">{title}{badge && <span className="rounded-full bg-[#f2f4f8] px-1.5 py-0.5 text-[10px] font-medium text-sub">{badge}</span>}</h3>
+        <p className="mt-1 text-xs text-sub">{description}</p>
+      </div>
+      <button type="button" role="switch" aria-checked={checked} aria-label={title} disabled={disabled} onClick={() => onChange(!checked)} className={`flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition disabled:cursor-not-allowed disabled:opacity-50 ${checked ? 'bg-primary' : 'bg-[#dce2ed]'}`}>
         <span className={`size-5 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
       </button>
     </div>
