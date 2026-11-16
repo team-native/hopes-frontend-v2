@@ -41,13 +41,21 @@ interface PdfCardProps {
   name: string
   /** 쪽 수 */
   pages?: number
+  /** 아래 작은 글자를 바꿀 때 (예: "파일 확인 중…"). 없으면 "PDF · 12쪽" */
+  description?: string
+  /** true면 빨간 테두리 + 빨간 설명 (파일을 읽지 못했을 때) */
+  invalid?: boolean
   onRemove?: () => void
 }
 
 /** 첨부 PDF 카드 — 이름 + "PDF · 12쪽" + X (Attach/PDF Card) */
-export function PdfCard({ name, pages, onRemove }: PdfCardProps) {
+export function PdfCard({ name, pages, description, invalid = false, onRemove }: PdfCardProps) {
   return (
-    <div className="flex min-w-0 items-center gap-2.5 rounded-md border border-border-subtle bg-bg-surface py-2 pr-2 pl-2.5">
+    <div
+      className={`flex min-w-0 items-center gap-2.5 rounded-md border bg-bg-surface py-2 pr-2 pl-2.5 ${
+        invalid ? 'border-border-danger' : 'border-border-subtle'
+      }`}
+    >
       <span
         className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-bg-brand-soft text-icon-brand"
         aria-hidden
@@ -56,7 +64,9 @@ export function PdfCard({ name, pages, onRemove }: PdfCardProps) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-label-strong">{name}</p>
-        <p className="text-[11px] text-text-tertiary">PDF{pages ? ` · ${pages}쪽` : ''}</p>
+        <p className={`truncate text-[11px] ${invalid ? 'text-text-danger' : 'text-text-tertiary'}`}>
+          {description ?? `PDF${pages ? ` · ${pages}쪽` : ''}`}
+        </p>
       </div>
       {onRemove && (
         <button
