@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import { ROUTES } from './constants/routes'
 import DevComponentsPage from './pages/DevComponents'
+import CommunityPage from './pages/Community'
 import FindPasswordPage from './pages/FindPassword'
 import HomePage from './pages/Home'
 import LoginPage from './pages/Login'
@@ -12,6 +13,7 @@ function App() {
       <Route path={ROUTES.home} element={<HomePage />} />
       <Route path={ROUTES.chat} element={<HomePage />} />
       <Route path={ROUTES.chatDetail(':conversationId')} element={<HomePage />} />
+      <Route path={ROUTES.community} element={<CommunityPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/find-password" element={<FindPasswordPage />} />
