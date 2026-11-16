@@ -1,26 +1,64 @@
+import {
+  ArrowUp,
+  BedDouble,
+  Bell,
+  Code,
+  Ellipsis,
+  FileText,
+  Heart,
+  Info,
+  Plus,
+  RefreshCw,
+  Upload,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useParams } from 'react-router-dom'
 import type { PDFDocumentLoadingTask } from 'pdfjs-dist'
-import AppLayout, { type AppSection } from '../../components/layout/AppLayout'
-import Icon, { type IconName } from '../../components/common/Icon'
+import { ImageThumb, PdfCard, PdfChip } from '../../components/attach/Attachments'
+import AnswerBubble from '../../components/chat/AnswerBubble'
+import AnswerReactions from '../../components/chat/AnswerReactions'
+import ChatInput from '../../components/chat/ChatInput'
+import QuestionCard from '../../components/chat/QuestionCard'
+import UserBubble from '../../components/chat/UserBubble'
+import Button from '../../components/common/Button'
+import FieldError from '../../components/common/FieldError'
+import IconButton from '../../components/common/IconButton'
+import LogoMark from '../../components/common/LogoMark'
+import Select from '../../components/common/Select'
+import Toast from '../../components/common/Toast'
+import { EmptyState } from '../../components/feedback/Feedback'
+import { HeroCard, PopularPostRow, TipCard } from '../../components/home/HomeCards'
+import AppLayout from '../../components/layout/AppLayout'
+import SectionHeader from '../../components/layout/SectionHeader'
+import { DEPARTMENTS } from '../../constants/school'
+import useAppNavigation from '../../hooks/useAppNavigation'
+import useConversations from '../../hooks/useConversations'
+import useProfile from '../../hooks/useProfile'
+import useToast from '../../hooks/useToast'
+import { mockCommunityPosts } from '../../mocks/community'
+import type { Conversation, LocalAttachment } from '../../types/conversation'
+import type { Profile } from '../../types/profile'
+import {
+  ATTACHMENT_ACCEPT,
+  MAX_ATTACHMENT_COUNT,
+  canDisplayImage,
+  checkAttachmentFile,
+  matchesFileSignature,
+} from '../../utils/attachments'
+import { createId } from '../../utils/id'
 
-const recentQuestions = [
-  { title: '기숙사 하루 일과가 어떻게 돼?', age: '어제' },
-  { title: 'Frontend는 뭐부터 공부하면 좋아?', age: '2일 전' },
-  { title: '동아리는 언제 정해?', age: '5일 전' },
-]
+const MAJORS = ['Frontend', 'Backend', 'AI'] as const
 
-const popularQuestions = [
-  { title: '전공 동아리 면접 후기 공유', meta: '전체 · ♡ 34' },
-  { title: '취업 준비 언제부터 시작했어?', meta: '9기 · ♡ 21' },
-  { title: '기숙사 와이파이 다들 잘 돼?', meta: '10기 · ♡ 12' },
-]
+// TODO: 커뮤니티 API 연동 후 인기글 API로 대체
+const popularPosts = [...mockCommunityPosts].sort((a, b) => b.likes - a.likes).slice(0, 3)
 
-const suggestedQuestions: { title: string; category: string; icon: IconName }[] = [
-  { title: '기숙사 하루 일과가 어떻게 돼?', category: '학교생활', icon: 'bed' },
-  { title: '입학하려면 뭘 준비해야 해?', category: '입학', icon: 'file' },
-  { title: 'Frontend는 뭐부터 공부하면 좋아?', category: '전공 · Frontend', icon: 'code' },
-  { title: '후배한테 해주고 싶은 조언 있어?', category: '학교생활', icon: 'heart' },
+const suggestedQuestions: { title: string; category: string; icon: LucideIcon }[] = [
+  { title: '기숙사 하루 일과가 어떻게 돼?', category: '학교생활', icon: BedDouble },
+  { title: '입학하려면 뭘 준비해야 해?', category: '입학', icon: FileText },
+  { title: 'Frontend는 뭐부터 공부하면 좋아?', category: '전공 · Frontend', icon: Code },
+  { title: '후배한테 해주고 싶은 조언 있어?', category: '학교생활', icon: Heart },
 ]
 
 type MockAnswer = {
@@ -32,16 +70,6 @@ type MockAnswer = {
   code?: string
   reference?: string
   citation?: string
-  locationActions?: boolean
-}
-
-type LocalAttachment = {
-  id: string
-  file: File
-  previewUrl?: string
-  uploadProgress: number
-  pageCount?: number
-  uploadError?: string
 }
 
 const mockAnswers = {
@@ -57,7 +85,7 @@ const mockAnswers = {
     body: '처음에는 화면을 직접 만들어 보는 것부터 시작하는 걸 추천해요. HTML·CSS로 간단한 페이지를 만들고, JavaScript 기초 문법을 익힌 뒤 작은 프로젝트를 완성해 보세요.',
     steps: ['HTML·CSS로 간단한 페이지 만들기', 'JavaScript 기초 문법 익히기', 'React로 작은 프로젝트 완성하기'],
     code: '<button class="primary">질문하기</button>',
-    reference: '학교 전공 소개 페이지 보기',
+    reference: '학교 전공 소개 페이지',
   },
   admission: {
     category: '입학',
@@ -85,13 +113,16 @@ const mockAnswers = {
     category: '자료 요약',
     heading: '외출 규정 요약',
     body: '생활수칙 자료에 포함된 외출 관련 예시 요약입니다.',
-    bullets: ['평일 외출은 사감 선생님 승인 후 가능해요.', '주말 외출은 금요일까지 신청해야 해요.', '복귀 시간은 일요일 저녁 9시예요.'],
+    bullets: [
+      '평일 외출은 사감 선생님 승인 후 가능해요.',
+      '주말 외출은 금요일까지 신청해야 해요.',
+      '복귀 시간은 일요일 저녁 9시예요.',
+    ],
   },
   location: {
     category: '학교 생활',
     heading: '현재 위치 확인은 hopes 앱에서만 할 수 있어요',
     body: '웹에서는 학교 지도와 건물 정보를 안내해 드려요.',
-    locationActions: true,
   },
 } satisfies Record<string, MockAnswer>
 
@@ -107,275 +138,260 @@ function getMockAnswer(question: string): MockAnswer {
 }
 
 function getAttachmentAnswer(attachments: LocalAttachment[]): MockAnswer {
-  const pdfAttachment = attachments.find(({ file }) => file.name.toLowerCase().endsWith('.pdf'))
+  const pdfAttachment = attachments.find(({ format }) => format === 'pdf')
   const reference = pdfAttachment?.file.name ?? attachments[0].file.name
   const answer = /생활수칙|생활규정|외출/.test(reference) ? mockAnswers.dormRules : mockAnswers.attachment
   const pages = pdfAttachment?.pageCount ? ` · 1-${pdfAttachment.pageCount}쪽 기반` : ' · 첨부 자료 기반'
   return { ...answer, citation: `${reference}${pages}` }
 }
 
-function HomePage() {
-  const [searchParams] = useSearchParams()
-  const initialQuestion = searchParams.get('question')
-  const navigate = useNavigate()
-  const [view, setView] = useState<AppSection | 'conversation'>(() => (
-    initialQuestion ? 'conversation' : searchParams.get('view') === 'chat' ? 'chat' : 'home'
-  ))
-  const [conversationTitle, setConversationTitle] = useState(initialQuestion ?? suggestedQuestions[2].title)
-  const [conversationAttachments, setConversationAttachments] = useState<LocalAttachment[]>([])
-  const [draft, setDraft] = useState('')
-  const [department, setDepartment] = useState('소프트웨어개발과')
-  const [major, setMajor] = useState('Frontend')
-  const [openFilter, setOpenFilter] = useState<'department' | 'major' | null>(null)
-  const [toast, setToast] = useState('')
+/** 목업 답변을 AnswerBubble이 그리는 마크다운으로 바꿔요 (서버 연동 후에는 응답 마크다운을 그대로 사용) */
+function toMarkdown(answer: MockAnswer) {
+  const parts = [`## ${answer.heading}`, answer.body]
+  if (answer.steps) parts.push(answer.steps.map((step, index) => `${index + 1}. ${step}`).join('\n'))
+  if (answer.bullets) parts.push(answer.bullets.map((bullet) => `- ${bullet}`).join('\n'))
+  if (answer.code) parts.push(`\`\`\`html\n${answer.code}\n\`\`\``)
+  if (answer.reference) parts.push(`> 참고: ${answer.reference}`)
+  if (answer.citation) parts.push(`> 출처: ${answer.citation}`)
+  return parts.join('\n\n')
+}
 
-  const section: AppSection = view === 'conversation' ? 'chat' : view
+const RECENT_CONVERSATION_COUNT = 3
+
+type HomeScreen = 'home' | 'chat' | 'conversation'
+
+function HomePage() {
+  // 화면 상태는 URL에서 매 렌더마다 계산한다. (/ → 홈, /chat → 새 대화, /chat/:conversationId → 대화)
+  const { conversationId } = useParams()
+  const { pathname } = useLocation()
+  const screen: HomeScreen = conversationId ? 'conversation' : pathname.startsWith('/chat') ? 'chat' : 'home'
+
+  const { startNewChat, openConversation, openCommunityPost } = useAppNavigation()
+  const { conversations, getConversation, createConversation } = useConversations()
+  const { profile } = useProfile()
+  const conversation = conversationId ? getConversation(conversationId) : undefined
+  const { toast, showToast } = useToast()
+
+  const [draft, setDraft] = useState('')
+  const [department, setDepartment] = useState<string>(DEPARTMENTS[0])
+  const [major, setMajor] = useState<string>(MAJORS[0])
 
   function startConversation(question: string, attachments: LocalAttachment[] = []) {
-    conversationAttachments.forEach((attachment) => {
-      if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl)
-    })
-    setConversationTitle(question)
-    setConversationAttachments(attachments)
+    const id = createConversation(question, attachments)
     setDraft('')
-    setView('conversation')
+    openConversation(id)
   }
 
-  function showToast(message: string) {
-    setToast(message)
-    window.setTimeout(() => setToast(''), 2200)
-  }
-
-  function submitQuestion(event: FormEvent<HTMLFormElement>, attachments: LocalAttachment[] = [], questionOverride = draft) {
-    event.preventDefault()
-    const question = questionOverride.trim() || (attachments.length > 0 ? '첨부 자료 요약해줘' : '')
-    if (!question) return
-    startConversation(question, attachments)
+  /** 질문을 받아 새 대화를 만들었으면 true. 첨부는 이때 대화로 소유권이 넘어간다. */
+  function submitQuestion(attachments: LocalAttachment[], question: string) {
+    const text = question.trim() || (attachments.length > 0 ? '첨부 자료 요약해줘' : '')
+    if (!text) return false
+    startConversation(text, attachments)
+    return true
   }
 
   return (
-    <AppLayout
-      activeSection={section}
-      activeRecentChat={view === 'conversation' ? conversationTitle : undefined}
-      onNewChat={() => setView('chat')}
-      onRecentChat={(title) => startConversation(title)}
-      onSectionChange={(next) => next === 'community' ? navigate('/community') : setView(next)}
-    >
-      {view === 'home' ? (
-        <HomeView onStartChat={() => setView('chat')} onOpenQuestion={startConversation} onNotify={() => showToast('새로운 알림이 없어요.')} />
-      ) : view === 'chat' ? (
+    <AppLayout activeMenu={screen === 'home' ? 'home' : 'chat'} activeConversationId={conversation?.id}>
+      {screen === 'home' ? (
+        <HomeView
+          profile={profile}
+          recentConversations={conversations.slice(0, RECENT_CONVERSATION_COUNT)}
+          onStartChat={startNewChat}
+          onOpenConversation={openConversation}
+          onOpenPost={openCommunityPost}
+          onNotify={() => showToast('새로운 알림이 없어요.')}
+        />
+      ) : screen === 'chat' ? (
         <NewChatView
           department={department}
           major={major}
-          openFilter={openFilter}
-          onFilterToggle={setOpenFilter}
           onDepartmentChange={setDepartment}
           onMajorChange={setMajor}
-          onOpenQuestion={startConversation}
-          draft={draft}
-          onDraftChange={setDraft}
-          onSubmit={submitQuestion}
+          onAsk={startConversation}
         />
-      ) : view === 'conversation' ? (
+      ) : conversation ? (
         <ConversationView
-          title={conversationTitle}
+          key={conversation.id}
+          title={conversation.title}
           draft={draft}
           onDraftChange={setDraft}
           onSubmit={submitQuestion}
           onToast={showToast}
-          attachments={conversationAttachments}
+          attachments={conversation.attachments ?? []}
         />
       ) : (
-        <CollectionView section={view} onOpenQuestion={startConversation} />
+        <main className="flex flex-1 items-center justify-center px-5 py-16">
+          <EmptyState
+            title="대화를 찾을 수 없어요"
+            description="삭제되었거나, 새로고침으로 사라진 임시 대화예요."
+            actionText="새 대화"
+            onAction={startNewChat}
+          />
+        </main>
       )}
-      {toast && (
-        <div role="status" className="fixed bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#202432] px-4 py-2.5 text-xs text-white shadow-lg">
-          <span className="flex size-5 items-center justify-center rounded-full bg-primary"><Icon name="alert" className="size-3" /></span>
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} />
     </AppLayout>
   )
 }
 
 type HomeViewProps = {
+  profile: Profile
+  recentConversations: Conversation[]
   onStartChat: () => void
-  onOpenQuestion: (question: string) => void
+  onOpenConversation: (conversationId: string) => void
+  onOpenPost: (postId: string) => void
   onNotify: () => void
 }
 
-function HomeView({ onStartChat, onOpenQuestion, onNotify }: HomeViewProps) {
+function HomeView({
+  profile,
+  recentConversations,
+  onStartChat,
+  onOpenConversation,
+  onOpenPost,
+  onNotify,
+}: HomeViewProps) {
   return (
-    <main className="mx-auto w-full max-w-[1080px] px-5 pb-10 pt-5 md:px-8 md:pt-6">
-      <header className="mb-6 flex items-start justify-between">
+    <main className="mx-auto w-full max-w-[1080px] px-5 pt-5 pb-10 md:px-8 md:pt-6">
+      <header className="mb-xl flex items-start justify-between">
         <div>
-          <h1 className="text-[22px] font-bold leading-tight md:text-2xl"><span className="text-brand">안녕하세요,</span> 임서하님</h1>
-          <p className="mt-1 text-sm text-sub">인공지능과 · 10기</p>
+          <h1 className="text-title">
+            <span className="text-text-brand">안녕하세요,</span> {profile.name}님
+          </h1>
+          <p className="mt-1 text-label text-text-secondary">
+            {profile.department} · {profile.generation}
+          </p>
         </div>
-        <button onClick={onNotify} aria-label="알림" className="flex size-10 items-center justify-center rounded-xl bg-white text-sub shadow-[0_3px_12px_rgba(26,42,78,0.08)] transition hover:text-primary">
-          <Icon name="bell" />
-        </button>
+        <IconButton icon={Bell} label="알림" variant="boxed" onClick={onNotify} />
       </header>
 
-      <section className="mx-auto mb-4 max-w-[854px] overflow-hidden rounded-[22px] border border-[#edf1f8] bg-[radial-gradient(ellipse_at_100%_100%,rgba(95,134,239,0.17),transparent_30%),linear-gradient(110deg,#fff_15%,#f1f5ff_100%)] px-6 py-6 shadow-[0_5px_18px_rgba(37,56,95,0.06)] md:px-7 md:py-6">
-        <h2 className="max-w-md text-[22px] font-bold leading-[1.4] md:text-2xl"><span className="text-brand">선배</span>에게 묻는<br /><span className="text-brand">가장 솔직한</span> 학교 이야기</h2>
-        <p className="mt-2 text-sm text-sub">기숙사, 전공, 취업 질문에 선배 경험으로 답해요.</p>
-        <button onClick={onStartChat} className="mt-3 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-hover">채팅 시작하기</button>
-      </section>
+      <div className="mx-auto max-w-[854px] space-y-xl">
+        <HeroCard
+          title={
+            <>
+              <span className="text-text-brand">선배</span>에게 묻는{'\n'}
+              <span className="text-text-brand">가장 솔직한</span> 학교 이야기
+            </>
+          }
+          description="기숙사, 전공, 취업 질문에 선배 경험으로 답해요."
+          actionText="채팅 시작하기"
+          onAction={onStartChat}
+        />
 
-      <div className="mx-auto grid max-w-[854px] grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr]">
-        <ListPanel title="이어서 하기" action="더보기" onAction={() => onOpenQuestion(recentQuestions[0].title)}>
-          {recentQuestions.map((item) => (
-            <button key={item.title} onClick={() => onOpenQuestion(item.title)} className="flex min-h-[50px] w-full items-center justify-between gap-3 border-b border-[#edf0f5] text-left last:border-0">
-              <span className="truncate text-sm">{item.title}</span><span className="shrink-0 text-xs text-[#9aa4ba]">{item.age}</span>
-            </button>
-          ))}
-        </ListPanel>
-        <ListPanel title="커뮤니티 인기글" action="더보기" onAction={() => onOpenQuestion(popularQuestions[0].title)}>
-          {popularQuestions.map((item) => (
-            <button key={item.title} onClick={() => onOpenQuestion(item.title)} className="flex min-h-[50px] w-full items-center justify-between gap-3 border-b border-[#edf0f5] text-left last:border-0">
-              <span className="truncate text-sm">{item.title}</span><span className="shrink-0 text-xs text-[#9aa4ba]">{item.meta}</span>
-            </button>
-          ))}
-        </ListPanel>
-        <section className="rounded-[21px] border border-[#edf1f8] bg-white p-4 shadow-[0_5px_16px_rgba(37,56,95,0.06)] md:col-span-2 xl:col-span-1">
-          <h2 className="mb-4 text-xs font-medium text-sub">질문 잘하는 방법</h2>
-          <div className="space-y-4">
-            <Tip number="1" detail="질문 전에," title="학과·전공을 먼저 골라요" />
-            <Tip number="2" detail="‘기숙사 하루’ 보다," title="‘1학년 기숙사 평일 루틴 알려줘’" />
-          </div>
-        </section>
+        <div className="grid grid-cols-1 items-start gap-xl md:grid-cols-2 xl:grid-cols-3">
+          <section className="space-y-sm">
+            <SectionHeader title="이어서 하기" />
+            {recentConversations.length === 0 ? (
+              <p className="py-md text-caption text-text-secondary">아직 대화가 없어요.</p>
+            ) : (
+              recentConversations.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onOpenConversation(item.id)}
+                  className="flex w-full items-center justify-between gap-3 rounded-md border border-border-subtle bg-bg-surface px-md py-3 text-left shadow-cloud-sm transition hover:border-border-brand"
+                >
+                  <span className="truncate text-caption font-medium">{item.title}</span>
+                  <span className="shrink-0 text-[11px] text-text-tertiary">{item.age}</span>
+                </button>
+              ))
+            )}
+          </section>
+
+          <section className="space-y-sm">
+            <SectionHeader title="커뮤니티 인기글" />
+            {popularPosts.map((post) => (
+              <PopularPostRow
+                key={post.id}
+                board={post.board}
+                title={post.title}
+                likeCount={post.likes}
+                onClick={() => onOpenPost(post.id)}
+              />
+            ))}
+          </section>
+
+          <section className="space-y-sm md:col-span-2 xl:col-span-1">
+            <SectionHeader title="질문 잘하는 방법" />
+            <TipCard step={1} caption="질문 전에," text="학과·전공을 먼저 골라요" />
+            <TipCard step={2} caption="‘기숙사 하루’ 보다," text="‘1학년 기숙사 평일 루틴 알려줘’" />
+          </section>
+        </div>
       </div>
     </main>
-  )
-}
-
-type ListPanelProps = {
-  title: string
-  action: string
-  onAction: () => void
-  children: React.ReactNode
-}
-
-function ListPanel({ title, action, onAction, children }: ListPanelProps) {
-  return (
-    <section className="rounded-[21px] border border-[#edf1f8] bg-white px-4 py-3.5 shadow-[0_5px_16px_rgba(37,56,95,0.06)]">
-      <header className="mb-1 flex items-center justify-between">
-        <h2 className="text-xs font-medium text-sub">{title}</h2>
-        <button onClick={onAction} className="text-xs font-medium text-brand hover:underline">{action}</button>
-      </header>
-      {children}
-    </section>
-  )
-}
-
-function Tip({ number, detail, title }: { number: string; detail: string; title: string }) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#edf3ff] text-xs font-medium text-brand">{number}</span>
-      <p className="text-xs leading-5 text-sub">{detail}<br /><strong className="font-semibold text-ink">{title}</strong></p>
-    </div>
   )
 }
 
 type NewChatViewProps = {
   department: string
   major: string
-  openFilter: 'department' | 'major' | null
-  onFilterToggle: (filter: 'department' | 'major' | null) => void
   onDepartmentChange: (value: string) => void
   onMajorChange: (value: string) => void
-  onOpenQuestion: (question: string) => void
-  draft: string
-  onDraftChange: (value: string) => void
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onAsk: (question: string) => void
 }
 
-function NewChatView({ department, major, openFilter, onFilterToggle, onDepartmentChange, onMajorChange, onOpenQuestion, draft, onDraftChange, onSubmit }: NewChatViewProps) {
-  const departments = ['소프트웨어개발과', '스마트IoT과', '인공지능과']
-  const majors = ['Frontend', 'Backend', 'AI']
+function NewChatView({ department, major, onDepartmentChange, onMajorChange, onAsk }: NewChatViewProps) {
+  const [suggestionOffset, setSuggestionOffset] = useState(0)
+  const rotatedSuggestions = suggestedQuestions.map(
+    (_, index) => suggestedQuestions[(index + suggestionOffset) % suggestedQuestions.length],
+  )
 
   return (
-    <main className="flex min-h-[calc(100vh-105px)] flex-1 flex-col px-5 pb-4 pt-5 md:min-h-screen md:px-8 md:pt-5">
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-bold md:text-2xl">새 대화</h1>
-        <div className="flex items-center gap-2">
-          <FilterMenu label={department} menu="department" value={department} values={departments} openFilter={openFilter} onToggle={onFilterToggle} onChange={onDepartmentChange} />
-          <FilterMenu label={major} menu="major" value={major} values={majors} openFilter={openFilter} onToggle={onFilterToggle} onChange={onMajorChange} />
-          <button onClick={() => onOpenQuestion(recentQuestions[0].title)} className="hidden rounded-lg border border-line bg-white px-3 py-2 text-xs font-medium text-brand sm:block">대화 기록</button>
+    <main className="flex min-h-[calc(100vh-105px)] flex-1 flex-col px-5 pt-5 pb-4 md:min-h-screen md:px-8">
+      <header className="flex flex-wrap items-center justify-between gap-sm">
+        <h1 className="text-title">새 대화</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            variant="inline"
+            label="학과"
+            placeholder="선택"
+            options={DEPARTMENTS}
+            value={department}
+            onChange={onDepartmentChange}
+            className="w-[230px]"
+          />
+          <Select
+            variant="inline"
+            label="전공"
+            placeholder="선택"
+            options={MAJORS}
+            value={major}
+            onChange={onMajorChange}
+            className="w-[160px]"
+          />
         </div>
       </header>
 
-      <section className="mx-auto mt-10 w-full max-w-[654px] text-center md:mt-12">
-        <h2 className="text-[30px] font-bold leading-tight md:text-[36px]">무엇이 <span className="text-brand">궁금한</span>가요?</h2>
-        <p className="mt-2 text-sm text-sub">광주소프트웨어마이스터고 선배에게 편하게 물어보세요.</p>
-        <div className="mt-7 flex items-center justify-between text-left text-xs text-sub">
-          <span>{department} · {major} 추천 질문</span>
-          <button aria-label="추천 질문 새로고침" className="rounded-md p-1.5 text-[#9aa4ba] hover:bg-white hover:text-primary"><Icon name="refresh" className="size-4" /></button>
+      <section className="mx-auto mt-3xl w-full max-w-[720px] text-center">
+        <h2 className="text-title md:text-display">
+          무엇이 <span className="text-text-brand">궁금한</span>가요?
+        </h2>
+        <p className="mt-xs text-label text-text-secondary">광주소프트웨어마이스터고 선배에게 편하게 물어보세요.</p>
+        <div className="mt-xl flex items-center justify-between text-left text-caption text-text-secondary">
+          <span>
+            {department} · {major} 추천 질문
+          </span>
+          <IconButton
+            icon={RefreshCw}
+            label="추천 질문 순서 바꾸기"
+            onClick={() => setSuggestionOffset((offset) => offset + 1)}
+          />
         </div>
-        <div className="mt-2 grid grid-cols-1 gap-3 text-left sm:grid-cols-2">
-          {suggestedQuestions.map((question) => (
-            <button key={question.title} onClick={() => onOpenQuestion(question.title)} className="min-h-[112px] rounded-[19px] border border-[#edf1f8] bg-white p-4 text-left shadow-[0_5px_16px_rgba(37,56,95,0.06)] transition hover:-translate-y-0.5 hover:border-[#dbe5fb]">
-              <span className="mb-2 flex size-8 items-center justify-center rounded-[10px] bg-[#edf3ff] text-primary"><Icon name={question.icon} className="size-[17px]" /></span>
-              <span className="block text-sm font-semibold text-ink">{question.title}</span>
-              <span className="mt-1.5 block text-xs text-[#9aa4ba]">{question.category}</span>
-            </button>
+        <div className="mt-xs grid grid-cols-1 gap-sm text-left sm:grid-cols-2">
+          {rotatedSuggestions.map((question) => (
+            <QuestionCard
+              key={question.title}
+              question={question.title}
+              category={question.category}
+              icon={question.icon}
+              onClick={() => onAsk(question.title)}
+            />
           ))}
         </div>
       </section>
 
-      <Composer draft={draft} onDraftChange={onDraftChange} onSubmit={onSubmit} placeholder="선배에게 메시지 보내기" />
-      <p className="mt-2 text-center text-[11px] text-[#aab3c5]">선배 답변은 실제 응답 데이터를 바탕으로 한 참고용이에요.</p>
+      <ChatInput className="mx-auto mt-auto pt-xl" onSend={onAsk} />
     </main>
-  )
-}
-
-type FilterMenuProps = {
-  label: string
-  menu: 'department' | 'major'
-  value: string
-  values: string[]
-  openFilter: 'department' | 'major' | null
-  onToggle: (filter: 'department' | 'major' | null) => void
-  onChange: (value: string) => void
-}
-
-function FilterMenu({ label, menu, value, values, openFilter, onToggle, onChange }: FilterMenuProps) {
-  const isOpen = openFilter === menu
-  return (
-    <div className="relative">
-      <button onClick={() => onToggle(isOpen ? null : menu)} aria-expanded={isOpen} className="flex items-center gap-1 rounded-full border border-[#cbd9fb] bg-[#edf3ff] px-3 py-2 text-[11px] font-medium text-brand">
-        <span className="max-w-[108px] truncate">{label}</span><Icon name="chevron-down" className="size-3" />
-      </button>
-      {isOpen && (
-        <div className="absolute right-0 top-full z-10 mt-2 min-w-[150px] rounded-xl border border-line bg-white p-1.5 shadow-lg">
-          {values.map((option) => (
-            <button key={option} onClick={() => { onChange(option); onToggle(null) }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${value === option ? 'bg-[#edf3ff] text-brand' : 'text-ink hover:bg-[#f6f8fb]'}`}>
-              {option}{value === option && <span aria-hidden="true">✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-type ComposerProps = {
-  draft: string
-  onDraftChange: (value: string) => void
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
-  placeholder: string
-}
-
-function Composer({ draft, onDraftChange, onSubmit, placeholder }: ComposerProps) {
-  return (
-    <form onSubmit={onSubmit} className="mx-auto mt-auto flex w-full max-w-[654px] items-center gap-3 rounded-full border border-[#edf1f8] bg-white p-2 pl-4 shadow-[0_6px_20px_rgba(37,56,95,0.1)]">
-      <button type="button" aria-label="첨부" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#f5f8ff] text-primary"><Icon name="plus" className="size-[18px]" /></button>
-      <input value={draft} onChange={(event) => onDraftChange(event.target.value)} placeholder={placeholder} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#aab3c5]" aria-label={placeholder} />
-      <button type="submit" disabled={!draft.trim()} aria-label="질문 보내기" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_4px_12px_rgba(95,134,239,0.25)] transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-[#9bb5f4]">
-        <Icon name="arrow-up" className="size-[18px]" />
-      </button>
-    </form>
   )
 }
 
@@ -384,58 +400,67 @@ type ConversationViewProps = {
   draft: string
   attachments: LocalAttachment[]
   onDraftChange: (value: string) => void
-  onSubmit: (event: FormEvent<HTMLFormElement>, attachments: LocalAttachment[], question: string) => void
+  onSubmit: (attachments: LocalAttachment[], question: string) => boolean
   onToast: (message: string) => void
 }
 
 function ConversationView({ title, draft, attachments, onDraftChange, onSubmit, onToast }: ConversationViewProps) {
   const answer: MockAnswer = attachments.length > 0 ? getAttachmentAnswer(attachments) : getMockAnswer(title)
+  const answerMarkdown = toMarkdown(answer)
   const [selectedAttachments, setSelectedAttachments] = useState<LocalAttachment[]>([])
   const [attachmentError, setAttachmentError] = useState('')
   const [dropzoneOpen, setDropzoneOpen] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const ownedAttachmentsRef = useRef<LocalAttachment[]>([])
-  const uploadTimersRef = useRef<Map<string, number>>(new Map())
-  const pdfTasksRef = useRef(new Map<string, PDFDocumentLoadingTask>())
+  // 첨부 리소스 소유권: 전송 전까지는 이 입력창이 소유하고, 제거·화면 종료 시 해제한다.
+  // 전송하면 미리보기 URL의 소유권은 대화(ConversationProvider)로 넘어간다.
+  const processingJobsRef = useRef(new Map<string, AbortController>())
+  const ownedPreviewUrlsRef = useRef(new Map<string, string>())
 
-  useEffect(() => () => {
-    uploadTimersRef.current.forEach((timer) => window.clearTimeout(timer))
-    pdfTasksRef.current.forEach((task) => { void task.destroy().catch(() => undefined) })
-    ownedAttachmentsRef.current.forEach((attachment) => {
-      if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl)
-    })
+  useEffect(() => {
+    const jobs = processingJobsRef.current
+    const previewUrls = ownedPreviewUrlsRef.current
+    return () => {
+      jobs.forEach((job) => job.abort())
+      jobs.clear()
+      previewUrls.forEach((url) => URL.revokeObjectURL(url))
+      previewUrls.clear()
+    }
   }, [])
+
+  function updateAttachment(id: string, changes: Partial<LocalAttachment>) {
+    setSelectedAttachments((current) => current.map((item) => (item.id === id ? { ...item, ...changes } : item)))
+  }
 
   function addFiles(fileList: FileList | File[]) {
     const incomingFiles = Array.from(fileList)
-    const supportedExtensions = ['jpg', 'jpeg', 'png', 'heic', 'pdf']
-    const supportedFiles = incomingFiles.filter((file) => {
-      const extension = file.name.split('.').pop()?.toLowerCase()
-      return extension && supportedExtensions.includes(extension)
-    })
-    const validFiles = supportedFiles.filter((file) => file.size <= 20 * 1024 * 1024)
-    const remainingSlots = Math.max(0, 5 - selectedAttachments.length)
+    const checks = incomingFiles.map((file) => ({ file, check: checkAttachmentFile(file) }))
+    const validFiles = checks.flatMap(({ file, check }) => (check.ok ? [{ file, format: check.format }] : []))
+    const remainingSlots = Math.max(0, MAX_ATTACHMENT_COUNT - selectedAttachments.length)
     const acceptedFiles = validFiles.slice(0, remainingSlots)
 
-    const newAttachments = acceptedFiles.map((file) => ({
-      id: crypto.randomUUID(),
-      file,
-      previewUrl: /\.(jpe?g|png)$/i.test(file.name) ? URL.createObjectURL(file) : undefined,
-      uploadProgress: 30,
-      pageCount: undefined,
-      uploadError: undefined,
-    }))
-    ownedAttachmentsRef.current.push(...newAttachments)
+    const newAttachments: LocalAttachment[] = acceptedFiles.map(({ file, format }) => {
+      const id = createId('attachment')
+      // JPG·PNG는 모든 브라우저가 표시할 수 있어 바로 미리보기를 만든다. HEIC는 처리 단계에서 지원 여부를 확인한다.
+      const previewUrl = format === 'jpeg' || format === 'png' ? URL.createObjectURL(file) : undefined
+      if (previewUrl) ownedPreviewUrlsRef.current.set(id, previewUrl)
+      return { id, file, format, status: 'processing', previewUrl }
+    })
     setSelectedAttachments((current) => [...current, ...newAttachments])
-    newAttachments.forEach((attachment) => { void prepareAttachment(attachment) })
+    newAttachments.forEach((attachment) => {
+      const job = new AbortController()
+      processingJobsRef.current.set(attachment.id, job)
+      void processAttachment(attachment, job.signal).finally(() => {
+        if (processingJobsRef.current.get(attachment.id) === job) processingJobsRef.current.delete(attachment.id)
+      })
+    })
 
-    if (supportedFiles.length < incomingFiles.length) {
+    if (checks.some(({ check }) => !check.ok && check.reason === 'type')) {
       setAttachmentError('이미지(JPG·PNG·HEIC)와 PDF만 첨부할 수 있어요.')
-    } else if (validFiles.length < supportedFiles.length) {
+    } else if (checks.some(({ check }) => !check.ok && check.reason === 'size')) {
       setAttachmentError('파일당 최대 20MB까지 첨부할 수 있어요.')
     } else if (validFiles.length > remainingSlots) {
-      setAttachmentError('한 번에 최대 5개까지 첨부할 수 있어요.')
+      setAttachmentError(`한 번에 최대 ${MAX_ATTACHMENT_COUNT}개까지 첨부할 수 있어요.`)
     } else {
       setAttachmentError('')
     }
@@ -443,34 +468,64 @@ function ConversationView({ title, draft, attachments, onDraftChange, onSubmit, 
     setDropzoneOpen(false)
   }
 
-  async function prepareAttachment(attachment: LocalAttachment) {
-    let pageCount: number | undefined
+  // 브라우저 안에서만 하는 확인 작업이다. 서버 업로드는 하지 않는다.
+  async function processAttachment(attachment: LocalAttachment, signal: AbortSignal) {
+    const { id, file, format } = attachment
+    let pdfTask: PDFDocumentLoadingTask | undefined
+    const destroyPdfTask = () => {
+      void pdfTask?.destroy().catch(() => undefined)
+    }
+
     try {
-      if (attachment.file.name.toLowerCase().endsWith('.pdf')) {
-        const pdfjsLib = await import('pdfjs-dist')
-        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
-        const task = pdfjsLib.getDocument({ data: await attachment.file.arrayBuffer() })
-        pdfTasksRef.current.set(attachment.id, task)
-        pageCount = (await task.promise).numPages
-        pdfTasksRef.current.delete(attachment.id)
+      const signatureMatches = await matchesFileSignature(file, format)
+      if (signal.aborted) return
+      if (!signatureMatches) {
+        updateAttachment(id, { status: 'error', error: '파일 내용이 형식과 맞지 않아요.' })
+        return
       }
 
-      if (!ownedAttachmentsRef.current.some(({ id }) => id === attachment.id)) return
-      const timer = window.setTimeout(() => {
-        setSelectedAttachments((current) => current.map((item) => (
-          item.id === attachment.id ? { ...item, uploadProgress: 100, pageCount } : item
-        )))
-        uploadTimersRef.current.delete(attachment.id)
-      }, 1200)
-      uploadTimersRef.current.set(attachment.id, timer)
+      if (format === 'pdf') {
+        // pdf.js(약 440KB + 워커)는 PDF를 첨부했을 때만 내려받아요.
+        const pdfjsLib = await import('pdfjs-dist')
+        if (signal.aborted) return
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+          'pdfjs-dist/build/pdf.worker.min.mjs',
+          import.meta.url,
+        ).toString()
+        const data = await file.arrayBuffer()
+        if (signal.aborted) return
+        pdfTask = pdfjsLib.getDocument({ data })
+        signal.addEventListener('abort', destroyPdfTask, { once: true })
+        const pdf = await pdfTask.promise
+        if (signal.aborted) return
+        updateAttachment(id, { status: 'ready', pageCount: pdf.numPages })
+        return
+      }
+
+      if (format === 'heic') {
+        const url = URL.createObjectURL(file)
+        const displayable = await canDisplayImage(url)
+        if (signal.aborted || !displayable) {
+          URL.revokeObjectURL(url)
+          if (!signal.aborted) updateAttachment(id, { status: 'ready', previewUnsupported: true })
+          return
+        }
+        ownedPreviewUrlsRef.current.set(id, url)
+        updateAttachment(id, { status: 'ready', previewUrl: url })
+        return
+      }
+
+      updateAttachment(id, { status: 'ready' })
     } catch {
-      pdfTasksRef.current.delete(attachment.id)
-      if (!ownedAttachmentsRef.current.some(({ id }) => id === attachment.id)) return
-      setSelectedAttachments((current) => current.map((item) => (
-        item.id === attachment.id
-          ? { ...item, uploadProgress: 100, uploadError: 'PDF를 읽지 못했어요. 파일을 확인해 주세요.' }
-          : item
-      )))
+      if (signal.aborted) return
+      updateAttachment(id, {
+        status: 'error',
+        error: format === 'pdf' ? 'PDF를 읽지 못했어요. 파일을 확인해 주세요.' : '파일을 읽지 못했어요.',
+      })
+    } finally {
+      // 쪽수만 필요하므로 성공·실패·취소와 관계없이 PDF 문서와 워커 리소스를 정리한다.
+      signal.removeEventListener('abort', destroyPdfTask)
+      destroyPdfTask()
     }
   }
 
@@ -486,199 +541,226 @@ function ConversationView({ title, draft, attachments, onDraftChange, onSubmit, 
   }
 
   function removeSelectedFile(id: string) {
-    const uploadTimer = uploadTimersRef.current.get(id)
-    if (uploadTimer !== undefined) window.clearTimeout(uploadTimer)
-    uploadTimersRef.current.delete(id)
-    const pdfTask = pdfTasksRef.current.get(id)
-    if (pdfTask) void pdfTask.destroy().catch(() => undefined)
-    pdfTasksRef.current.delete(id)
-    const removedAttachment = ownedAttachmentsRef.current.find((attachment) => attachment.id === id)
-    if (removedAttachment?.previewUrl) URL.revokeObjectURL(removedAttachment.previewUrl)
-    ownedAttachmentsRef.current = ownedAttachmentsRef.current.filter((attachment) => attachment.id !== id)
+    processingJobsRef.current.get(id)?.abort()
+    processingJobsRef.current.delete(id)
+    const previewUrl = ownedPreviewUrlsRef.current.get(id)
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    ownedPreviewUrlsRef.current.delete(id)
     setSelectedAttachments((current) => current.filter((attachment) => attachment.id !== id))
     setAttachmentError('')
   }
 
-  function handleConversationSubmit(event: FormEvent<HTMLFormElement>) {
-    if (selectedAttachments.some((attachment) => attachment.uploadProgress < 100 || attachment.uploadError)) {
-      event.preventDefault()
-      return
-    }
-    const question = draft.trim() || (selectedAttachments.length > 0 ? '첨부 자료 요약해줘' : '')
-    if (!question) {
-      event.preventDefault()
-      return
-    }
+  const hasUnreadyAttachment = selectedAttachments.some(({ status }) => status !== 'ready')
+  const imageErrors = selectedAttachments.filter(({ format, error }) => format !== 'pdf' && error)
+  const hasUnsupportedPreview = selectedAttachments.some(({ previewUnsupported }) => previewUnsupported)
+  const canSend = (draft.trim() !== '' || selectedAttachments.length > 0) && !hasUnreadyAttachment
 
-    onSubmit(event, selectedAttachments, question)
-    uploadTimersRef.current.forEach((timer) => window.clearTimeout(timer))
-    uploadTimersRef.current.clear()
-    pdfTasksRef.current.forEach((task) => { void task.destroy().catch(() => undefined) })
-    pdfTasksRef.current.clear()
-    ownedAttachmentsRef.current = []
+  function handleConversationSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canSend) return
+    const accepted = onSubmit(selectedAttachments, draft)
+    if (!accepted) return
+    // 전송한 첨부의 미리보기 URL은 대화가 소유하므로 여기서는 해제하지 않고 소유 목록에서만 뺀다.
+    processingJobsRef.current.clear()
+    ownedPreviewUrlsRef.current.clear()
     setSelectedAttachments([])
     setAttachmentError('')
   }
 
+  async function copyAnswer() {
+    try {
+      await navigator.clipboard.writeText(answerMarkdown)
+      onToast('답변을 복사했어요.')
+    } catch {
+      onToast('이 브라우저에서는 복사할 수 없어요.')
+    }
+  }
+
   return (
-    <main className="relative flex min-h-[calc(100vh-105px)] flex-1 flex-col px-5 pb-4 pt-5 md:min-h-screen md:px-8 md:pt-5">
+    <main className="relative flex min-h-[calc(100vh-105px)] flex-1 flex-col px-5 pt-5 pb-4 md:min-h-screen md:px-8">
       <header className="flex items-start justify-between">
-        <div><h1 className="text-xl font-bold md:text-2xl">{answer.category}</h1><p className="mt-1 text-xs text-sub">소프트웨어개발과 · {answer.category}</p></div>
-        <button aria-label="대화 옵션" className="rounded-lg px-2 py-1 text-lg text-sub hover:bg-white">···</button>
+        <div>
+          <h1 className="text-title">{answer.category}</h1>
+          <p className="mt-1 text-caption text-text-secondary">소프트웨어개발과 · {answer.category}</p>
+        </div>
+        <IconButton icon={Ellipsis} label="대화 옵션" onClick={() => onToast('대화 옵션은 준비 중이에요.')} />
       </header>
-      <section className="mx-auto flex w-full max-w-[654px] flex-1 flex-col justify-end gap-4 py-8">
+
+      <section className="mx-auto flex w-full max-w-[720px] flex-1 flex-col justify-end gap-md py-xl">
         {attachments.length > 0 && (
           <div className="flex flex-wrap justify-end gap-2" aria-label="전송한 첨부 파일">
-            {attachments.map((attachment) => <AttachmentItem key={attachment.id} file={attachment.file} previewUrl={attachment.previewUrl} variant="sent" />)}
+            {attachments.map((attachment) =>
+              attachment.format === 'pdf' ? (
+                <PdfChip key={attachment.id} name={attachment.file.name} />
+              ) : (
+                <ImageThumb key={attachment.id} src={attachment.previewUrl} alt={attachment.file.name} />
+              ),
+            )}
           </div>
         )}
-        <div className="flex justify-end"><div className="max-w-[85%] rounded-[19px] rounded-br-md bg-primary px-4 py-3 text-sm text-white shadow-[0_6px_15px_rgba(95,134,239,0.2)]">{title}</div></div>
+        <UserBubble>{title}</UserBubble>
         <div className="flex items-start gap-3">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#e9eef8] bg-white text-primary shadow-sm"><img src="/src/assets/logo.svg" alt="" className="size-5" /></span>
-          <article className="min-w-0 flex-1 rounded-[19px] border border-[#edf1f8] bg-white p-4 shadow-[0_5px_16px_rgba(37,56,95,0.06)]">
-            <h2 className="text-base font-semibold">{answer.heading}</h2>
-            <p className="mt-2 text-sm leading-6 text-ink">{answer.body}</p>
-            {answer.steps && (
-              <ol className="mt-2 list-inside list-decimal space-y-1 text-sm marker:text-primary">
-                {answer.steps.map((step) => <li key={step}>{step}</li>)}
-              </ol>
-            )}
-            {answer.code && (
-              <div className="mt-3 rounded-xl border border-[#edf1f8] bg-[#f7f9fc] p-3 text-xs text-sub">
-                <div className="mb-2 flex items-center justify-between"><span>html</span><button onClick={() => onToast('코드를 복사했어요.')} className="flex items-center gap-1 hover:text-primary"><Icon name="copy" className="size-3.5" />복사</button></div>
-                <code className="text-ink">{answer.code}</code>
-              </div>
-            )}
-            {answer.reference && <a href="#school" onClick={(event) => event.preventDefault()} className="mt-3 inline-block text-xs text-brand underline">{answer.reference}</a>}
-          </article>
-        </div>
-        <div className="flex gap-3 pl-11 text-xs text-[#9aa4ba]">
-          <button onClick={() => onToast('답변을 복사했어요.')} className="flex items-center gap-1 hover:text-primary"><Icon name="copy" className="size-3.5" />복사</button>
-          <button onClick={() => onToast('답변을 저장했어요.')} className="flex items-center gap-1 hover:text-primary"><Icon name="bookmark" className="size-3.5" />저장</button>
-          <button onClick={() => onToast('공유 링크를 준비했어요.')} className="flex items-center gap-1 hover:text-primary"><Icon name="share" className="size-3.5" />공유</button>
+          <LogoMark size={40} />
+          <div className="min-w-0 flex-1">
+            <AnswerBubble
+              content={answerMarkdown}
+              footer={
+                <AnswerReactions
+                  reactions={[
+                    { key: 'copy', label: '복사' },
+                    { key: 'save', label: '저장' },
+                    { key: 'share', label: '공유' },
+                  ]}
+                  onSelect={(key) => {
+                    if (key === 'copy') void copyAnswer()
+                    else onToast(key === 'save' ? '답변 저장은 준비 중이에요.' : '공유는 준비 중이에요.')
+                  }}
+                />
+              }
+            />
+          </div>
         </div>
       </section>
-      <form onSubmit={handleConversationSubmit} className="mx-auto w-full max-w-[654px] rounded-[20px] border border-[#edf1f8] bg-white p-3 shadow-[0_6px_20px_rgba(37,56,95,0.1)]">
-        {attachmentError && (
-          <div role="alert" className="mb-3 flex items-start gap-2 rounded-xl bg-[#fbf0f1] px-3 py-2.5 text-xs text-error">
-            <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
-            <span>{attachmentError}</span>
-          </div>
-        )}
+
+      <form
+        onSubmit={handleConversationSubmit}
+        className="mx-auto w-full max-w-[720px] rounded-lg border border-border-subtle bg-bg-surface p-3 shadow-cloud-md transition focus-within:border-border-brand"
+      >
+        {attachmentError && <FieldError className="mb-3">{attachmentError}</FieldError>}
         {selectedAttachments.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">
             {selectedAttachments.map((attachment) => (
-              <AttachmentItem
+              <ComposerAttachment
                 key={attachment.id}
-                file={attachment.file}
-                previewUrl={attachment.previewUrl}
-                pageCount={attachment.pageCount}
-                uploadProgress={attachment.uploadProgress}
-                uploadError={attachment.uploadError}
+                attachment={attachment}
                 onRemove={() => removeSelectedFile(attachment.id)}
               />
             ))}
           </div>
         )}
-        <div className="flex items-center gap-3">
-          <button type="button" aria-label="자료 첨부" onClick={() => setDropzoneOpen(true)} className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#f5f8ff] text-primary hover:bg-[#edf3ff]">
-            <Icon name="plus" className="size-[18px]" />
+        {selectedAttachments.length > 0 && (
+          <div className="mb-3 space-y-1 text-[11px]">
+            {imageErrors.map((attachment) => (
+              <FieldError key={attachment.id} className="">
+                {attachment.file.name} · {attachment.error}
+              </FieldError>
+            ))}
+            {hasUnsupportedPreview && (
+              <p className="flex items-center gap-1 text-text-secondary">
+                <Info className="size-3.5 shrink-0 text-icon-muted" strokeWidth={1.75} aria-hidden />이 브라우저에서는
+                HEIC 미리보기를 지원하지 않아요. 파일은 그대로 첨부돼요.
+              </p>
+            )}
+            <p className="flex items-center gap-1 text-text-tertiary">
+              <Info className="size-3.5 shrink-0 text-icon-muted" strokeWidth={1.75} aria-hidden />
+              목업 단계라 첨부 파일은 서버로 업로드되지 않아요.
+            </p>
+          </div>
+        )}
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            aria-label="자료 첨부"
+            onClick={() => setDropzoneOpen(true)}
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-bg-canvas text-icon-brand transition hover:bg-bg-brand-soft"
+          >
+            <Plus className="size-[18px]" strokeWidth={2} aria-hidden />
           </button>
-          <input value={draft} onChange={(event) => onDraftChange(event.target.value)} placeholder={selectedAttachments.length > 0 ? '자료에 대해 질문하기' : '추가 질문 입력...'} aria-label="추가 질문 입력" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#aab3c5]" />
-          <button type="submit" disabled={(!draft.trim() && selectedAttachments.length === 0) || selectedAttachments.some((attachment) => attachment.uploadProgress < 100 || attachment.uploadError)} aria-label="질문 보내기" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_4px_12px_rgba(95,134,239,0.25)] transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-[#b9cef7]">
-            <Icon name="arrow-up" className="size-[18px]" />
+          <input
+            value={draft}
+            onChange={(event) => onDraftChange(event.target.value)}
+            onKeyDown={(event) => {
+              // 한글 조합 중 Enter로는 보내지 않음
+              if (event.key === 'Enter' && event.nativeEvent.isComposing) event.preventDefault()
+            }}
+            placeholder={selectedAttachments.length > 0 ? '자료에 대해 질문하기' : '추가 질문 입력...'}
+            aria-label="추가 질문 입력"
+            className="min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-text-tertiary"
+          />
+          <button
+            type="submit"
+            disabled={!canSend}
+            aria-label="질문 보내기"
+            className="flex size-9.5 shrink-0 items-center justify-center rounded-full bg-bg-brand text-icon-on-brand shadow-cloud-brand transition enabled:hover:bg-bg-brand-pressed disabled:cursor-not-allowed disabled:bg-bg-brand-disabled disabled:shadow-none"
+          >
+            <ArrowUp className="size-[18px]" strokeWidth={2.25} aria-hidden />
           </button>
         </div>
       </form>
+      <p className="mt-2.5 text-center text-caption text-text-tertiary">현재는 화면 확인용 목업 답변입니다.</p>
+
       {dropzoneOpen && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#edf3ff]/85 p-5 backdrop-blur-[1px] md:p-8">
-          <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.heic,.pdf" multiple className="sr-only" onChange={handleFileSelection} />
-          <button type="button" aria-label="첨부 닫기" onClick={() => setDropzoneOpen(false)} className="absolute right-4 top-4 flex size-9 items-center justify-center rounded-full bg-white text-sub shadow-sm hover:text-ink">
-            <Icon name="x" className="size-5" />
-          </button>
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-bg-brand-soft/85 p-5 backdrop-blur-[1px] md:p-8">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ATTACHMENT_ACCEPT}
+            multiple
+            className="sr-only"
+            onChange={handleFileSelection}
+          />
+          <IconButton
+            icon={X}
+            label="첨부 닫기"
+            variant="boxed"
+            onClick={() => setDropzoneOpen(false)}
+            className="absolute top-4 right-4"
+          />
           <div
-            onDragOver={(event) => { event.preventDefault(); setDragActive(true) }}
+            onDragOver={(event) => {
+              event.preventDefault()
+              setDragActive(true)
+            }}
             onDragLeave={() => setDragActive(false)}
             onDrop={handleDrop}
-            className={`flex h-[min(42vh,320px)] w-full max-w-[664px] flex-col items-center justify-center rounded-[22px] border-2 border-dashed px-5 text-center transition ${dragActive ? 'border-primary bg-[#edf3ff]' : 'border-[#bfd2ff] bg-white/75'}`}
+            className={`flex h-[min(42vh,320px)] w-full max-w-[664px] flex-col items-center justify-center rounded-lg border-2 border-dashed border-border-brand px-5 text-center transition ${
+              dragActive ? 'bg-bg-brand-soft' : 'bg-bg-surface/75'
+            }`}
           >
-            <span className="mb-3 flex size-16 items-center justify-center rounded-full bg-[#eaf1ff] text-primary"><Icon name="upload" className="size-7" /></span>
-            <h2 className="text-base font-semibold text-ink">여기에 놓으면 첨부돼요</h2>
-            <p className="mt-2 text-xs text-sub">이미지(JPG·PNG·HEIC)와 PDF를 첨부할 수 있어요</p>
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-4 rounded-lg border border-line bg-white px-3 py-2 text-xs font-medium text-brand hover:bg-[#f7f9fc]">파일 선택</button>
+            <span className="mb-3 flex size-16 items-center justify-center rounded-full bg-bg-brand-soft text-icon-brand">
+              <Upload className="size-7" strokeWidth={1.75} aria-hidden />
+            </span>
+            <h2 className="text-body-strong">여기에 놓으면 첨부돼요</h2>
+            <p className="mt-2 text-caption text-text-secondary">이미지(JPG·PNG·HEIC)와 PDF를 첨부할 수 있어요</p>
+            <Button size="sm" variant="secondary" className="mt-md" onClick={() => fileInputRef.current?.click()}>
+              파일 선택
+            </Button>
           </div>
         </div>
       )}
-      <p className="mt-2 text-center text-[11px] text-[#aab3c5]">현재는 화면 확인용 목업 답변입니다.</p>
     </main>
   )
 }
 
-function AttachmentItem({ file, previewUrl, pageCount, uploadProgress = 100, uploadError, onRemove, variant = 'composer' }: { file: File; previewUrl?: string; pageCount?: number; uploadProgress?: number; uploadError?: string; onRemove?: () => void; variant?: 'composer' | 'sent' }) {
-  const isImageFile = /\.(jpe?g|png|heic)$/i.test(file.name)
+/** 입력창 위 첨부 하나 — 이미지는 ImageThumb, PDF는 PdfCard에 로컬 확인 상태를 덧붙여요 */
+function ComposerAttachment({ attachment, onRemove }: { attachment: LocalAttachment; onRemove: () => void }) {
+  const { file, format, status, previewUrl, previewUnsupported, pageCount, error } = attachment
 
-  if (variant === 'sent') {
+  if (format === 'pdf') {
+    const description =
+      error ?? (status === 'processing' ? '파일 확인 중…' : `PDF${pageCount ? ` · ${pageCount}쪽` : ''} · 첨부 준비됨`)
     return (
-      <span className="inline-flex max-w-[220px] items-center gap-2 rounded-xl border border-[#edf1f8] bg-white px-2.5 py-2 text-xs text-ink">
-        <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#edf3ff] text-primary">
-          {previewUrl ? <img src={previewUrl} alt={file.name} className="size-full object-cover" /> : <Icon name={isImageFile ? 'image' : 'file'} className="size-4" />}
-        </span>
-        <span className="truncate">{file.name}</span>
-      </span>
-    )
-  }
-
-  if (isImageFile) {
-    return (
-      <div className="relative size-14">
-        <span className="flex size-full items-center justify-center overflow-hidden rounded-xl border border-[#edf1f8] bg-[#f7f9fc] text-primary">
-          {previewUrl ? <img src={previewUrl} alt={file.name} className="size-full object-cover" /> : <Icon name="image" className="size-5" />}
-        </span>
-        {onRemove && (
-          <button type="button" aria-label={`${file.name} 업로드 취소`} title="업로드 취소" onClick={onRemove} className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-[#202432] text-white shadow-sm">
-            <Icon name="x" className="size-4" />
-          </button>
-        )}
+      <div className="w-[220px] max-w-full">
+        <PdfCard name={file.name} description={description} invalid={Boolean(error)} onRemove={onRemove} />
       </div>
     )
   }
 
+  const statusLabel =
+    status === 'processing' ? '확인 중' : status === 'error' ? '오류' : previewUnsupported ? 'HEIC' : undefined
   return (
-    <div className={`flex h-12 w-[220px] min-w-[180px] max-w-full items-center gap-2 rounded-xl border px-2.5 ${uploadError ? 'border-[#f2c9cc] bg-[#fff8f8]' : 'border-[#edf1f8] bg-white'}`}>
-      <span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${uploadError ? 'bg-[#fbeaec] text-error' : 'bg-[#edf3ff] text-primary'}`}><Icon name="file" className="size-4" /></span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-xs font-medium text-ink">{file.name}</span>
-        {uploadError ? (
-          <span className="mt-0.5 block truncate text-[11px] text-error">{uploadError}</span>
-        ) : uploadProgress < 100 ? (
-          <span className="mt-0.5 block text-[11px] text-sub">업로드 중 · {uploadProgress}%</span>
-        ) : pageCount ? (
-          <span className="mt-0.5 block text-[11px] text-sub">PDF · {pageCount}쪽</span>
-        ) : null}
-      </span>
-      {onRemove && (
-        <button type="button" aria-label={`${file.name} 업로드 취소`} title="업로드 취소" onClick={onRemove} className="flex size-6 shrink-0 items-center justify-center rounded-md text-[#aab3c5] transition hover:bg-[#f2f5fb] hover:text-sub">
-          <Icon name="x" className="size-4" />
-        </button>
+    <div className={`relative ${status === 'processing' ? 'animate-pulse' : ''}`} title={error ?? file.name}>
+      <ImageThumb src={previewUrl} alt={file.name} onRemove={onRemove} />
+      {statusLabel && (
+        <span
+          className={`pointer-events-none absolute inset-x-1 bottom-1 rounded-[4px] bg-bg-surface/90 text-center text-[9px] font-medium ${
+            status === 'error' ? 'text-text-danger' : 'text-text-secondary'
+          }`}
+        >
+          {statusLabel}
+        </span>
       )}
     </div>
-  )
-}
-
-function CollectionView({ section, onOpenQuestion }: { section: 'community' | 'history'; onOpenQuestion: (question: string) => void }) {
-  const isHistory = section === 'history'
-  const items = isHistory ? recentQuestions.map(({ title, age }) => ({ title, meta: age })) : popularQuestions
-  return (
-    <main className="mx-auto w-full max-w-[900px] px-5 py-8 md:px-8">
-      <h1 className="text-2xl font-bold">{isHistory ? '대화 기록' : '커뮤니티'}</h1>
-      <div className="mt-6 overflow-hidden rounded-[20px] border border-[#edf1f8] bg-white px-5 shadow-[0_5px_16px_rgba(37,56,95,0.06)]">
-        {items.map((item) => (
-          <button key={item.title} onClick={() => onOpenQuestion(item.title)} className="flex min-h-[64px] w-full items-center justify-between gap-4 border-b border-[#edf0f5] text-left last:border-0">
-            <span className="truncate text-sm font-medium">{item.title}</span><span className="shrink-0 text-xs text-sub">{item.meta}</span>
-          </button>
-        ))}
-      </div>
-    </main>
   )
 }
 
