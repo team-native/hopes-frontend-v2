@@ -5,7 +5,7 @@ export type ConversationContextValue = {
   conversations: Conversation[]
   getConversation: (id: string) => Conversation | undefined
   createConversation: (title: string, attachments?: LocalAttachment[]) => string
-  deleteConversation: (id: string) => void
+  deleteConversation: (id: string) => Promise<void>
 }
 
 export const ConversationContext = createContext<ConversationContextValue | null>(null)

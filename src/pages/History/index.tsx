@@ -34,10 +34,14 @@ function HistoryPage() {
         { title: '이전', conversations: filtered.filter(({ daysAgo }) => daysAgo > RECENT_DAYS) },
       ].filter((group) => group.conversations.length > 0)
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) return
-    deleteConversation(deleteTarget.id)
-    setDeleteTarget(null)
+    try {
+      await deleteConversation(deleteTarget.id)
+      setDeleteTarget(null)
+    } catch {
+      // Keep the dialog open so the user can retry after a transient API failure.
+    }
   }
 
   return (
@@ -105,10 +109,7 @@ function HistoryPage() {
         description={
           <>
             <p className="line-clamp-1">{deleteTarget?.title}</p>
-            {/* TODO: 대화 삭제 API 연동 후 "삭제한 대화는 되돌릴 수 없어요."로 바꾸기 */}
-            <p className="mt-1 text-caption text-text-tertiary">
-              목업 단계라 이 화면에서만 지워지고, 새로고침하면 다시 나타나요.
-            </p>
+            <p className="mt-1 text-caption text-text-tertiary">삭제한 대화와 메시지는 되돌릴 수 없어요.</p>
           </>
         }
         confirmText="삭제"
