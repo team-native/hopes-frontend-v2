@@ -1,8 +1,11 @@
+import AuthLayout from '../../components/layout/AuthLayout'
+import LoginForm from './components/LoginForm'
+
 function LoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center">
-      <h1 className="text-2xl font-bold">로그인</h1>
-    </main>
+    <AuthLayout>
+      <LoginForm />
+    </AuthLayout>
   )
 }
 
