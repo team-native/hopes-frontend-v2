@@ -69,14 +69,7 @@ function AttachmentComposer({
                 {attachment.file.name} · {attachment.error}
               </FieldError>
             ))}
-            <NoticeRow
-              message={[
-                hasUnsupportedPreview && '이 브라우저에서는 HEIC 미리보기를 지원하지 않아요. 파일은 그대로 첨부돼요.',
-                '목업 단계라 첨부 파일은 서버로 업로드되지 않아요.',
-              ]
-                .filter(Boolean)
-                .join('\n')}
-            />
+            {hasUnsupportedPreview && <NoticeRow message="이 브라우저에서는 HEIC 미리보기를 지원하지 않아요. 파일은 그대로 첨부돼요." />}
           </div>
         </>
       )}

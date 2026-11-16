@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import client from '../../api/client'
-import { logout } from '../../api/auth'
+import { deleteAccount, logout } from '../../api/auth'
+import { getSettings, sendInquiry, updateSettings, updateTheme } from '../../api/settings'
+import { getRecommendationConsent, setRecommendationConsent as saveRecommendationConsent } from '../../api/recommendations'
 import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
@@ -19,7 +20,9 @@ import {
   type SettingsMenu,
 } from '../../components/settings/SettingsCards'
 import SettingToggleRow from '../../components/settings/SettingToggleRow'
+import TextField from '../../components/common/TextField'
 import useProfile from '../../hooks/useProfile'
+import useConversations from '../../hooks/useConversations'
 import useToast from '../../hooks/useToast'
 
 // API 연동 전까지 설정값은 이 브라우저(localStorage)에만 저장한다.
@@ -81,10 +84,77 @@ function SettingsPage() {
   const [message, setMessage] = useState('')
   const [contactErrors, setContactErrors] = useState({ email: false, message: false })
   const [logoutOpen, setLogoutOpen] = useState(false)
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false)
+  const [deleteChatsOpen, setDeleteChatsOpen] = useState(false)
+  const [accountPassword, setAccountPassword] = useState('')
+  const [theme, setTheme] = useState<'DARK' | 'LIGHT'>('LIGHT')
+  const [settingsError, setSettingsError] = useState(false)
+  const [recommendationConsent, setRecommendationConsent] = useState(false)
+  const [consentPolicyVersion, setConsentPolicyVersion] = useState('')
+  const { deleteAllConversations } = useConversations()
 
-  function saveSettings() {
+  useEffect(() => {
+    let active = true
+    getSettings()
+      .then((settings) => {
+        if (!active) return
+        setSystemPrompt(settings.customPrompt)
+        setTheme(settings.theme)
+        document.documentElement.dataset.theme = settings.theme.toLowerCase()
+      })
+      .catch(() => {
+        if (active) setSettingsError(true)
+      })
+    getRecommendationConsent()
+      .then((consent) => {
+        if (!active) return
+        setRecommendationConsent(consent.enabled)
+        setConsentPolicyVersion(consent.policyVersion)
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [])
+
+  async function changeRecommendationConsent(enabled: boolean) {
+    if (!consentPolicyVersion) {
+      showToast('추천 동의 정보를 불러오지 못했어요. 다시 시도해 주세요.')
+      return
+    }
+    try {
+      const consent = await saveRecommendationConsent(enabled, consentPolicyVersion)
+      setRecommendationConsent(consent.enabled)
+      setConsentPolicyVersion(consent.policyVersion)
+    } catch {
+      showToast('추천 설정을 저장하지 못했어요. 다시 시도해 주세요.')
+    }
+  }
+
+  async function saveSettings() {
     const saved = persistSettings({ systemPrompt, notifications })
-    showToast(saved ? '설정을 이 기기에 저장했어요' : '설정을 저장하지 못했어요')
+    if (!saved) {
+      showToast('설정을 저장하지 못했어요')
+      return
+    }
+    try {
+      await updateSettings({ customPrompt: systemPrompt, deleteAllChats: false })
+      showToast('설정을 저장했어요')
+    } catch {
+      showToast('서버에 설정을 저장하지 못했어요. 다시 시도해 주세요.')
+    }
+  }
+
+  async function changeTheme(enabled: boolean) {
+    const nextTheme = enabled ? 'DARK' : 'LIGHT'
+    try {
+      const result = await updateTheme(nextTheme)
+      setTheme(result.theme)
+      document.documentElement.dataset.theme = result.theme.toLowerCase()
+      showToast('화면 설정을 저장했어요')
+    } catch {
+      showToast('화면 설정을 저장하지 못했어요. 다시 시도해 주세요.')
+    }
   }
 
   async function sendContact(event: FormEvent<HTMLFormElement>) {
@@ -93,7 +163,7 @@ function SettingsPage() {
     setContactErrors(errors)
     if (errors.email || errors.message) return
     try {
-      await client.post('/api/setting/inquiry', { content: `회신 이메일: ${email.trim()}\n\n${message.trim()}` })
+      await sendInquiry(`회신 이메일: ${email.trim()}\n\n${message.trim()}`)
       setMessage('')
       showToast('문의를 보냈어요')
     } catch {
@@ -123,6 +193,15 @@ function SettingsPage() {
             {activeMenu === 'profile' && (
               <>
                 <PromptCard value={systemPrompt} onChange={setSystemPrompt} />
+                <section className="rounded-lg border border-border-subtle bg-bg-surface px-md shadow-cloud-sm">
+                  <SettingToggleRow
+                    title="개인화 질문 추천"
+                    description="학과·전공 설정을 질문 추천에 활용해요."
+                    checked={recommendationConsent}
+                    onChange={(enabled) => void changeRecommendationConsent(enabled)}
+                  />
+                </section>
+                {settingsError && <NoticeRow message="서버 설정을 불러오지 못했어요. 저장 시 다시 시도해 주세요." />}
                 <AccountCard
                   rows={[
                     { label: '이름', value: profile.name },
@@ -131,6 +210,9 @@ function SettingsPage() {
                     { label: '이메일', value: profile.email },
                   ]}
                 />
+                <Button variant="secondary" className="text-text-danger" onClick={() => setDeleteChatsOpen(true)}>
+                  모든 대화 기록 삭제
+                </Button>
               </>
             )}
 
@@ -154,11 +236,9 @@ function SettingsPage() {
                 <li>
                   <SettingToggleRow
                     title="다크 모드"
-                    description="다크 모드는 준비 중이에요."
-                    badge="준비 중"
-                    checked={false}
-                    disabled
-                    onChange={() => {}}
+                    description="계정 화면 설정에 저장해요."
+                    checked={theme === 'DARK'}
+                    onChange={(checked) => void changeTheme(checked)}
                   />
                 </li>
               </ListCard>
@@ -166,7 +246,6 @@ function SettingsPage() {
 
             {activeMenu === 'contact' && (
               <form onSubmit={sendContact} noValidate className="space-y-sm">
-                <NoticeRow message="문의 전송 기능은 준비 중이에요. 지금은 작성해도 전송되지 않아요." />
                 <ContactCard
                   email={email}
                   message={message}
@@ -208,12 +287,32 @@ function SettingsPage() {
                     />
                   ))}
                 </ListCard>
+                <Button variant="secondary" className="text-text-danger" onClick={() => setDeleteAccountOpen(true)}>
+                  회원 탈퇴
+                </Button>
               </>
             )}
           </div>
         </div>
       </main>
 
+      <ConfirmDialog
+        open={deleteChatsOpen}
+        title="모든 대화 기록을 삭제할까요?"
+        description="모든 대화와 메시지가 영구 삭제돼요."
+        confirmText="모두 삭제"
+        tone="danger"
+        onCancel={() => setDeleteChatsOpen(false)}
+        onConfirm={async () => {
+          try {
+            await deleteAllConversations()
+            setDeleteChatsOpen(false)
+            showToast('모든 대화 기록을 삭제했어요')
+          } catch {
+            showToast('대화 기록을 삭제하지 못했어요. 다시 시도해 주세요.')
+          }
+        }}
+      />
       <ConfirmDialog
         open={logoutOpen}
         title="로그아웃할까요?"
@@ -229,6 +328,28 @@ function SettingsPage() {
             // The local session is cleared even when the server cannot be reached.
           } finally {
             navigate('/login', { replace: true })
+          }
+        }}
+      />
+      <ConfirmDialog
+        open={deleteAccountOpen}
+        title="계정을 탈퇴할까요?"
+        description={
+          <div className="space-y-sm">
+            <p>계정과 대화, 메시지, 문의가 영구 삭제돼요.</p>
+            <TextField label="비밀번호 확인" type="password" value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} />
+          </div>
+        }
+        confirmText="탈퇴"
+        tone="danger"
+        onCancel={() => setDeleteAccountOpen(false)}
+        onConfirm={async () => {
+          try {
+            await deleteAccount(accountPassword)
+            setDeleteAccountOpen(false)
+            navigate('/login', { replace: true })
+          } catch {
+            showToast('회원 탈퇴를 완료하지 못했어요. 비밀번호를 확인해 주세요.')
           }
         }}
       />
