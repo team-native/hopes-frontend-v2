@@ -45,6 +45,7 @@ function AppLayout({ activeMenu = null, activeConversationId, children }: AppLay
           user={{ name: profile.name, department: profile.department, cohort: profile.generation }}
           onNewChat={startNewChat}
           onOpenProfile={() => navigate(ROUTES.myPage)}
+          onOpenSettings={() => navigate(ROUTES.settings)}
         />
       </div>
 
