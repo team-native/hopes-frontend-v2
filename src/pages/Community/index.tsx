@@ -2,6 +2,7 @@ import { ArrowLeft, CircleAlert, Flag, Info, Pencil, Search, Trash2 } from 'luci
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Button from '../../components/common/Button'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
 import Modal from '../../components/common/Modal'
 import SearchField from '../../components/common/SearchField'
 import Select from '../../components/common/Select'
@@ -415,6 +416,8 @@ function CommunityPage() {
         description={
           modal?.type === 'deleteComment' ? '삭제한 댓글은 되돌릴 수 없어요.' : '삭제한 글과 댓글은 되돌릴 수 없어요.'
         }
+        confirmText="삭제"
+        tone="danger"
         onCancel={() => setModal(null)}
         onConfirm={() => {
           if (modal?.type === 'deletePost') confirmDeletePost(modal.postId)
@@ -489,38 +492,6 @@ function PostMenuDialog({
           신고하기
         </button>
       )}
-    </Modal>
-  )
-}
-
-function ConfirmDialog({
-  open,
-  title,
-  description,
-  onCancel,
-  onConfirm,
-}: {
-  open: boolean
-  title: string
-  description: string
-  onCancel: () => void
-  onConfirm: () => void
-}) {
-  const titleId = useId()
-  return (
-    <Modal open={open} onClose={onCancel} labelledBy={titleId} className="w-[320px] p-xl text-center">
-      <h2 id={titleId} className="text-heading">
-        {title}
-      </h2>
-      <p className="mt-xs text-label text-text-secondary">{description}</p>
-      <div className="mt-xl grid grid-cols-2 gap-2">
-        <Button size="sm" variant="secondary" onClick={onCancel}>
-          취소
-        </Button>
-        <Button size="sm" className="bg-bg-danger-soft! text-text-danger! shadow-none!" onClick={onConfirm}>
-          삭제
-        </Button>
-      </div>
     </Modal>
   )
 }
