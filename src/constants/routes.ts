@@ -9,6 +9,7 @@ export const ROUTES = {
   community: '/community',
   history: '/history',
   myPage: '/my-page',
+  settings: '/settings',
   login: '/login',
   signup: '/signup',
   findPassword: '/find-password',
