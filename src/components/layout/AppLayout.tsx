@@ -1,6 +1,6 @@
 import { Clock, House, MessageCircle, Plus, Users, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../constants/routes'
 import useAppNavigation from '../../hooks/useAppNavigation'
 import useConversations from '../../hooks/useConversations'
@@ -33,6 +33,7 @@ function AppLayout({ activeMenu = null, activeConversationId, children }: AppLay
   const { startNewChat } = useAppNavigation()
   const { conversations } = useConversations()
   const { profile } = useProfile()
+  const navigate = useNavigate()
 
   return (
     <div className="flex min-h-screen bg-bg-canvas text-text-primary">
@@ -43,6 +44,7 @@ function AppLayout({ activeMenu = null, activeConversationId, children }: AppLay
           activeChatId={activeConversationId}
           user={{ name: profile.name, department: profile.department, cohort: profile.generation }}
           onNewChat={startNewChat}
+          onOpenProfile={() => navigate(ROUTES.myPage)}
         />
       </div>
 

@@ -30,6 +30,8 @@ interface SidebarProps {
   onNewChat?: () => void
   /** 사용자 카드의 톱니바퀴 버튼 */
   onOpenSettings?: () => void
+  /** 사용자 이름 영역 (넘기면 눌러서 마이페이지 등으로 이동할 수 있어요) */
+  onOpenProfile?: () => void
   className?: string
 }
 
@@ -48,6 +50,7 @@ function Sidebar({
   user,
   onNewChat,
   onOpenSettings,
+  onOpenProfile,
   className = '',
 }: SidebarProps) {
   return (
@@ -135,13 +138,21 @@ function Sidebar({
 
       {/* 사용자 */}
       <div className="mt-md flex items-center gap-2.5 rounded-md bg-bg-canvas py-2.5 pr-2 pl-3">
-        <Avatar name={user.name} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-label-strong font-medium">{user.name}</p>
-          <p className="truncate text-caption text-text-secondary">
-            {user.department} · {user.cohort}
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={onOpenProfile}
+          disabled={!onOpenProfile}
+          aria-label={onOpenProfile ? `${user.name} 마이페이지` : undefined}
+          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-sm text-left enabled:hover:opacity-80"
+        >
+          <Avatar name={user.name} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-label-strong font-medium">{user.name}</span>
+            <span className="block truncate text-caption text-text-secondary">
+              {user.department} · {user.cohort}
+            </span>
+          </span>
+        </button>
         <button
           type="button"
           onClick={onOpenSettings}

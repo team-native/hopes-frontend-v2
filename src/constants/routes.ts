@@ -8,6 +8,7 @@ export const ROUTES = {
   chatDetail: (id: string) => `/chat/${id}`,
   community: '/community',
   history: '/history',
+  myPage: '/my-page',
   login: '/login',
   signup: '/signup',
   findPassword: '/find-password',

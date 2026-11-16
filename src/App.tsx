@@ -3,8 +3,10 @@ import { ROUTES } from './constants/routes'
 import DevComponentsPage from './pages/DevComponents'
 import CommunityPage from './pages/Community'
 import FindPasswordPage from './pages/FindPassword'
+import HistoryPage from './pages/History'
 import HomePage from './pages/Home'
 import LoginPage from './pages/Login'
+import MyPage from './pages/MyPage'
 import SignupPage from './pages/Signup'
 
 function App() {
@@ -14,6 +16,8 @@ function App() {
       <Route path={ROUTES.chat} element={<HomePage />} />
       <Route path={ROUTES.chatDetail(':conversationId')} element={<HomePage />} />
       <Route path={ROUTES.community} element={<CommunityPage />} />
+      <Route path={ROUTES.history} element={<HistoryPage />} />
+      <Route path={ROUTES.myPage} element={<MyPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/find-password" element={<FindPasswordPage />} />
