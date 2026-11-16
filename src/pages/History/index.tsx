@@ -10,6 +10,8 @@ import AppLayout from '../../components/layout/AppLayout'
 import SectionHeader from '../../components/layout/SectionHeader'
 import useAppNavigation from '../../hooks/useAppNavigation'
 import useConversations from '../../hooks/useConversations'
+import useToast from '../../hooks/useToast'
+import Toast from '../../components/common/Toast'
 import type { Conversation } from '../../types/conversation'
 
 const RECENT_DAYS = 7
@@ -17,6 +19,7 @@ const RECENT_DAYS = 7
 function HistoryPage() {
   const { startNewChat, openConversation } = useAppNavigation()
   const { conversations, deleteConversation } = useConversations()
+  const { toast, showToast } = useToast()
   const [search, setSearch] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Conversation | null>(null)
 
@@ -40,7 +43,7 @@ function HistoryPage() {
       await deleteConversation(deleteTarget.id)
       setDeleteTarget(null)
     } catch {
-      // Keep the dialog open so the user can retry after a transient API failure.
+      showToast('대화를 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.')
     }
   }
 
@@ -109,7 +112,9 @@ function HistoryPage() {
         description={
           <>
             <p className="line-clamp-1">{deleteTarget?.title}</p>
-            <p className="mt-1 text-caption text-text-tertiary">삭제한 대화와 메시지는 되돌릴 수 없어요.</p>
+            <p className="mt-1 text-caption text-text-tertiary">
+              삭제한 대화는 되돌릴 수 없어요.
+            </p>
           </>
         }
         confirmText="삭제"
@@ -117,6 +122,7 @@ function HistoryPage() {
         onCancel={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
       />
+      <Toast message={toast} />
     </AppLayout>
   )
 }

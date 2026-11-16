@@ -29,4 +29,5 @@ export type Conversation = {
   daysAgo: number
   /** 전송된 첨부. previewUrl은 이 대화가 소유하며 대화 삭제 시 해제된다. */
   attachments?: LocalAttachment[]
+  messages?: import('../api/chats').ChatMessage[]
 }
