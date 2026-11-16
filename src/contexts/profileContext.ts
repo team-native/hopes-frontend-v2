@@ -3,7 +3,7 @@ import type { Profile } from '../types/profile'
 
 export type ProfileContextValue = {
   profile: Profile
-  updateProfile: (changes: Partial<Profile>) => void
+  updateProfile: (changes: Partial<Profile>) => Promise<void>
 }
 
 export const ProfileContext = createContext<ProfileContextValue | null>(null)

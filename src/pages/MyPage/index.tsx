@@ -46,13 +46,17 @@ function MyPage() {
     setIsEditing(true)
   }
 
-  function saveProfile(event: FormEvent<HTMLFormElement>) {
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const name = draftProfile.name.trim()
     if (!name) return
-    updateProfile({ name, bio: draftProfile.bio })
-    setIsEditing(false)
-    showToast('프로필을 저장했어요')
+    try {
+      await updateProfile({ name, bio: draftProfile.bio })
+      setIsEditing(false)
+      showToast('프로필을 저장했어요')
+    } catch {
+      showToast('프로필을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.')
+    }
   }
 
   // TODO: 삭제 · 저장 취소는 API 연동 전까지 화면 목록에서만 제거된다(새로고침 시 복구).
