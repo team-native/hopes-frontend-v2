@@ -12,12 +12,20 @@ export interface WritePostValues {
   content: string
 }
 
+/** edit 모드에서 처음 채워 둘 값 */
+export type WritePostInitialValues = Partial<WritePostValues>
+
 interface WritePostModalProps {
   open: boolean
   onClose: () => void
   /** 고를 수 있는 게시판 */
   boards: readonly string[]
   defaultBoard?: string
+  /** create: 글쓰기(기본) / edit: 게시글 수정 — 제목 · 버튼 글자가 바뀌고 initialValues로 채워져요 */
+  mode?: 'create' | 'edit'
+  initialValues?: WritePostInitialValues
+  /** 아래 자물쇠 안내 문구 (기본: 작성자는 기수만 표시돼요…) */
+  authorNotice?: string
   /** 등록 (실패하면 throw → 팝업 안에 에러 문구가 뜨고 입력값은 그대로 남아요) */
   onSubmit: (values: WritePostValues) => Promise<void> | void
 }
@@ -26,7 +34,16 @@ interface WritePostModalProps {
  * 글쓰기 팝업 (Web/Modal) — 게시판 선택 · 제목 · 내용 · 취소/등록
  * 닫았다가 다시 열면 입력값이 처음 상태로 돌아가요.
  */
-function WritePostModal({ open, onClose, boards, defaultBoard, onSubmit }: WritePostModalProps) {
+function WritePostModal({
+  open,
+  onClose,
+  boards,
+  defaultBoard,
+  mode = 'create',
+  initialValues,
+  authorNotice,
+  onSubmit,
+}: WritePostModalProps) {
   const titleId = useId()
 
   return (
@@ -36,6 +53,9 @@ function WritePostModal({ open, onClose, boards, defaultBoard, onSubmit }: Write
         titleId={titleId}
         boards={boards}
         defaultBoard={defaultBoard}
+        mode={mode}
+        initialValues={initialValues}
+        authorNotice={authorNotice}
         onClose={onClose}
         onSubmit={onSubmit}
       />
@@ -47,10 +67,20 @@ interface WritePostFormProps extends Omit<WritePostModalProps, 'open'> {
   titleId: string
 }
 
-function WritePostForm({ titleId, boards, defaultBoard, onClose, onSubmit }: WritePostFormProps) {
-  const [board, setBoard] = useState(defaultBoard ?? boards[0] ?? '')
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
+function WritePostForm({
+  titleId,
+  boards,
+  defaultBoard,
+  mode,
+  initialValues,
+  authorNotice = '작성자는 기수만 표시돼요. 이름·학번은 공개되지 않아요.',
+  onClose,
+  onSubmit,
+}: WritePostFormProps) {
+  const isEdit = mode === 'edit'
+  const [board, setBoard] = useState(initialValues?.board ?? defaultBoard ?? boards[0] ?? '')
+  const [title, setTitle] = useState(initialValues?.title ?? '')
+  const [content, setContent] = useState(initialValues?.content ?? '')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
@@ -66,7 +96,7 @@ function WritePostForm({ titleId, boards, defaultBoard, onClose, onSubmit }: Wri
       onClose()
     } catch {
       // 실패하면 팝업을 닫지 않고 안내 → 등록됐는지 몰라 다시 누르는 일(중복 글)을 막아요
-      setSubmitError(`글을 등록하지 못했어요. ${RETRY_LATER}`)
+      setSubmitError(`글을 ${isEdit ? '수정' : '등록'}하지 못했어요. ${RETRY_LATER}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -79,7 +109,7 @@ function WritePostForm({ titleId, boards, defaultBoard, onClose, onSubmit }: Wri
     <form onSubmit={handleSubmit} noValidate>
       <div className="flex items-center justify-between">
         <h2 id={titleId} className="text-heading">
-          글쓰기
+          {isEdit ? '게시글 수정' : '글쓰기'}
         </h2>
         <button
           type="button"
@@ -122,7 +152,7 @@ function WritePostForm({ titleId, boards, defaultBoard, onClose, onSubmit }: Wri
 
       <p className="mt-sm flex items-center gap-1.5 text-[11px] text-text-tertiary">
         <Lock className="size-3.5 text-icon-brand" strokeWidth={1.75} aria-hidden />
-        작성자는 기수만 표시돼요. 이름·학번은 공개되지 않아요.
+        {authorNotice}
       </p>
 
       {submitError && <FieldError className="mt-sm">{submitError}</FieldError>}
@@ -132,7 +162,7 @@ function WritePostForm({ titleId, boards, defaultBoard, onClose, onSubmit }: Wri
           취소
         </Button>
         <Button size="sm" type="submit" disabled={!canSubmit} loading={isSubmitting}>
-          등록
+          {isEdit ? '수정' : '등록'}
         </Button>
       </div>
     </form>

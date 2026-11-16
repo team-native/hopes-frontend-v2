@@ -10,6 +10,7 @@ function useAppNavigation() {
     goToSection: (section: SidebarMenu) => navigate(ROUTES[section]),
     startNewChat: () => navigate(ROUTES.chat),
     openConversation: (conversationId: string) => navigate(ROUTES.chatDetail(encodeURIComponent(conversationId))),
+    openCommunityPost: (postId: string) => navigate(`${ROUTES.community}?post=${encodeURIComponent(postId)}`),
   }
 }
 

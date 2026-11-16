@@ -37,6 +37,7 @@ import useAppNavigation from '../../hooks/useAppNavigation'
 import useConversations from '../../hooks/useConversations'
 import useProfile from '../../hooks/useProfile'
 import useToast from '../../hooks/useToast'
+import { mockCommunityPosts } from '../../mocks/community'
 import type { Conversation, LocalAttachment } from '../../types/conversation'
 import type { Profile } from '../../types/profile'
 import {
@@ -50,11 +51,8 @@ import { createId } from '../../utils/id'
 
 const MAJORS = ['Frontend', 'Backend', 'AI'] as const
 
-const popularPosts = [
-  { board: '전체', title: '전공 동아리 면접 후기 공유', likeCount: 34 },
-  { board: '9기', title: '취업 준비 언제부터 시작했어?', likeCount: 21 },
-  { board: '10기', title: '기숙사 와이파이 다들 잘 돼?', likeCount: 12 },
-]
+// TODO: 커뮤니티 API 연동 후 인기글 API로 대체
+const popularPosts = [...mockCommunityPosts].sort((a, b) => b.likes - a.likes).slice(0, 3)
 
 const suggestedQuestions: { title: string; category: string; icon: LucideIcon }[] = [
   { title: '기숙사 하루 일과가 어떻게 돼?', category: '학교생활', icon: BedDouble },
@@ -168,7 +166,7 @@ function HomePage() {
   const { pathname } = useLocation()
   const screen: HomeScreen = conversationId ? 'conversation' : pathname.startsWith('/chat') ? 'chat' : 'home'
 
-  const { startNewChat, openConversation } = useAppNavigation()
+  const { startNewChat, openConversation, openCommunityPost } = useAppNavigation()
   const { conversations, getConversation, createConversation } = useConversations()
   const { profile } = useProfile()
   const conversation = conversationId ? getConversation(conversationId) : undefined
@@ -200,7 +198,7 @@ function HomePage() {
           recentConversations={conversations.slice(0, RECENT_CONVERSATION_COUNT)}
           onStartChat={startNewChat}
           onOpenConversation={openConversation}
-          onOpenQuestion={startConversation}
+          onOpenPost={openCommunityPost}
           onNotify={() => showToast('새로운 알림이 없어요.')}
         />
       ) : screen === 'chat' ? (
@@ -241,7 +239,7 @@ type HomeViewProps = {
   recentConversations: Conversation[]
   onStartChat: () => void
   onOpenConversation: (conversationId: string) => void
-  onOpenQuestion: (question: string) => void
+  onOpenPost: (postId: string) => void
   onNotify: () => void
 }
 
@@ -250,7 +248,7 @@ function HomeView({
   recentConversations,
   onStartChat,
   onOpenConversation,
-  onOpenQuestion,
+  onOpenPost,
   onNotify,
 }: HomeViewProps) {
   return (
@@ -304,11 +302,11 @@ function HomeView({
             <SectionHeader title="커뮤니티 인기글" />
             {popularPosts.map((post) => (
               <PopularPostRow
-                key={post.title}
+                key={post.id}
                 board={post.board}
                 title={post.title}
-                likeCount={post.likeCount}
-                onClick={() => onOpenQuestion(post.title)}
+                likeCount={post.likes}
+                onClick={() => onOpenPost(post.id)}
               />
             ))}
           </section>
