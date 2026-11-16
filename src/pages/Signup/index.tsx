@@ -20,6 +20,7 @@ function SignupPage() {
   const [emailPhase, setEmailPhase] = useState<'email' | 'code'>('email')
   // 단계마다 모아 두었다가 마지막에 가입 요청에 사용
   const [email, setEmail] = useState('')
+  const [verificationCode, setVerificationCode] = useState('')
   const [password, setPassword] = useState('')
   // 가입이 끝나면 완료 화면에 보여 줄 프로필
   const [completedProfile, setCompletedProfile] = useState<Profile | null>(null)
@@ -70,8 +71,12 @@ function SignupPage() {
               description="메일이 안 왔다면 스팸함을 확인해 주세요."
               resendCode={sendSignupCode}
               verifyCode={verifySignupCode}
-              onChangeEmail={() => setEmailPhase('email')}
+              onChangeEmail={() => {
+                setVerificationCode('')
+                setEmailPhase('email')
+              }}
               onVerified={() => setStep(2)}
+              onCodeVerified={setVerificationCode}
               footer={footer}
             />
           )}
@@ -101,7 +106,7 @@ function SignupPage() {
           {step === 3 && (
             <ProfileStep
               onSubmit={async (profile) => {
-                await signup({ email, password, ...profile })
+                await signup({ email, password, verificationCode, ...profile })
                 setCompletedProfile(profile)
               }}
             />

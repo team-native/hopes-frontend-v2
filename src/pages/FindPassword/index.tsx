@@ -61,6 +61,7 @@ function FindPasswordPage() {
           {step === 2 && (
             <CodeStep
               email={email}
+              description="인증번호는 새 비밀번호를 저장할 때 서버에서 확인해요."
               resendCode={sendPasswordResetCode}
               verifyCode={verifyPasswordResetCode}
               onChangeEmail={() => setStep(1)}

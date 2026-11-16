@@ -5,7 +5,7 @@ import FieldError from '../common/FieldError'
 import { RETRY_LATER, getErrorCode } from '../../utils/error'
 
 /** 인증번호 유효 시간 (초) */
-const CODE_TTL_SECONDS = 5 * 60
+const CODE_TTL_SECONDS = 10 * 60
 const CODE_LENGTH = 6
 /** 이 횟수만큼 틀리면 잠금 */
 const MAX_ATTEMPTS = 5
@@ -24,6 +24,8 @@ interface CodeStepProps {
   onChangeEmail: () => void
   /** 인증 성공 */
   onVerified: () => void
+  /** 다음 API 요청(회원가입)에 사용할 인증번호 보관 */
+  onCodeVerified?: (code: string) => void
   /** 맨 아래 링크 (예: <AuthFooterLink ... />) */
   footer: ReactNode
 }
@@ -36,9 +38,9 @@ function formatTime(seconds: number) {
 
 /**
  * 메일로 받은 인증번호 입력 (회원가입 · 비밀번호 찾기 공통)
- * 상태: 입력 중 → 틀림(n/5회) → 5회 틀리면 10분 잠금 / 5분 지나면 시간 초과
+ * 상태: 입력 중 → 틀림(n/5회) → 5회 틀리면 10분 잠금 / 서버 코드 유효시간 경과 시 시간 초과
  */
-function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, onVerified, footer }: CodeStepProps) {
+function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, onVerified, onCodeVerified, footer }: CodeStepProps) {
   const [code, setCode] = useState('')
   const [expiresAt, setExpiresAt] = useState(() => Date.now() + CODE_TTL_SECONDS * 1000)
   const [lockedUntil, setLockedUntil] = useState(0)
@@ -74,6 +76,7 @@ function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, o
     setRequestError('')
     try {
       await verifyCode(email, code)
+      onCodeVerified?.(code)
       onVerified()
     } catch (error) {
       const errorCode = getErrorCode(error)
