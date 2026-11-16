@@ -1,5 +1,5 @@
 import { ArrowLeft, CircleAlert, Flag, Info, Pencil, Search, Trash2 } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Button from '../../components/common/Button'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
@@ -61,7 +61,9 @@ function CommunityPage() {
   // 열린 게시글은 주소(?post=id)로 관리해요. 사이드바의 커뮤니티 메뉴를 누르면 목록으로 돌아가요.
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedPostId = searchParams.get('post')
-  const showErrorPreview = searchParams.get('state') === 'error'
+  // 개발 확인용: 개발 서버(npm run dev)에서 /community?state=error 로 열면 '불러오기 실패' 화면을 볼 수 있어요.
+  // 배포 빌드에서는 import.meta.env.DEV가 false라서 이 쿼리는 무시돼요.
+  const simulateLoadError = import.meta.env.DEV && searchParams.get('state') === 'error'
 
   const [posts, setPosts] = useState(mockCommunityPosts)
   const [selectedBoard, setSelectedBoard] = useState<Board>('전체')
@@ -70,22 +72,36 @@ function CommunityPage() {
   const [modal, setModal] = useState<ModalState>(null)
   const [reportReason, setReportReason] = useState(reportReasons[1])
   const [commentDraft, setCommentDraft] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [feedStatus, setFeedStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const feedTimerRef = useRef<number | undefined>(undefined)
   const commentInputRef = useRef<HTMLInputElement>(null)
 
   // TODO: API 연동 시 본인 여부는 서버가 판단해 내려준다(isMine). 클라이언트 판단은 표시용일 뿐 권한 검사가 아니다.
   const isMine = (authorId: string) => authorId === profile.id
   const myBoard = boards.find((board) => board === profile.generation) ?? '전체'
 
+  // TODO: 게시글 목록 API 연동 시 실제 요청으로 교체 (지금은 0.5초 뒤 목업 데이터를 보여 줘요)
+  const scheduleFeedResult = useCallback(() => {
+    window.clearTimeout(feedTimerRef.current)
+    feedTimerRef.current = window.setTimeout(() => setFeedStatus(simulateLoadError ? 'error' : 'ready'), 500)
+  }, [simulateLoadError])
+
   useEffect(() => {
-    const timer = window.setTimeout(() => setLoading(false), 500)
-    return () => window.clearTimeout(timer)
-  }, [])
+    scheduleFeedResult()
+    return () => window.clearTimeout(feedTimerRef.current)
+  }, [scheduleFeedResult])
+
+  // 다시 시도해도 주소(?state=error)는 그대로 두어, 실패가 계속되면 실패 화면이 다시 보여요.
+  function retryFeed() {
+    setFeedStatus('loading')
+    scheduleFeedResult()
+  }
 
   const filteredPosts = useMemo(() => {
     const query = search.trim().toLowerCase()
     const matching = posts.filter((post) => {
-      const boardMatches = selectedBoard === '전체' || post.board === selectedBoard || post.board === '전체'
+      // 전체 탭은 모든 글, 기수 탭은 그 기수 게시판 글만 보여 줘요.
+      const boardMatches = selectedBoard === '전체' || post.board === selectedBoard
       const searchMatches = !query || `${post.title} ${post.content}`.toLowerCase().includes(query)
       return boardMatches && searchMatches
     })
@@ -205,12 +221,6 @@ function CommunityPage() {
     else setModal({ type: 'report', target: '댓글' })
   }
 
-  function retryFeed() {
-    setSearchParams({})
-    setLoading(true)
-    window.setTimeout(() => setLoading(false), 500)
-  }
-
   return (
     <AppLayout activeMenu="community">
       <main className="mx-auto w-full max-w-[1200px] flex-1 px-5 py-5 md:px-8 md:py-6">
@@ -313,9 +323,9 @@ function CommunityPage() {
 
             <div className="mt-md grid grid-cols-1 items-start gap-lg lg:grid-cols-[minmax(0,1fr)_260px]">
               <section className="space-y-sm" aria-label="게시글 목록">
-                {loading ? (
+                {feedStatus === 'loading' ? (
                   <PostSkeletons />
-                ) : showErrorPreview ? (
+                ) : feedStatus === 'error' ? (
                   <div className="py-3xl">
                     <EmptyState
                       icon={CircleAlert}
