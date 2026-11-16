@@ -3,7 +3,8 @@ import { useState, type FormEvent } from 'react'
 import ActionMenu, { type ActionMenuItem } from '../../components/common/ActionMenu'
 import Avatar from '../../components/common/Avatar'
 import Button from '../../components/common/Button'
-import IconTile from '../../components/common/IconTile'
+import ChipGroup from '../../components/common/ChipGroup'
+import { ListCard, ListRow } from '../../components/common/ListRow'
 import TextArea from '../../components/common/TextArea'
 import TextField from '../../components/common/TextField'
 import Toast from '../../components/common/Toast'
@@ -184,23 +185,13 @@ function MyPage() {
           />
         </div>
 
-        <nav className="mt-xl flex gap-2 overflow-x-auto" aria-label="마이페이지 활동">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              aria-current={activeTab === tab.id ? 'page' : undefined}
-              className={`h-8 shrink-0 rounded-full border px-3 text-caption transition ${
-                activeTab === tab.id
-                  ? 'border-border-brand bg-bg-brand-soft font-medium text-text-brand'
-                  : 'border-border-default bg-bg-surface text-text-secondary hover:border-border-brand'
-              }`}
-            >
-              {tab.label} {rowsByTab[tab.id].length}
-            </button>
-          ))}
-        </nav>
+        <ChipGroup
+          className="mt-xl"
+          label="마이페이지 활동"
+          options={tabs.map((tab) => ({ value: tab.id, label: tab.label, count: rowsByTab[tab.id].length }))}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
 
         <div className="mt-sm">
           <NoticeRow message="목업 단계라 삭제 · 저장 취소는 이 화면에서만 반영되고, 새로고침하면 되돌아가요." />
@@ -212,19 +203,18 @@ function MyPage() {
               <EmptyState icon={TabIcon} title="아직 표시할 활동이 없어요" />
             </div>
           ) : (
-            <ul className="divide-y divide-border-subtle rounded-lg border border-border-subtle bg-bg-surface px-md shadow-cloud-sm">
+            <ListCard className="px-md">
               {activeRows.map((row) => (
-                <li key={row.id} className="flex min-h-[68px] items-center gap-3">
-                  <IconTile icon={TabIcon} size="md" />
-                  <div className="min-w-0 flex-1 py-3">
-                    <h3 className="truncate text-label-strong">{row.title}</h3>
-                    {row.detail && <p className="mt-0.5 truncate text-caption text-text-secondary">{row.detail}</p>}
-                  </div>
-                  <span className="hidden shrink-0 text-[11px] text-text-tertiary sm:inline">{row.meta}</span>
-                  <ActionMenu label={`${row.title} 더보기`} items={row.actions} />
-                </li>
+                <ListRow
+                  key={row.id}
+                  icon={TabIcon}
+                  title={row.title}
+                  description={row.detail}
+                  meta={row.meta}
+                  trailing={<ActionMenu label={`${row.title} 더보기`} items={row.actions} />}
+                />
               ))}
-            </ul>
+            </ListCard>
           )}
         </section>
       </main>

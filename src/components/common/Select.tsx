@@ -15,8 +15,9 @@ interface SelectProps {
   /**
    * stacked: 라벨이 칸 위에 (회원가입 과·기수)
    * inline: 라벨이 칸 안 왼쪽, 값이 오른쪽 (Community/Board Select "게시판 · 10기")
+   * compact: 값만 보이는 작은 알약 (커뮤니티 정렬 "최신순 ▾") — 라벨은 화면 낭독기에만 읽혀요
    */
-  variant?: 'stacked' | 'inline'
+  variant?: 'stacked' | 'inline' | 'compact'
   className?: string
 }
 
@@ -35,6 +36,7 @@ function Select({
   className = '',
 }: SelectProps) {
   const isInline = variant === 'inline'
+  const isCompact = variant === 'compact'
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -94,7 +96,12 @@ function Select({
 
   return (
     <div className={className}>
-      {!isInline && (
+      {isCompact && (
+        <span id={labelId} className="sr-only">
+          {label}
+        </span>
+      )}
+      {!isInline && !isCompact && (
         <p id={labelId} className="mb-2 text-label font-medium text-text-secondary">
           {label}
         </p>
@@ -113,8 +120,10 @@ function Select({
           aria-describedby={errorMessage ? errorId : undefined}
           onClick={() => (open ? setOpen(false) : openList())}
           onKeyDown={handleKeyDown}
-          className={`flex w-full items-center justify-between gap-2 rounded-sm border bg-bg-surface px-4 text-left transition outline-none ${
-            isInline ? 'h-11 text-label' : 'h-[52px] text-body'
+          className={`flex items-center justify-between gap-2 border bg-bg-surface text-left transition outline-none ${
+            isCompact
+              ? 'h-9 gap-1 rounded-full px-3.5 text-caption'
+              : `w-full rounded-sm px-4 ${isInline ? 'h-11 text-label' : 'h-[52px] text-body'}`
           } ${borderClass}`}
         >
           {isInline && (
@@ -146,7 +155,9 @@ function Select({
             id={listId}
             role="listbox"
             aria-labelledby={labelId}
-            className="absolute inset-x-0 top-full z-20 mt-1.5 rounded-md border border-border-default bg-bg-surface p-1.5 shadow-cloud-md"
+            className={`absolute top-full z-20 mt-1.5 rounded-md border border-border-default bg-bg-surface p-1.5 shadow-cloud-md ${
+              isCompact ? 'right-0 min-w-32' : 'inset-x-0'
+            }`}
           >
             {options.map((option, index) => {
               const selected = option === value

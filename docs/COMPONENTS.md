@@ -90,23 +90,23 @@ npm run dev
 
 ### 공통 (`common/`)
 
-| 피그마                 | 컴포넌트                   | 주요 props                                                                                          |
-| ---------------------- | -------------------------- | --------------------------------------------------------------------------------------------------- |
-| —                      | `Button`                   | `size`: `lg`(꽉 찬 50) · `sm` / `variant`: `primary` · `secondary` · `soft` / `loading`, `inactive` |
-| —                      | `TextField`                | `label`, `errorMessage`, `rightSlot` (오른쪽 아이콘)                                                |
-| Form/Text Area         | `TextArea`                 | `label?`, `rows`, `errorMessage`                                                                    |
-| Form/Search Field      | `SearchField`              | `value`, `onChange`, `onSearch`                                                                     |
-| Web/Dropdown           | `Select`                   | `label`, `options`, `value`, `onChange` / `variant="inline"` → "게시판 · 10기" 모양                 |
-| Form/Checkbox          | `Checkbox`                 | `checked`, `onChange`, children(글자)                                                               |
-| Form/OTP Digit         | `CodeInput`                | `value`, `onChange`, `length` (기본 6)                                                              |
-| Nav/Icon Button(Boxed) | `IconButton`               | `icon`(lucide 아이콘), `label`(필수), `variant`: `ghost` · `boxed`, `dot`                           |
-| Icon/Tile              | `IconTile`                 | `icon`, `size`: `sm` · `md`                                                                         |
-| Community/Board Badge  | `Badge`                    | children (예: "10기")                                                                               |
-| Profile/Avatar         | `Avatar`                   | `name`, `size`: `sm` · `md`                                                                         |
-| —                      | `Modal`                    | `open`, `onClose`, `className` (팝업 틀)                                                            |
-| —                      | `AlertDialog`              | `open`, `title`, `description`, `onClose` (확인 버튼 하나짜리 팝업)                                 |
-| —                      | `FieldError`               | children (빨간 에러 문구)                                                                           |
-| —                      | `LogoMark` · `NativeBadge` | 로고 박스 · Native 배지                                                                             |
+| 피그마                 | 컴포넌트                   | 주요 props                                                                                                                       |
+| ---------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| —                      | `Button`                   | `size`: `lg`(꽉 찬 50) · `sm` / `variant`: `primary` · `secondary` · `soft` / `loading`, `inactive`                              |
+| —                      | `TextField`                | `label`, `errorMessage`, `rightSlot` (오른쪽 아이콘)                                                                             |
+| Form/Text Area         | `TextArea`                 | `label?`, `rows`, `errorMessage`                                                                                                 |
+| Form/Search Field      | `SearchField`              | `value`, `onChange`, `onSearch`                                                                                                  |
+| Web/Dropdown           | `Select`                   | `label`, `options`, `value`, `onChange` / `variant="inline"` → "게시판 · 10기" 모양 / `variant="compact"` → "최신순 ▾" 작은 알약 |
+| Form/Checkbox          | `Checkbox`                 | `checked`, `onChange`, children(글자)                                                                                            |
+| Form/OTP Digit         | `CodeInput`                | `value`, `onChange`, `length` (기본 6)                                                                                           |
+| Nav/Icon Button(Boxed) | `IconButton`               | `icon`(lucide 아이콘), `label`(필수), `variant`: `ghost` · `boxed`, `dot`                                                        |
+| Icon/Tile              | `IconTile`                 | `icon`, `size`: `sm` · `md`                                                                                                      |
+| Community/Board Badge  | `Badge`                    | children (예: "10기")                                                                                                            |
+| Profile/Avatar         | `Avatar`                   | `name`, `size`: `sm` · `md`                                                                                                      |
+| —                      | `Modal`                    | `open`, `onClose`, `className` (팝업 틀)                                                                                         |
+| —                      | `AlertDialog`              | `open`, `title`, `description`, `onClose` (확인 버튼 하나짜리 팝업)                                                              |
+| —                      | `FieldError`               | children (빨간 에러 문구)                                                                                                        |
+| —                      | `LogoMark` · `NativeBadge` | 로고 박스 · Native 배지                                                                                                          |
 
 ### 채팅 (`chat/`)
 
@@ -146,13 +146,16 @@ npm run dev
 
 ### 홈 · 프로필 · 레이아웃
 
-| 피그마                                       | 컴포넌트                                                        | 위치                       |
-| -------------------------------------------- | --------------------------------------------------------------- | -------------------------- |
-| (사이드바)                                   | `Sidebar` — `activeMenu`, `recentChats`, `activeChatId`, `user` | `layout/Sidebar.tsx`       |
-| Layout/Section Header                        | `SectionHeader` — `title`, `action?`                            | `layout/SectionHeader.tsx` |
-| Home/Hero Card · Tip Card · Popular Post Row | `HeroCard` · `TipCard` · `PopularPostRow`                       | `home/HomeCards.tsx`       |
-| Profile/Profile Card · Stats                 | `ProfileCard` · `ProfileStats`                                  | `profile/ProfileCards.tsx` |
-| Location/Map Card                            | `MapCard` (지금은 그림, 실제 지도 연동 전)                      | `location/MapCard.tsx`     |
+| 피그마                                       | 컴포넌트                                                                                                   | 위치                       |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------- |
+| (사이드바)                                   | `Sidebar` — `activeMenu`, `recentChats`, `activeChatId`, `user`                                            | `layout/Sidebar.tsx`       |
+| Layout/Section Header                        | `SectionHeader` — `title`, `action?`                                                                       | `layout/SectionHeader.tsx` |
+| Home/Hero Card · Tip Card · Popular Post Row | `HeroCard` · `TipCard` · `PopularPostRow` (웹 시안 기준)                                                   | `home/HomeCards.tsx`       |
+| (홈 묶음 카드)                               | `HomePanel` — `title`, `actionText?`, `onAction?`, `divided` · `HomePanelRow` — `title`, `meta`, `onClick` | `home/HomeCards.tsx`       |
+| Profile/Profile Card · Stats                 | `ProfileCard` · `ProfileStats`                                                                             | `profile/ProfileCards.tsx` |
+| Location/Map Card                            | `MapCard` (지금은 그림, 실제 지도 연동 전)                                                                 | `location/MapCard.tsx`     |
+
+> `HomeCards`는 웹 시안 모양이에요. `TipCard` · `PopularPostRow` · `HomePanelRow`는 줄(`li`)이라 `HomePanel` 안에 넣어서 써요. (`TipCard`는 `divided={false}`)
 
 ### 설정 · 알림
 
@@ -163,6 +166,35 @@ npm run dev
 | Notify/Notice Row                        | `NoticeRow`                                      | `feedback/Feedback.tsx`      |
 | Feedback/Inline Error                    | `InlineError`                                    | `feedback/Feedback.tsx`      |
 | Feedback/Empty State                     | `EmptyState`                                     | `feedback/Feedback.tsx`      |
+
+### 화면 작업 중 추가한 공통 부품
+
+피그마 컴포넌트에 없어서 홈 · 채팅 · 커뮤니티 · 기록 · 마이페이지 · 설정 화면을 만들며 추가한 부품이에요. 미리보기 페이지 "8. 추가 공통 부품"에서 볼 수 있어요.
+
+| 컴포넌트               | 위치                            | 주요 props / 용도                                                                                              |
+| ---------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `ChipGroup`            | `common/ChipGroup.tsx`          | `label`, `options`(`value` · `label` · `count?`), `value`, `onChange` — 게시판 · 탭 선택                       |
+| `Switch`               | `common/Switch.tsx`             | `checked`, `onChange`, `label`, `disabled`                                                                     |
+| `ListCard` · `ListRow` | `common/ListRow.tsx`            | `title`, `description`, `meta`, `icon`, `trailing`, `onClick` — 대화 기록 · 활동 · 설정 목록                   |
+| `CardSkeleton`         | `common/CardSkeleton.tsx`       | `count`, `label` — 카드 목록 불러오는 중                                                                       |
+| `BackButton`           | `common/BackButton.tsx`         | children, `onClick` — "← 10기 게시판"                                                                          |
+| `ActionMenu`           | `common/ActionMenu.tsx`         | `label`, `items` — ⋯ 버튼에 붙는 메뉴 (바깥 클릭 · Esc로 닫힘, `onSelect` 없으면 "준비 중")                    |
+| `ActionSheet`          | `common/ActionSheet.tsx`        | `open`, `title`, `items`, `onClose` — 가운데 팝업 메뉴                                                         |
+| `ConfirmDialog`        | `common/ConfirmDialog.tsx`      | `open`, `title`, `description`, `confirmText`, `tone`(`danger`), `onConfirm`, `onCancel` — 버튼 두 개짜리 팝업 |
+| `Toast`                | `common/Toast.tsx`              | `message` — `hooks/useToast`의 `showToast`와 함께 사용                                                         |
+| `AttachmentComposer`   | `chat/AttachmentComposer.tsx`   | 첨부 목록 · 확인 상태가 붙는 채팅 입력창 (첨부가 없으면 `ChatInput`)                                           |
+| `AttachDropzone`       | `attach/AttachDropzone.tsx`     | `open`, `onClose`, `onFiles`, `accept` — 파일 끌어다 놓기 영역                                                 |
+| `CommentInput`         | `community/CommentInput.tsx`    | `onSubmit(content)`, `inputRef` — 댓글 한 줄 입력                                                              |
+| `ReportDialog`         | `community/ReportDialog.tsx`    | `open`, `target`, `reason`, `onReasonChange`, `onSubmit`, `notice` — 신고 사유 팝업                            |
+| `SettingToggleRow`     | `settings/SettingToggleRow.tsx` | `title`, `description`, `checked`, `onChange`, `badge` — 설정 한 줄 + 스위치                                   |
+| `MobileNav`            | `layout/MobileNav.tsx`          | `activeMenu`, `onNewChat` — 모바일 상단 바 + 메뉴 (데스크톱은 `Sidebar`)                                       |
+| `AppLayout`            | `layout/AppLayout.tsx`          | `activeMenu`, `activeConversationId` — 로그인 후 화면 틀 (`Sidebar` + `MobileNav`)                             |
+
+기존 컴포넌트에 추가한 선택 props (기존 사용법은 그대로예요)
+
+- `PdfCard`: `description`, `invalid` — "파일 확인 중…" · 오류 표시
+- `WritePostModal`: `mode`(`create` · `edit`), `initialValues`, `authorNotice` — 게시글 수정
+- `Sidebar`: `onOpenProfile` — 사용자 영역을 눌러 마이페이지로 이동
 
 ### 인증 화면 전용 (`auth/`)
 

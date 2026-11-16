@@ -1,6 +1,7 @@
 import { Ellipsis, type LucideIcon } from 'lucide-react'
 import { useId, useState } from 'react'
 import useDismiss from '../../hooks/useDismiss'
+import Badge from './Badge'
 
 export interface ActionMenuItem {
   label: string
@@ -58,11 +59,7 @@ function ActionMenu({ label, items }: ActionMenuProps) {
               >
                 {Icon && <Icon className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />}
                 {itemLabel}
-                {!onSelect && (
-                  <span className="ml-auto rounded-full bg-bg-canvas px-1.5 py-0.5 text-[10px] text-text-secondary">
-                    준비 중
-                  </span>
-                )}
+                {!onSelect && <Badge className="ml-auto">준비 중</Badge>}
               </button>
             </li>
           ))}
