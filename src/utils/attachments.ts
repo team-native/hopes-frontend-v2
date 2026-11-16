@@ -18,9 +18,7 @@ export const ATTACHMENT_ACCEPT = [
   ...new Set(Object.values(ATTACHMENT_RULES).flatMap(({ mimeTypes }) => mimeTypes)),
 ].join(',')
 
-export type AttachmentCheck =
-  | { ok: true; format: AttachmentFormat }
-  | { ok: false; reason: 'type' | 'size' }
+export type AttachmentCheck = { ok: true; format: AttachmentFormat } | { ok: false; reason: 'type' | 'size' }
 
 /** 확장자·MIME 타입·크기 동기 검증 */
 export function checkAttachmentFile(file: File): AttachmentCheck {
@@ -39,7 +37,8 @@ const HEIC_BRANDS = ['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'mif1', 'ms
 /** 파일 앞부분 바이트(시그니처)가 형식과 맞는지 확인. 확장자만 바꾼 파일을 걸러낸다. */
 export async function matchesFileSignature(file: File, format: AttachmentFormat) {
   const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer())
-  const startsWith = (signature: number[], offset = 0) => signature.every((byte, index) => bytes[offset + index] === byte)
+  const startsWith = (signature: number[], offset = 0) =>
+    signature.every((byte, index) => bytes[offset + index] === byte)
   const ascii = (start: number, end: number) => String.fromCharCode(...bytes.slice(start, end))
 
   switch (format) {

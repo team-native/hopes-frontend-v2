@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { mockConversations } from '../mocks/conversations'
 import type { Conversation, LocalAttachment } from '../types/conversation'
+import { createId } from '../utils/id'
 import { ConversationContext } from './conversationContext'
 
 function revokePreviews(conversation: Conversation) {
@@ -19,7 +20,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
 
   function createConversation(title: string, attachments: LocalAttachment[] = []) {
     // TODO: 대화 생성 API 연동 후 서버가 발급한 ID 사용
-    const id = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+    const id = createId('conversation')
     const conversation: Conversation = { id, title, preview: '방금 시작한 대화', age: '방금', daysAgo: 0, attachments }
     setConversations((current) => [conversation, ...current])
     return id
