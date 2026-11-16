@@ -1,8 +1,7 @@
-import { BedDouble, Bell, Code, Ellipsis, FileText, Heart, RefreshCw, type LucideIcon } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { BedDouble, Bell, Code, Ellipsis, FileText, Heart, MapPin, RefreshCw, type LucideIcon } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import AttachDropzone from '../../components/attach/AttachDropzone'
-import { ImageThumb, PdfChip } from '../../components/attach/Attachments'
 import AnswerBubble from '../../components/chat/AnswerBubble'
 import AnswerReactions from '../../components/chat/AnswerReactions'
 import AttachmentComposer from '../../components/chat/AttachmentComposer'
@@ -16,109 +15,25 @@ import Toast from '../../components/common/Toast'
 import { EmptyState } from '../../components/feedback/Feedback'
 import { HeroCard, HomePanel, HomePanelRow, PopularPostRow, TipCard } from '../../components/home/HomeCards'
 import AppLayout from '../../components/layout/AppLayout'
-import { DEPARTMENTS } from '../../constants/school'
 import { getBoards, getPosts } from '../../api/community'
+import { getChatPreferences, getDepartments, getSpecialties, updateChatPreferences, type CategoryDto } from '../../api/catalog'
+import { getRecommendations, getRecommendationConsent, type RecommendationDto } from '../../api/recommendations'
 import useAppNavigation from '../../hooks/useAppNavigation'
 import useAttachmentDraft from '../../hooks/useAttachmentDraft'
 import useConversations from '../../hooks/useConversations'
 import useProfile from '../../hooks/useProfile'
 import useToast from '../../hooks/useToast'
-import type { ChatMessage } from '../../api/chats'
+import { getAttachment, getAttachmentContent, sendLocationCheck, type AttachmentDto, type ChatMessage, type LocationRequest } from '../../api/chats'
 import type { Conversation, LocalAttachment } from '../../types/conversation'
 import type { Profile } from '../../types/profile'
 import { ATTACHMENT_ACCEPT } from '../../utils/attachments'
 
-const MAJORS = ['Frontend', 'Backend', 'AI'] as const
-
-const suggestedQuestions: { title: string; category: string; icon: LucideIcon }[] = [
-  { title: '기숙사 하루 일과가 어떻게 돼?', category: '학교생활', icon: BedDouble },
-  { title: '입학하려면 뭘 준비해야 해?', category: '입학', icon: FileText },
-  { title: 'Frontend는 뭐부터 공부하면 좋아?', category: '전공 · Frontend', icon: Code },
-  { title: '후배한테 해주고 싶은 조언 있어?', category: '학교생활', icon: Heart },
-]
-
-type MockAnswer = {
-  category: string
-  heading: string
-  body: string
-  steps?: string[]
-  bullets?: string[]
-  code?: string
-  reference?: string
-  citation?: string
-  /** 학교 지도 카드를 함께 보여 줄지 (위치 질문) */
-  showMap?: boolean
-}
-
-const mockAnswers = {
-  dorm: {
-    category: '학교생활',
-    heading: '기숙사 하루 일과',
-    body: '평일에는 기상 후 아침 식사와 수업을 하고, 방과 후에는 저녁 식사와 자율 학습 시간을 보내요. 이후 점호를 마치고 정해진 시간에 취침하는 흐름이에요. 세부 시간은 학년이나 기숙사 운영 일정에 따라 달라질 수 있어요.',
-    steps: ['기상 및 아침 식사', '정규 수업과 방과 후 일정', '저녁 식사와 자율 학습', '점호 후 취침'],
-  },
-  frontend: {
-    category: '전공 공부',
-    heading: 'Frontend 시작 순서',
-    body: '처음에는 화면을 직접 만들어 보는 것부터 시작하는 걸 추천해요. HTML·CSS로 간단한 페이지를 만들고, JavaScript 기초 문법을 익힌 뒤 작은 프로젝트를 완성해 보세요.',
-    steps: ['HTML·CSS로 간단한 페이지 만들기', 'JavaScript 기초 문법 익히기', 'React로 작은 프로젝트 완성하기'],
-    code: '<button class="primary">질문하기</button>',
-    reference: '학교 전공 소개 페이지',
-  },
-  admission: {
-    category: '입학',
-    heading: '입학 준비 체크리스트',
-    body: '모집 요강과 전형 일정을 먼저 확인하고, 필요한 서류와 평가 항목을 정리해 두세요. 전형 내용은 해마다 달라질 수 있으니 학교의 최신 안내를 기준으로 준비하는 게 좋아요.',
-    steps: ['최신 모집 요강 확인하기', '전형 일정과 제출 서류 정리하기', '학교 공식 안내에서 변경 사항 확인하기'],
-  },
-  club: {
-    category: '학교생활',
-    heading: '동아리 선택과 면접 준비',
-    body: '관심 있는 분야와 동아리 활동 내용을 먼저 살펴보세요. 면접에서는 지원한 이유와 해보고 싶은 활동을 구체적으로 이야기할 수 있도록 정리해 두면 도움이 돼요.',
-    steps: ['동아리별 활동 내용 찾아보기', '관심 분야와 지원 동기 정리하기', '해보고 싶은 활동을 구체적으로 준비하기'],
-  },
-  fallback: {
-    category: '선배 답변',
-    heading: '예시 답변',
-    body: '현재는 화면 확인을 위한 목업 답변만 제공하고 있어요. 실제 질문에 맞는 답변은 서버 연동 후 표시됩니다.',
-  },
-  attachment: {
-    category: '자료 첨부',
-    heading: '첨부 자료 확인',
-    body: '파일은 대화에 첨부했어요. 실제 파일 내용을 읽고 요약하는 기능은 서버 연결 후 사용할 수 있습니다.',
-  },
-  dormRules: {
-    category: '자료 요약',
-    heading: '외출 규정 요약',
-    body: '생활수칙 자료에 포함된 외출 관련 예시 요약입니다.',
-    bullets: [
-      '평일 외출은 사감 선생님 승인 후 가능해요.',
-      '주말 외출은 금요일까지 신청해야 해요.',
-      '복귀 시간은 일요일 저녁 9시예요.',
-    ],
-  },
-  location: {
-    category: '학교 생활',
-    heading: '현재 위치 확인은 hopes 앱에서만 할 수 있어요',
-    body: '웹에서는 학교 지도와 건물 정보를 안내해 드려요.',
-    showMap: true,
-  },
-} satisfies Record<string, MockAnswer>
-
-function getMockAnswer(question: string): MockAnswer {
-  const normalizedQuestion = question.toLowerCase()
-
-  if (/위치|어디야|어디 있/.test(normalizedQuestion)) return mockAnswers.location
-  if (/기숙사|하루 일과|와이파이|외출/.test(normalizedQuestion)) return mockAnswers.dorm
-  if (/입학|준비/.test(normalizedQuestion)) return mockAnswers.admission
-  if (/동아리/.test(normalizedQuestion)) return mockAnswers.club
-  if (/frontend|프론트|전공 공부|공부/.test(normalizedQuestion)) return mockAnswers.frontend
-  return mockAnswers.fallback
-}
+const QUESTION_ICONS = [BedDouble, FileText, Code, Heart]
 
 const RECENT_CONVERSATION_COUNT = 3
 
 type HomeScreen = 'home' | 'chat' | 'conversation'
+type QuestionSuggestion = { title: string; category: string; icon: LucideIcon; id?: number }
 
 function HomePage() {
   // 화면 상태는 URL에서 매 렌더마다 계산한다. (/ → 홈, /chat → 새 대화, /chat/:conversationId → 대화)
@@ -126,15 +41,25 @@ function HomePage() {
   const { pathname } = useLocation()
   const screen: HomeScreen = conversationId ? 'conversation' : pathname.startsWith('/chat') ? 'chat' : 'home'
 
-  const { goToSection, startNewChat, openConversation, openCommunityPost } = useAppNavigation()
+  const { goToSection, startNewChat, openConversation, openCommunityPost, openCampus } = useAppNavigation()
   const { conversations, getConversation, createConversation, sendMessage, loadConversation } = useConversations()
   const { profile } = useProfile()
   const conversation = conversationId ? getConversation(conversationId) : undefined
   const { toast, showToast } = useToast()
 
   const [draft, setDraft] = useState('')
-  const [department, setDepartment] = useState<string>(DEPARTMENTS[0])
-  const [major, setMajor] = useState<string>(MAJORS[0])
+  const [department, setDepartment] = useState('')
+  const [major, setMajor] = useState('')
+  const [departmentId, setDepartmentId] = useState<number>()
+  const [specialtyId, setSpecialtyId] = useState<number>()
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([])
+  const [specialtyOptions, setSpecialtyOptions] = useState<string[]>([])
+  const [departmentCatalog, setDepartmentCatalog] = useState<CategoryDto[]>([])
+  const [specialtyGroups, setSpecialtyGroups] = useState<Record<string, CategoryDto[]>>({})
+  const [recommendationConsent, setRecommendationConsent] = useState(false)
+  const [recommendationItems, setRecommendationItems] = useState<RecommendationDto[]>([])
+  const recommendationRefreshTokenRef = useRef<string | undefined>(undefined)
+  const recommendationItemsRef = useRef<RecommendationDto[]>([])
   const [isSending, setIsSending] = useState(false)
   const loadedConversationIdRef = useRef<string | null>(null)
 
@@ -148,6 +73,86 @@ function HomePage() {
     )
   }, [conversationId, getConversation, loadConversation, showToast])
 
+  useEffect(() => {
+    let active = true
+    Promise.all([getDepartments(), getSpecialties(), getChatPreferences(), getRecommendationConsent()])
+      .then(([departmentGroups, specialtyGroupsData, preferences, consent]) => {
+        if (!active) return
+        const departments = Object.values(departmentGroups).flat().filter(({ isActive }) => isActive)
+        const specialties = Object.values(specialtyGroupsData).flat().filter(({ isActive }) => isActive)
+        setDepartmentCatalog(departments)
+        setDepartmentOptions(departments.map(({ name }) => name))
+        setSpecialtyGroups(specialtyGroupsData)
+        const activeDepartment = departments.find(({ id }) => id === preferences.departmentId) ?? departments[0]
+        const activeSpecialty = specialties.find(({ id }) => id === preferences.specialtyId)
+        const relatedSpecialties = activeDepartment
+          ? specialtyGroupsData[activeDepartment.name] ?? specialties
+          : specialties
+        const selectedSpecialty = activeSpecialty ?? relatedSpecialties[0]
+        setDepartmentId(activeDepartment?.id)
+        setSpecialtyId(selectedSpecialty?.id)
+        setDepartment(activeDepartment?.name ?? '')
+        setSpecialtyOptions(relatedSpecialties.filter(({ isActive }) => isActive).map(({ name }) => name))
+        setMajor(selectedSpecialty?.name ?? '')
+        setRecommendationConsent(consent.enabled)
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const loadRecommendations = useCallback(async (refresh = false) => {
+    try {
+      const result = await getRecommendations({
+        departmentId,
+        specialtyId,
+        personalized: recommendationConsent,
+        limit: 4,
+        refreshToken: refresh ? recommendationRefreshTokenRef.current : undefined,
+        excludeIds: refresh ? recommendationItemsRef.current.map(({ id }) => id) : undefined,
+      })
+      recommendationItemsRef.current = result.items
+      setRecommendationItems(result.items)
+      recommendationRefreshTokenRef.current = result.nextRefreshToken
+    } catch {
+      setRecommendationItems([])
+    }
+  }, [departmentId, specialtyId, recommendationConsent])
+
+  useEffect(() => {
+    void loadRecommendations()
+  }, [loadRecommendations])
+
+  const suggestions = useMemo(() => {
+    return recommendationItems.map((item, index) => ({
+      title: item.content,
+      category: major || '추천 질문',
+      icon: QUESTION_ICONS[index % QUESTION_ICONS.length],
+      id: item.id,
+    }))
+  }, [major, recommendationItems])
+
+  function changeDepartment(value: string) {
+    const nextDepartmentId = departmentCatalog.find(({ name }) => name === value)?.id
+    const specialties = specialtyGroups[value] ?? Object.values(specialtyGroups).flat()
+    setDepartment(value)
+    setDepartmentId(nextDepartmentId)
+    setSpecialtyId(undefined)
+    setSpecialtyOptions(specialties.filter(({ isActive }) => isActive).map(({ name }) => name))
+    setMajor('')
+    void updateChatPreferences({ departmentId: nextDepartmentId ?? null, specialtyId: null }).catch(() => showToast('학과 설정을 저장하지 못했어요.'))
+  }
+
+  function changeMajor(value: string) {
+    const specialties = Object.values(specialtyGroups).flat()
+    const nextSpecialtyId = specialties.find(({ name }) => name === value)?.id
+    setMajor(value)
+    setSpecialtyId(nextSpecialtyId)
+    void updateChatPreferences({ departmentId: departmentId ?? null, specialtyId: nextSpecialtyId ?? null }).catch(() => showToast('전공 설정을 저장하지 못했어요.'))
+  }
+
+
   async function startConversation(
     question: string,
     attachments: LocalAttachment[] = [],
@@ -156,7 +161,7 @@ function HomePage() {
     if (isSending) return false
     setIsSending(true)
     try {
-      await createConversation(question, attachments, (id) => {
+      await createConversation(question, attachments, { departmentId, specialtyId }, (id) => {
         onConversationCreated?.(id)
         openConversation(id)
       })
@@ -180,7 +185,7 @@ function HomePage() {
     if (!conversationId || screen !== 'conversation') return startConversation(text, attachments, onConversationCreated)
     setIsSending(true)
     try {
-      await sendMessage(conversationId, text, attachments)
+      await sendMessage(conversationId, text, attachments, { departmentId, specialtyId })
       setDraft('')
       return true
     } catch {
@@ -189,6 +194,31 @@ function HomePage() {
     } finally {
       setIsSending(false)
     }
+  }
+
+  async function checkChatLocation(id: string) {
+    if (!navigator.geolocation) {
+      showToast('이 브라우저에서는 현재 위치를 사용할 수 없어요.')
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords, timestamp }) => {
+        const request: LocationRequest = {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          horizontalAccuracyMeters: coords.accuracy,
+          measuredAt: new Date(timestamp).toISOString(),
+        }
+        try {
+          const result = await sendLocationCheck(id, request)
+          showToast(String(result.message ?? '위치를 확인했어요.'))
+        } catch {
+          showToast('위치를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.')
+        }
+      },
+      () => showToast('브라우저에서 위치 권한을 허용해 주세요.'),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    )
   }
 
   return (
@@ -202,14 +232,19 @@ function HomePage() {
           onOpenPost={openCommunityPost}
           onShowHistory={() => goToSection('history')}
           onShowCommunity={() => goToSection('community')}
+          onShowCampus={openCampus}
           onNotify={() => showToast('새로운 알림이 없어요.')}
         />
       ) : screen === 'chat' ? (
         <NewChatView
           department={department}
           major={major}
-          onDepartmentChange={setDepartment}
-          onMajorChange={setMajor}
+          departmentOptions={departmentOptions}
+          majorOptions={specialtyOptions}
+          suggestions={suggestions}
+          onRefreshSuggestions={() => void loadRecommendations(true)}
+          onDepartmentChange={changeDepartment}
+          onMajorChange={changeMajor}
           onAsk={startConversation}
           onSubmit={submitQuestion}
         />
@@ -217,12 +252,14 @@ function HomePage() {
         <ConversationView
           key={conversation.id}
           title={conversation.title}
+          category={`${department} · ${major}`}
+          suggestions={suggestions}
+          onCheckLocation={() => void checkChatLocation(conversation.id)}
           onAsk={startConversation}
           draft={draft}
           onDraftChange={setDraft}
           onSubmit={submitQuestion}
           onToast={showToast}
-          attachments={conversation.attachments ?? []}
           messages={conversation.messages ?? []}
           isSending={isSending}
         />
@@ -249,6 +286,7 @@ type HomeViewProps = {
   onOpenPost: (postId: string) => void
   onShowHistory: () => void
   onShowCommunity: () => void
+  onShowCampus: () => void
   onNotify: () => void
 }
 
@@ -260,6 +298,7 @@ function HomeView({
   onOpenPost,
   onShowHistory,
   onShowCommunity,
+  onShowCampus,
   onNotify,
 }: HomeViewProps) {
   const [popularPosts, setPopularPosts] = useState<{ id: string; board: string; title: string; likes: number }[]>([])
@@ -299,7 +338,10 @@ function HomeView({
             {profile.department} · {profile.generation}
           </p>
         </div>
-        <IconButton icon={Bell} label="알림" variant="boxed" onClick={onNotify} />
+        <div className="flex gap-2">
+          <IconButton icon={MapPin} label="학교 위치" variant="boxed" onClick={onShowCampus} />
+          <IconButton icon={Bell} label="알림" variant="boxed" onClick={onNotify} />
+        </div>
       </header>
 
       <div className="space-y-lg">
@@ -356,6 +398,10 @@ function HomeView({
 type NewChatViewProps = {
   department: string
   major: string
+  departmentOptions: string[]
+  majorOptions: string[]
+  suggestions: QuestionSuggestion[]
+  onRefreshSuggestions: () => void
   onDepartmentChange: (value: string) => void
   onMajorChange: (value: string) => void
   onAsk: (question: string) => void
@@ -363,7 +409,18 @@ type NewChatViewProps = {
   onSubmit: (attachments: LocalAttachment[], question: string, onCreated?: (id: string) => void) => Promise<boolean>
 }
 
-function NewChatView({ department, major, onDepartmentChange, onMajorChange, onAsk, onSubmit }: NewChatViewProps) {
+function NewChatView({
+  department,
+  major,
+  departmentOptions,
+  majorOptions,
+  suggestions,
+  onRefreshSuggestions,
+  onDepartmentChange,
+  onMajorChange,
+  onAsk,
+  onSubmit,
+}: NewChatViewProps) {
   const [suggestionOffset, setSuggestionOffset] = useState(0)
   const [draft, setDraft] = useState('')
   const draftAttachments = useAttachmentDraft()
@@ -376,9 +433,7 @@ function NewChatView({ department, major, onDepartmentChange, onMajorChange, onA
       setDraft('')
     }
   }
-  const rotatedSuggestions = suggestedQuestions.map(
-    (_, index) => suggestedQuestions[(index + suggestionOffset) % suggestedQuestions.length],
-  )
+  const rotatedSuggestions = suggestions.map((_, index) => suggestions[(index + suggestionOffset) % suggestions.length])
 
   return (
     <main className="relative flex min-h-[calc(100vh-105px)] flex-1 flex-col px-5 pt-5 pb-4 md:min-h-screen md:px-8">
@@ -389,7 +444,7 @@ function NewChatView({ department, major, onDepartmentChange, onMajorChange, onA
             variant="inline"
             label="학과"
             placeholder="선택"
-            options={DEPARTMENTS}
+            options={departmentOptions}
             value={department}
             onChange={onDepartmentChange}
             className="w-[230px]"
@@ -398,7 +453,7 @@ function NewChatView({ department, major, onDepartmentChange, onMajorChange, onA
             variant="inline"
             label="전공"
             placeholder="선택"
-            options={MAJORS}
+            options={majorOptions}
             value={major}
             onChange={onMajorChange}
             className="w-[160px]"
@@ -418,19 +473,22 @@ function NewChatView({ department, major, onDepartmentChange, onMajorChange, onA
           <IconButton
             icon={RefreshCw}
             label="추천 질문 순서 바꾸기"
-            onClick={() => setSuggestionOffset((offset) => offset + 1)}
+            onClick={() => {
+              setSuggestionOffset((offset) => offset + 1)
+              onRefreshSuggestions()
+            }}
           />
         </div>
         <div className="mt-xs grid grid-cols-1 gap-sm text-left sm:grid-cols-2">
-          {rotatedSuggestions.map((question) => (
+          {rotatedSuggestions.length ? rotatedSuggestions.map((question) => (
             <QuestionCard
-              key={question.title}
+              key={question.id ?? question.title}
               question={question.title}
               category={question.category}
               icon={question.icon}
               onClick={() => onAsk(question.title)}
             />
-          ))}
+          )) : <p className="py-md text-caption text-text-secondary">추천 질문을 불러오지 못했어요.</p>}
         </div>
       </section>
 
@@ -462,31 +520,34 @@ function NewChatView({ department, major, onDepartmentChange, onMajorChange, onA
 }
 
 type ConversationViewProps = {
+  onCheckLocation: () => void
   title: string
+  category: string
   messages: ChatMessage[]
+  suggestions: QuestionSuggestion[]
   isSending: boolean
   /** 추천 질문을 눌렀을 때 새 대화로 묻기 */
   onAsk: (question: string) => void
   draft: string
-  attachments: LocalAttachment[]
   onDraftChange: (value: string) => void
   onSubmit: (attachments: LocalAttachment[], question: string) => Promise<boolean>
   onToast: (message: string) => void
 }
 
 function ConversationView({
+  onCheckLocation,
   title,
+  category,
   messages,
+  suggestions,
   isSending,
   draft,
-  attachments,
   onAsk,
   onDraftChange,
   onSubmit,
   onToast,
 }: ConversationViewProps) {
-  const answer = getMockAnswer(title)
-  const relatedQuestions = suggestedQuestions
+  const relatedQuestions = suggestions
     .map(({ title: question }) => question)
     .filter((question) => question !== title)
     .slice(0, 3)
@@ -515,26 +576,21 @@ function ConversationView({
       <header className="flex items-start justify-between">
         <div>
           <h1 className="text-title">{title}</h1>
-          <p className="mt-1 text-caption text-text-secondary">{answer.category}</p>
+          <p className="mt-1 text-caption text-text-secondary">{category}</p>
         </div>
-        <IconButton icon={Ellipsis} label="대화 옵션" onClick={() => onToast('대화 옵션은 준비 중이에요.')} />
+        <div className="flex gap-2">
+          <IconButton icon={MapPin} label="현재 위치 확인" onClick={onCheckLocation} />
+          <IconButton icon={Ellipsis} label="대화 옵션" onClick={() => onToast('대화 옵션은 준비 중이에요.')} />
+        </div>
       </header>
 
       <section className="mx-auto flex w-full max-w-[720px] flex-1 flex-col justify-end gap-md overflow-y-auto py-xl">
-        {attachments.length > 0 && (
-          <div className="flex flex-wrap justify-end gap-2" aria-label="전송한 첨부 파일">
-            {attachments.map((attachment) =>
-              attachment.format === 'pdf' ? (
-                <PdfChip key={attachment.id} name={attachment.file.name} />
-              ) : (
-                <ImageThumb key={attachment.id} src={attachment.previewUrl} alt={attachment.file.name} />
-              ),
-            )}
-          </div>
-        )}
         {messages.map((message) =>
           message.role === 'USER' ? (
-            <UserBubble key={message.id}>{message.content}</UserBubble>
+            <div key={message.id} className="space-y-2">
+              <UserBubble>{message.content}</UserBubble>
+              <MessageAttachments attachments={message.attachments} />
+            </div>
           ) : (
             <div key={message.id} className="flex items-start gap-3">
               <LogoMark size={40} />
@@ -555,6 +611,7 @@ function ConversationView({
                     />
                   }
                 />
+                <MessageAttachments attachments={message.attachments} />
               </div>
             </div>
           ),
@@ -586,6 +643,65 @@ function ConversationView({
         accept={ATTACHMENT_ACCEPT}
       />
     </main>
+  )
+}
+
+function MessageAttachments({ attachments }: { attachments: AttachmentDto[] }) {
+  const [metadata, setMetadata] = useState<AttachmentDto[]>(attachments)
+  const [downloadUrls, setDownloadUrls] = useState<Record<number, string>>({})
+  const downloadUrlsRef = useRef<Record<number, string>>({})
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    Promise.all(attachments.map(({ id }) => getAttachment(id)))
+      .then((items) => {
+        if (active) setMetadata(items)
+      })
+      .catch(() => {
+        if (active) setMetadata(attachments)
+      })
+    return () => {
+      active = false
+    }
+  }, [attachments])
+
+  useEffect(() => () => Object.values(downloadUrlsRef.current).forEach((url) => URL.revokeObjectURL(url)), [])
+
+  async function downloadAttachment(attachment: AttachmentDto) {
+    try {
+      const content = await getAttachmentContent(attachment.id)
+      const url = URL.createObjectURL(content)
+      if (downloadUrlsRef.current[attachment.id]) URL.revokeObjectURL(downloadUrlsRef.current[attachment.id])
+      downloadUrlsRef.current = { ...downloadUrlsRef.current, [attachment.id]: url }
+      setDownloadUrls((current) => {
+        return { ...current, [attachment.id]: url }
+      })
+      setError('')
+    } catch {
+      setError('첨부 파일을 불러오지 못했어요.')
+    }
+  }
+
+  if (!metadata.length) return null
+  return (
+    <div className="flex flex-wrap gap-2">
+      {metadata.map((attachment) => (
+        <div key={attachment.id} className="rounded-md border border-border-subtle bg-bg-surface px-3 py-2 text-caption">
+          <span>{attachment.fileName}</span>
+          {downloadUrls[attachment.id] ? (
+            <a className="ml-2 text-text-brand underline" href={downloadUrls[attachment.id]} download={attachment.fileName}>
+              다운로드
+            </a>
+          ) : (
+            <button className="ml-2 text-text-brand underline" type="button" onClick={() => void downloadAttachment(attachment)}>
+              다운로드
+            </button>
+          )}
+        </div>
+      ))}
+      {error && <p role="alert" className="w-full text-caption text-text-danger">{error}</p>}
+    </div>
   )
 }
 

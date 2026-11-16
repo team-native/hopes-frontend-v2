@@ -11,6 +11,7 @@ function useAppNavigation() {
     startNewChat: () => navigate(ROUTES.chat),
     openConversation: (conversationId: string) => navigate(ROUTES.chatDetail(encodeURIComponent(conversationId))),
     openCommunityPost: (postId: string) => navigate(`${ROUTES.community}?post=${encodeURIComponent(postId)}`),
+    openCampus: () => navigate(ROUTES.campus),
   }
 }
 
