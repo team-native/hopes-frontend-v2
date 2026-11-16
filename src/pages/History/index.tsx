@@ -2,7 +2,8 @@ import { MessageCircle, Search, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import Button from '../../components/common/Button'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
-import IconTile from '../../components/common/IconTile'
+import IconButton from '../../components/common/IconButton'
+import { ListCard, ListRow } from '../../components/common/ListRow'
 import SearchField from '../../components/common/SearchField'
 import { EmptyState } from '../../components/feedback/Feedback'
 import AppLayout from '../../components/layout/AppLayout'
@@ -72,32 +73,26 @@ function HistoryPage() {
             {groups.map((group) => (
               <section key={group.title} className="space-y-xs">
                 <SectionHeader title={group.title} />
-                <ul className="divide-y divide-border-subtle rounded-lg border border-border-subtle bg-bg-surface px-3 shadow-cloud-sm">
+                <ListCard>
                   {group.conversations.map((conversation) => (
-                    <li key={conversation.id} className="flex min-w-0 items-center gap-2">
-                      <IconTile icon={MessageCircle} size="md" />
-                      <button
-                        type="button"
-                        onClick={() => openConversation(conversation.id)}
-                        className="min-w-0 flex-1 py-3 text-left"
-                      >
-                        <span className="block truncate text-label-strong">{conversation.title}</span>
-                        <span className="mt-0.5 block truncate text-caption text-text-tertiary">
-                          {conversation.preview}
-                        </span>
-                      </button>
-                      <span className="shrink-0 text-[11px] text-text-tertiary">{conversation.age}</span>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(conversation)}
-                        aria-label={`${conversation.title} 삭제`}
-                        className="flex size-8 shrink-0 items-center justify-center rounded-full text-icon-muted transition hover:bg-bg-canvas hover:text-icon-default"
-                      >
-                        <Trash2 className="size-4" strokeWidth={1.75} aria-hidden />
-                      </button>
-                    </li>
+                    <ListRow
+                      key={conversation.id}
+                      icon={MessageCircle}
+                      title={conversation.title}
+                      description={conversation.preview}
+                      meta={conversation.age}
+                      onClick={() => openConversation(conversation.id)}
+                      trailing={
+                        <IconButton
+                          icon={Trash2}
+                          label={`${conversation.title} 삭제`}
+                          onClick={() => setDeleteTarget(conversation)}
+                          className="size-8 text-icon-muted"
+                        />
+                      }
+                    />
                   ))}
-                </ul>
+                </ListCard>
               </section>
             ))}
           </div>

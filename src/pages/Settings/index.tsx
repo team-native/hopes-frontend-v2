@@ -1,10 +1,12 @@
-import { Info } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
 import FieldError from '../../components/common/FieldError'
+import { ListCard, ListRow } from '../../components/common/ListRow'
 import LogoMark from '../../components/common/LogoMark'
 import Toast from '../../components/common/Toast'
+import { NoticeRow } from '../../components/feedback/Feedback'
 import AppLayout from '../../components/layout/AppLayout'
 import {
   AccountCard,
@@ -13,6 +15,7 @@ import {
   SettingsNav,
   type SettingsMenu,
 } from '../../components/settings/SettingsCards'
+import SettingToggleRow from '../../components/settings/SettingToggleRow'
 import useProfile from '../../hooks/useProfile'
 import useToast from '../../hooks/useToast'
 
@@ -123,41 +126,38 @@ function SettingsPage() {
             )}
 
             {activeMenu === 'notification' && (
-              <section className="rounded-lg border border-border-subtle bg-bg-surface px-md shadow-cloud-sm">
-                <ul className="divide-y divide-border-subtle">
-                  {NOTIFICATION_ITEMS.map((item) => (
-                    <li key={item.key}>
-                      <SettingToggle
-                        title={item.title}
-                        description={item.description}
-                        checked={notifications[item.key]}
-                        onChange={(checked) => setNotifications((current) => ({ ...current, [item.key]: checked }))}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              <ListCard className="px-md">
+                {NOTIFICATION_ITEMS.map((item) => (
+                  <li key={item.key}>
+                    <SettingToggleRow
+                      title={item.title}
+                      description={item.description}
+                      checked={notifications[item.key]}
+                      onChange={(checked) => setNotifications((current) => ({ ...current, [item.key]: checked }))}
+                    />
+                  </li>
+                ))}
+              </ListCard>
             )}
 
             {activeMenu === 'display' && (
-              <section className="rounded-lg border border-border-subtle bg-bg-surface px-md shadow-cloud-sm">
-                <SettingToggle
-                  title="다크 모드"
-                  description="다크 모드는 준비 중이에요."
-                  badge="준비 중"
-                  checked={false}
-                  disabled
-                  onChange={() => {}}
-                />
-              </section>
+              <ListCard className="px-md">
+                <li>
+                  <SettingToggleRow
+                    title="다크 모드"
+                    description="다크 모드는 준비 중이에요."
+                    badge="준비 중"
+                    checked={false}
+                    disabled
+                    onChange={() => {}}
+                  />
+                </li>
+              </ListCard>
             )}
 
             {activeMenu === 'contact' && (
               <form onSubmit={sendContact} noValidate className="space-y-sm">
-                <p className="flex items-center gap-1.5 rounded-md bg-bg-brand-soft px-md py-3 text-caption text-text-secondary">
-                  <Info className="size-4 shrink-0 text-icon-brand" strokeWidth={1.75} aria-hidden />
-                  문의 전송 기능은 준비 중이에요. 지금은 작성해도 전송되지 않아요.
-                </p>
+                <NoticeRow message="문의 전송 기능은 준비 중이에요. 지금은 작성해도 전송되지 않아요." />
                 <ContactCard
                   email={email}
                   message={message}
@@ -181,29 +181,25 @@ function SettingsPage() {
             )}
 
             {activeMenu === 'about' && (
-              <section className="rounded-lg border border-border-subtle bg-bg-surface p-md shadow-cloud-sm">
-                <div className="flex items-center gap-3 border-b border-border-subtle pb-md">
+              <>
+                <section className="flex items-center gap-3 rounded-lg border border-border-subtle bg-bg-surface p-md shadow-cloud-sm">
                   <LogoMark size={48} />
                   <div>
                     <h2 className="text-label-strong">hopes</h2>
                     <p className="mt-0.5 text-caption text-text-secondary">버전 1.5 · 최신 버전 사용 중</p>
                   </div>
-                </div>
-                <ul className="divide-y divide-border-subtle">
+                </section>
+                <ListCard className="px-md">
                   {['이용약관', '개인정보 처리방침', '오픈소스 라이선스'].map((item) => (
-                    <li key={item}>
-                      <button
-                        type="button"
-                        onClick={() => showToast(`${item} 화면은 준비 중이에요`)}
-                        className="flex h-12 w-full items-center justify-between text-left text-label"
-                      >
-                        {item}
-                        <span className="text-caption text-text-tertiary">준비 중</span>
-                      </button>
-                    </li>
+                    <ListRow
+                      key={item}
+                      title={item}
+                      onClick={() => showToast(`${item} 화면은 준비 중이에요`)}
+                      trailing={<Badge>준비 중</Badge>}
+                    />
                   ))}
-                </ul>
-              </section>
+                </ListCard>
+              </>
             )}
           </div>
         </div>
@@ -224,56 +220,6 @@ function SettingsPage() {
       />
       <Toast message={toast} />
     </AppLayout>
-  )
-}
-
-function SettingToggle({
-  title,
-  description,
-  checked,
-  onChange,
-  disabled = false,
-  badge,
-}: {
-  title: string
-  description: string
-  checked: boolean
-  onChange: (checked: boolean) => void
-  disabled?: boolean
-  badge?: string
-}) {
-  return (
-    <div className="flex min-h-[72px] items-center justify-between gap-md py-3">
-      <div>
-        <h3 className="flex items-center gap-1.5 text-label-strong">
-          {title}
-          {badge && (
-            <span className="rounded-full bg-bg-canvas px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
-              {badge}
-            </span>
-          )}
-        </h3>
-        <p className="mt-0.5 text-caption text-text-secondary">{description}</p>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={title}
-        disabled={disabled}
-        onClick={() => onChange(!checked)}
-        className={`flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition disabled:cursor-not-allowed disabled:opacity-50 ${
-          // 꺼짐 상태에 맞는 배경 토큰이 없어 회색 테두리 토큰을 배경으로 사용 (디자이너 확인 필요)
-          checked ? 'bg-bg-brand' : 'bg-border-default'
-        }`}
-      >
-        <span
-          className={`size-5 rounded-full bg-bg-surface shadow-cloud-sm transition-transform ${
-            checked ? 'translate-x-5' : 'translate-x-0'
-          }`}
-        />
-      </button>
-    </div>
   )
 }
 

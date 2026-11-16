@@ -1,18 +1,25 @@
-import { ArrowLeft, CircleAlert, Flag, Info, Pencil, Search, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Flag, Pencil, Search, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import ActionSheet from '../../components/common/ActionSheet'
+import BackButton from '../../components/common/BackButton'
 import Button from '../../components/common/Button'
+import CardSkeleton from '../../components/common/CardSkeleton'
+import ChipGroup from '../../components/common/ChipGroup'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
-import Modal from '../../components/common/Modal'
 import SearchField from '../../components/common/SearchField'
 import Select from '../../components/common/Select'
 import Toast from '../../components/common/Toast'
+import CommentInput from '../../components/community/CommentInput'
 import CommentList from '../../components/community/CommentList'
 import PostCard from '../../components/community/PostCard'
 import PostDetail from '../../components/community/PostDetail'
+import ReportDialog from '../../components/community/ReportDialog'
 import type { Comment, Post } from '../../components/community/types'
+import WriteFab from '../../components/community/WriteFab'
 import WritePostModal, { type WritePostValues } from '../../components/community/WritePostModal'
-import { EmptyState } from '../../components/feedback/Feedback'
+import { EmptyState, InlineError } from '../../components/feedback/Feedback'
+import { HomePanel, HomePanelRow } from '../../components/home/HomeCards'
 import AppLayout from '../../components/layout/AppLayout'
 import SectionHeader from '../../components/layout/SectionHeader'
 import useProfile from '../../hooks/useProfile'
@@ -28,8 +35,6 @@ import { createId } from '../../utils/id'
 
 const SORT_OPTIONS = ['최신순', '인기순'] as const
 type SortOrder = (typeof SORT_OPTIONS)[number]
-
-const reportReasons = ['욕설·비방', '도배·광고', '개인정보 노출', '부적절한 내용', '기타']
 
 /** 게시글을 공통 PostCard · PostDetail이 받는 모양으로 바꿔요 */
 function toPost(post: CommunityPost, isMine: boolean): Post {
@@ -70,8 +75,7 @@ function CommunityPage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('최신순')
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState<ModalState>(null)
-  const [reportReason, setReportReason] = useState(reportReasons[1])
-  const [commentDraft, setCommentDraft] = useState('')
+  const [reportReason, setReportReason] = useState('도배·광고')
   const [feedStatus, setFeedStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const feedTimerRef = useRef<number | undefined>(undefined)
   const commentInputRef = useRef<HTMLInputElement>(null)
@@ -118,7 +122,6 @@ function CommunityPage() {
   )
 
   function openPost(postId: string | null) {
-    setCommentDraft('')
     setSearchParams(postId ? { post: postId } : {})
   }
 
@@ -166,22 +169,20 @@ function CommunityPage() {
     )
   }
 
-  function submitComment(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!selectedPost || !commentDraft.trim()) return
+  function submitComment(content: string) {
+    if (!selectedPost) return
     const newComment: CommunityComment = {
       id: createId('comment'),
       authorId: profile.id,
       authorCohort: profile.generation,
       time: '방금',
-      content: commentDraft.trim(),
+      content,
     }
     setPosts((current) =>
       current.map((post) =>
         post.id === selectedPost.id ? { ...post, comments: [...post.comments, newComment] } : post,
       ),
     )
-    setCommentDraft('')
   }
 
   function confirmDeletePost(postId: string) {
@@ -226,14 +227,7 @@ function CommunityPage() {
       <main className="mx-auto w-full max-w-[1200px] flex-1 px-5 py-5 md:px-8 md:py-6">
         {selectedPost ? (
           <div className="mx-auto max-w-[760px] space-y-sm">
-            <button
-              type="button"
-              onClick={() => openPost(null)}
-              className="flex items-center gap-1.5 text-caption text-text-secondary hover:text-text-primary"
-            >
-              <ArrowLeft className="size-4" strokeWidth={1.75} aria-hidden />
-              {selectedPost.board} 게시판
-            </button>
+            <BackButton onClick={() => openPost(null)}>{selectedPost.board} 게시판</BackButton>
             <PostDetail
               post={toPost(selectedPost, isMine(selectedPost.authorId))}
               onToggleLike={() => toggleLike(selectedPost.id)}
@@ -255,19 +249,7 @@ function CommunityPage() {
             ) : (
               <p className="py-sm text-caption text-text-secondary">첫 댓글을 남겨 보세요.</p>
             )}
-            <form onSubmit={submitComment} className="flex gap-2">
-              <input
-                ref={commentInputRef}
-                value={commentDraft}
-                onChange={(event) => setCommentDraft(event.target.value)}
-                placeholder="댓글 달기"
-                aria-label="댓글 달기"
-                className="h-11 min-w-0 flex-1 rounded-full border border-border-default bg-bg-surface px-4 text-label transition outline-none placeholder:text-text-tertiary focus:border-border-brand"
-              />
-              <Button size="sm" type="submit" className="h-11" disabled={!commentDraft.trim()}>
-                등록
-              </Button>
-            </form>
+            <CommentInput onSubmit={submitComment} inputRef={commentInputRef} />
           </div>
         ) : (
           <>
@@ -278,61 +260,50 @@ function CommunityPage() {
                   기수와 상관없이 모든 게시판을 읽고 쓸 수 있어요. 작성자는 기수만 표시돼요.
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2 sm:mt-xs">
                 <SearchField
                   value={search}
                   onChange={setSearch}
                   placeholder="제목·내용 검색"
-                  className="min-w-0 flex-1 sm:w-64 sm:flex-none"
+                  className="h-10! min-w-0 flex-1 sm:w-[260px] sm:flex-none"
                 />
-                <Button size="sm" className="h-11" onClick={() => setModal({ type: 'write' })}>
-                  <Pencil className="size-4" strokeWidth={1.75} aria-hidden />
-                  글쓰기
-                </Button>
+                {/* 모바일은 오른쪽 아래 WriteFab으로 써요 (Button의 inline-flex가 hidden을 덮어써서 감싸서 숨김) */}
+                <div className="hidden sm:block">
+                  <Button size="sm" className="h-8! px-3! text-caption!" onClick={() => setModal({ type: 'write' })}>
+                    <Pencil className="size-3.5" strokeWidth={1.75} aria-hidden />
+                    글쓰기
+                  </Button>
+                </div>
               </div>
             </header>
 
-            <div className="mt-lg flex flex-wrap items-center justify-between gap-sm">
-              <div className="flex flex-wrap gap-1.5" role="group" aria-label="게시판">
-                {boards.map((board) => (
-                  <button
-                    key={board}
-                    type="button"
-                    onClick={() => setSelectedBoard(board)}
-                    aria-pressed={selectedBoard === board}
-                    className={`h-8 rounded-full border px-3 text-caption transition ${
-                      selectedBoard === board
-                        ? 'border-border-brand bg-bg-brand-soft font-medium text-text-brand'
-                        : 'border-border-default bg-bg-surface text-text-secondary hover:border-border-brand'
-                    }`}
-                  >
-                    {board}
-                  </button>
-                ))}
-              </div>
+            <div className="mt-xs flex flex-wrap items-center justify-between gap-sm">
+              <ChipGroup
+                label="게시판"
+                options={boards.map((board) => ({ value: board, label: board }))}
+                value={selectedBoard}
+                onChange={setSelectedBoard}
+              />
               <Select
-                variant="inline"
+                variant="compact"
                 label="정렬"
                 placeholder="선택"
                 options={SORT_OPTIONS}
                 value={sortOrder}
                 onChange={(value) => setSortOrder(value as SortOrder)}
-                className="w-[160px]"
               />
             </div>
 
-            <div className="mt-md grid grid-cols-1 items-start gap-lg lg:grid-cols-[minmax(0,1fr)_260px]">
+            <div className="mt-md grid grid-cols-1 items-start gap-xl lg:grid-cols-[minmax(0,1fr)_278px]">
               <section className="space-y-sm" aria-label="게시글 목록">
                 {feedStatus === 'loading' ? (
-                  <PostSkeletons />
+                  <CardSkeleton count={4} label="게시글 불러오는 중" />
                 ) : feedStatus === 'error' ? (
-                  <div className="py-3xl">
-                    <EmptyState
-                      icon={CircleAlert}
+                  <div className="rounded-lg border border-border-subtle bg-bg-surface p-lg shadow-cloud-sm">
+                    <InlineError
                       title="게시글을 불러오지 못했어요"
                       description="네트워크 상태를 확인한 뒤 다시 시도해 주세요."
-                      actionText="다시 시도"
-                      onAction={retryFeed}
+                      onRetry={retryFeed}
                     />
                   </div>
                 ) : filteredPosts.length > 0 ? (
@@ -363,42 +334,42 @@ function CommunityPage() {
                 )}
               </section>
 
-              <aside className="space-y-md">
-                <section className="rounded-lg border border-border-subtle bg-bg-surface p-md shadow-cloud-sm">
-                  <h2 className="mb-2 text-caption font-medium text-text-secondary">이번 주 인기글</h2>
-                  <ol>
-                    {popularPosts.map((post, index) => (
-                      <li key={post.id} className="border-b border-border-subtle last:border-0">
-                        <button
-                          type="button"
-                          onClick={() => openPost(post.id)}
-                          className="flex min-h-10 w-full items-center gap-2 text-left"
-                        >
-                          <span className="text-caption font-medium text-text-brand">{index + 1}</span>
-                          <span className="truncate text-caption font-medium">{post.title}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-                <section className="rounded-lg border border-border-subtle bg-bg-surface p-md shadow-cloud-sm">
-                  <h2 className="mb-3 text-caption font-medium text-text-secondary">내 활동</h2>
-                  <dl className="flex gap-xl">
-                    <div>
-                      <dd className="text-heading tabular-nums">{myPostCount}</dd>
-                      <dt className="text-caption text-text-secondary">작성글</dt>
-                    </div>
-                    <div>
-                      <dd className="text-heading tabular-nums">{myCommentCount}</dd>
-                      <dt className="text-caption text-text-secondary">댓글</dt>
-                    </div>
-                  </dl>
-                </section>
+              <aside className="space-y-sm">
+                <HomePanel title="이번 주 인기글">
+                  {popularPosts.map((post, index) => (
+                    <HomePanelRow
+                      key={post.id}
+                      size="sm"
+                      leading={index + 1}
+                      title={post.title}
+                      onClick={() => openPost(post.id)}
+                    />
+                  ))}
+                </HomePanel>
+                <HomePanel title="내 활동" divided={false}>
+                  <li>
+                    <dl className="flex gap-xl pb-xs">
+                      {[
+                        { label: '작성글', value: myPostCount },
+                        { label: '댓글', value: myCommentCount },
+                      ].map((stat) => (
+                        <div key={stat.label} className="flex flex-col-reverse">
+                          <dt className="text-caption text-text-secondary">{stat.label}</dt>
+                          <dd className="text-heading font-normal tabular-nums">{stat.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </li>
+                </HomePanel>
               </aside>
             </div>
           </>
         )}
       </main>
+
+      {!selectedPost && (
+        <WriteFab onClick={() => setModal({ type: 'write' })} className="fixed right-5 bottom-6 z-30 sm:hidden" />
+      )}
 
       <WritePostModal
         open={modal?.type === 'write' || modal?.type === 'edit'}
@@ -411,21 +382,34 @@ function CommunityPage() {
         onSubmit={submitPost}
       />
 
-      <PostMenuDialog
+      <ActionSheet
         open={modal?.type === 'postMenu'}
-        isMyPost={modal?.type === 'postMenu' && isMine(posts.find((post) => post.id === modal.postId)?.authorId ?? '')}
+        title="게시글 메뉴"
+        items={
+          modal?.type === 'postMenu' && isMine(posts.find((post) => post.id === modal.postId)?.authorId ?? '')
+            ? [
+                {
+                  label: '게시글 수정',
+                  icon: Pencil,
+                  onSelect: () => setModal({ type: 'edit', postId: modal.postId }),
+                },
+                {
+                  label: '게시글 삭제',
+                  icon: Trash2,
+                  danger: true,
+                  onSelect: () => setModal({ type: 'deletePost', postId: modal.postId }),
+                },
+              ]
+            : [{ label: '신고하기', icon: Flag, onSelect: () => setModal({ type: 'report', target: '게시글' }) }]
+        }
         onClose={() => setModal(null)}
-        onEdit={() => modal?.type === 'postMenu' && setModal({ type: 'edit', postId: modal.postId })}
-        onDelete={() => modal?.type === 'postMenu' && setModal({ type: 'deletePost', postId: modal.postId })}
-        onReport={() => setModal({ type: 'report', target: '게시글' })}
       />
 
       <ConfirmDialog
         open={modal?.type === 'deletePost' || modal?.type === 'deleteComment'}
         title={modal?.type === 'deleteComment' ? '댓글을 삭제할까요?' : '게시글을 삭제할까요?'}
-        description={
-          modal?.type === 'deleteComment' ? '삭제한 댓글은 되돌릴 수 없어요.' : '삭제한 글과 댓글은 되돌릴 수 없어요.'
-        }
+        // TODO: 삭제 API 연동 후 "삭제한 글(댓글)은 되돌릴 수 없어요."로 바꾸기
+        description="목업 단계라 이 화면에서만 지워지고, 새로고침하면 다시 나타나요."
         confirmText="삭제"
         tone="danger"
         onCancel={() => setModal(null)}
@@ -446,120 +430,6 @@ function CommunityPage() {
 
       <Toast message={toast} />
     </AppLayout>
-  )
-}
-
-function PostSkeletons() {
-  return (
-    <div className="space-y-sm" aria-label="게시글 불러오는 중">
-      {[0, 1, 2, 3].map((item) => (
-        <div key={item} className="h-[124px] animate-pulse rounded-lg border border-border-subtle bg-bg-surface p-md">
-          <div className="h-5 w-10 rounded-full bg-bg-canvas" />
-          <div className="mt-3 h-3 w-1/3 rounded-full bg-bg-canvas" />
-          <div className="mt-2 h-3 w-1/2 rounded-full bg-bg-canvas" />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function PostMenuDialog({
-  open,
-  isMyPost,
-  onClose,
-  onEdit,
-  onDelete,
-  onReport,
-}: {
-  open: boolean
-  isMyPost: boolean
-  onClose: () => void
-  onEdit: () => void
-  onDelete: () => void
-  onReport: () => void
-}) {
-  const titleId = useId()
-  const itemClass = 'flex h-11 w-full items-center gap-2.5 rounded-sm px-3 text-label transition'
-  return (
-    <Modal open={open} onClose={onClose} labelledBy={titleId} closeOnBackdrop className="w-[300px] p-md">
-      <h2 id={titleId} className="sr-only">
-        게시글 메뉴
-      </h2>
-      {isMyPost ? (
-        <>
-          <button type="button" onClick={onEdit} className={`${itemClass} hover:bg-bg-canvas`}>
-            <Pencil className="size-4 text-icon-muted" strokeWidth={1.75} aria-hidden />
-            게시글 수정
-          </button>
-          <button type="button" onClick={onDelete} className={`${itemClass} text-text-danger hover:bg-bg-danger-soft`}>
-            <Trash2 className="size-4 text-icon-danger" strokeWidth={1.75} aria-hidden />
-            게시글 삭제
-          </button>
-        </>
-      ) : (
-        <button type="button" onClick={onReport} className={`${itemClass} hover:bg-bg-canvas`}>
-          <Flag className="size-4 text-icon-muted" strokeWidth={1.75} aria-hidden />
-          신고하기
-        </button>
-      )}
-    </Modal>
-  )
-}
-
-function ReportDialog({
-  open,
-  target,
-  reason,
-  onReasonChange,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean
-  target: '게시글' | '댓글'
-  reason: string
-  onReasonChange: (reason: string) => void
-  onClose: () => void
-  onSubmit: () => void
-}) {
-  const titleId = useId()
-  return (
-    <Modal open={open} onClose={onClose} labelledBy={titleId} className="w-[360px] p-xl">
-      <h2 id={titleId} className="text-heading">
-        {target} 신고
-      </h2>
-      <p className="mt-xs text-caption text-text-secondary">신고한 사람의 정보는 공개되지 않아요.</p>
-      <p className="mt-sm flex items-start gap-1.5 rounded-sm bg-bg-canvas px-3 py-2 text-caption text-text-secondary">
-        <Info className="mt-0.5 size-3.5 shrink-0 text-icon-muted" strokeWidth={1.75} aria-hidden />
-        신고 기능은 준비 중이에요. 지금은 화면 시연만 되고 실제로 접수되지 않아요.
-      </p>
-      <fieldset className="mt-md">
-        <legend className="sr-only">신고 사유</legend>
-        {reportReasons.map((item) => (
-          <label
-            key={item}
-            className="flex h-11 cursor-pointer items-center justify-between border-b border-border-subtle text-label last:border-0"
-          >
-            {item}
-            <input
-              type="radio"
-              name="report-reason"
-              value={item}
-              checked={reason === item}
-              onChange={() => onReasonChange(item)}
-              className="size-4 accent-bg-brand"
-            />
-          </label>
-        ))}
-      </fieldset>
-      <div className="mt-lg flex justify-end gap-2">
-        <Button size="sm" variant="secondary" onClick={onClose}>
-          취소
-        </Button>
-        <Button size="sm" onClick={onSubmit}>
-          신고하기
-        </Button>
-      </div>
-    </Modal>
   )
 }
 

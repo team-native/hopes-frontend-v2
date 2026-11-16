@@ -1,4 +1,4 @@
-import { Bell, ChevronLeft, Pencil } from 'lucide-react'
+import { Bell, ChevronLeft, Flag, MessageCircle, Pencil, Trash2 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { ImageThumb, PdfCard, PdfChip } from '../../components/attach/Attachments'
 import QuestionCard from '../../components/chat/QuestionCard'
@@ -11,7 +11,7 @@ import type { Comment, Post } from '../../components/community/types'
 import WriteFab from '../../components/community/WriteFab'
 import WritePostModal from '../../components/community/WritePostModal'
 import { EmptyState, InlineError, NoticeRow } from '../../components/feedback/Feedback'
-import { HeroCard, PopularPostRow, TipCard } from '../../components/home/HomeCards'
+import { HeroCard, HomePanel, HomePanelRow, PopularPostRow, TipCard } from '../../components/home/HomeCards'
 import SectionHeader from '../../components/layout/SectionHeader'
 import MapCard from '../../components/location/MapCard'
 import { ProfileCard, ProfileStats } from '../../components/profile/ProfileCards'
@@ -38,6 +38,22 @@ import SearchField from '../../components/common/SearchField'
 import TextArea from '../../components/common/TextArea'
 import { CommentChip, LikeChip } from '../../components/community/ReactionChips'
 import Sidebar, { type RecentChat, type SidebarMenu } from '../../components/layout/Sidebar'
+import AttachDropzone from '../../components/attach/AttachDropzone'
+import AttachmentComposer from '../../components/chat/AttachmentComposer'
+import ActionMenu from '../../components/common/ActionMenu'
+import ActionSheet from '../../components/common/ActionSheet'
+import BackButton from '../../components/common/BackButton'
+import CardSkeleton from '../../components/common/CardSkeleton'
+import ChipGroup from '../../components/common/ChipGroup'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
+import { ListCard, ListRow } from '../../components/common/ListRow'
+import Switch from '../../components/common/Switch'
+import Toast from '../../components/common/Toast'
+import CommentInput from '../../components/community/CommentInput'
+import ReportDialog from '../../components/community/ReportDialog'
+import MobileNav from '../../components/layout/MobileNav'
+import SettingToggleRow from '../../components/settings/SettingToggleRow'
+import type { LocalAttachment } from '../../types/conversation'
 
 /**
  * 부품 미리보기 (개발 서버에서만: /dev/components)
@@ -78,6 +94,12 @@ const SAMPLE_ANSWER = `### Frontend 시작 순서
 > 막히면 선배에게 바로 물어보는 게 제일 빨라요.
 
 [학교 전공 소개 페이지 보기](https://example.com)`
+
+const SAMPLE_ATTACHMENTS: LocalAttachment[] = [
+  { id: 'a1', file: new File([''], '생활수칙.pdf'), format: 'pdf', status: 'ready', pageCount: 12 },
+  { id: 'a2', file: new File([''], '시간표.pdf'), format: 'pdf', status: 'processing' },
+  { id: 'a3', file: new File([''], 'photo.heic'), format: 'heic', status: 'ready', previewUnsupported: true },
+]
 
 const SAMPLE_POST: Post = {
   id: 'p1',
@@ -128,6 +150,14 @@ function DevComponentsPage() {
   const [settingsMenu, setSettingsMenu] = useState<SettingsMenu>('profile')
   // 주소에 ?modal=1 을 붙이면 글쓰기 팝업이 열린 채로 시작
   const [modalOpen, setModalOpen] = useState(() => new URLSearchParams(window.location.search).has('modal'))
+  const [chip, setChip] = useState('전체')
+  const [switchOn, setSwitchOn] = useState(true)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportReason, setReportReason] = useState('도배·광고')
+  const [dropzoneOpen, setDropzoneOpen] = useState(false)
+  const [composerValue, setComposerValue] = useState('')
 
   return (
     <main className="min-h-screen bg-bg-canvas px-[111px] pt-12 pb-5xl">
@@ -278,19 +308,31 @@ function DevComponentsPage() {
       </Group>
 
       <Group title="5. 홈 · 프로필">
-        <Specimen name="Home/Hero Card" className="w-[362px]">
+        <Specimen name="Web/Hero Card" className="w-[946px]">
           <HeroCard
-            title={'궁금한 점이 있다면,\n언제든 물어보세요.'}
-            description="선배들의 실제 경험으로 답해요."
+            title={'선배에게 묻는\n가장 솔직한 학교 이야기'}
+            description="기숙사, 전공, 취업 질문에 선배 경험으로 답해요."
             actionText="채팅 시작하기"
             onAction={() => console.log('hero')}
           />
         </Specimen>
-        <Specimen name="Home/Tip Card" className="w-[362px]">
-          <TipCard step={1} caption="질문 전에," text="학과·전공을 먼저 골라요" />
+        <Specimen name="Home/Panel + Panel Row" className="w-[302px]">
+          <HomePanel title="이어서 하기" actionText="더보기" onAction={() => console.log('more')}>
+            <HomePanelRow title="기숙사 하루 일과가 어떻게 돼?" meta="어제" />
+            <HomePanelRow title="Frontend는 뭐부터 공부하면 좋아?" meta="2일 전" />
+          </HomePanel>
         </Specimen>
-        <Specimen name="Home/Popular Post Row" className="w-[362px]">
-          <PopularPostRow board="전체" title="전공 동아리 면접 후기 공유" likeCount={34} />
+        <Specimen name="Home/Popular Post Row" className="w-[302px]">
+          <HomePanel title="커뮤니티 인기글" actionText="더보기" onAction={() => console.log('more')}>
+            <PopularPostRow board="전체" title="전공 동아리 면접 후기 공유" likeCount={34} />
+            <PopularPostRow board="9기" title="취업 준비 언제부터 시작했어?" likeCount={21} />
+          </HomePanel>
+        </Specimen>
+        <Specimen name="Home/Tip Card" className="w-[302px]">
+          <HomePanel title="질문 잘하는 방법" divided={false}>
+            <TipCard step={1} caption="질문 전에," text="학과·전공을 먼저 골라요" />
+            <TipCard step={2} caption="“기숙사 어때” 보단," text="“1학년 기숙사 평일 루틴 알려줘”" />
+          </HomePanel>
         </Specimen>
         <Specimen name="Layout/Section Header" className="w-[362px]">
           <SectionHeader title="질문 잘하는 방법" />
@@ -365,6 +407,165 @@ function DevComponentsPage() {
       <Group title="7. 위치">
         <Specimen name="Location/Map Card" className="w-[328px]">
           <MapCard label="광주소프트웨어마이스터고 위치" />
+        </Specimen>
+      </Group>
+
+      {/* 피그마 컴포넌트에 없어서 화면 작업 중 공통으로 만든 부품 */}
+      <Group title="8. 추가 공통 부품">
+        <Specimen name="ChipGroup">
+          <ChipGroup
+            label="게시판"
+            options={['전체', ...COHORTS].map((value) => ({ value, label: value }))}
+            value={chip}
+            onChange={setChip}
+          />
+        </Specimen>
+        <Specimen name="ChipGroup (개수)">
+          <ChipGroup
+            label="활동"
+            options={[
+              { value: '작성글', label: '작성글', count: 2 },
+              { value: '댓글', label: '댓글', count: 5 },
+            ]}
+            value="작성글"
+            onChange={() => {}}
+          />
+        </Specimen>
+        <Specimen name="Switch">
+          <div className="flex gap-3">
+            <Switch checked={switchOn} onChange={setSwitchOn} label="스위치" />
+            <Switch checked={false} onChange={() => {}} label="꺼짐" />
+            <Switch checked={false} onChange={() => {}} label="비활성" disabled />
+          </div>
+        </Specimen>
+        <Specimen name="SettingToggleRow" className="w-[420px]">
+          <ListCard className="px-md">
+            <li>
+              <SettingToggleRow
+                title="새 답변 알림"
+                description="선배 답변이 도착하면 알려드려요."
+                checked={switchOn}
+                onChange={setSwitchOn}
+              />
+            </li>
+            <li>
+              <SettingToggleRow
+                title="다크 모드"
+                description="다크 모드는 준비 중이에요."
+                badge="준비 중"
+                checked={false}
+                disabled
+                onChange={() => {}}
+              />
+            </li>
+          </ListCard>
+        </Specimen>
+        <Specimen name="ListCard · ListRow" className="w-[420px]">
+          <ListCard>
+            <ListRow
+              icon={MessageCircle}
+              title="기숙사 하루 일과가 어떻게 돼?"
+              description="평일은 저녁 식사 후 자습, 점호 순서로..."
+              meta="어제"
+              onClick={() => {}}
+            />
+            <ListRow
+              icon={MessageCircle}
+              title="기숙사 와이파이 다들 잘 돼?"
+              meta="10분 전"
+              trailing={
+                <ActionMenu
+                  label="더보기"
+                  items={[
+                    { label: '수정', icon: Pencil },
+                    { label: '삭제', icon: Trash2, danger: true, onSelect: () => {} },
+                  ]}
+                />
+              }
+            />
+            <ListRow title="이용약관" onClick={() => {}} trailing={<Badge>준비 중</Badge>} />
+          </ListCard>
+        </Specimen>
+        <Specimen name="CardSkeleton" className="w-[420px]">
+          <CardSkeleton count={2} />
+        </Specimen>
+        <Specimen name="BackButton">
+          <BackButton onClick={() => {}}>10기 게시판</BackButton>
+        </Specimen>
+        <Specimen name="CommentInput" className="w-[420px]">
+          <CommentInput onSubmit={(content) => console.log(content)} />
+        </Specimen>
+        <Specimen name="팝업: ConfirmDialog · ActionSheet · ReportDialog">
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setConfirmOpen(true)}>
+              ConfirmDialog
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setSheetOpen(true)}>
+              ActionSheet
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setReportOpen(true)}>
+              ReportDialog
+            </Button>
+          </div>
+          <ConfirmDialog
+            open={confirmOpen}
+            title="이 대화를 삭제할까요?"
+            description="삭제한 대화는 되돌릴 수 없어요."
+            confirmText="삭제"
+            tone="danger"
+            onCancel={() => setConfirmOpen(false)}
+            onConfirm={() => setConfirmOpen(false)}
+          />
+          <ActionSheet
+            open={sheetOpen}
+            title="게시글 메뉴"
+            items={[
+              { label: '게시글 수정', icon: Pencil, onSelect: () => setSheetOpen(false) },
+              { label: '게시글 삭제', icon: Trash2, danger: true, onSelect: () => setSheetOpen(false) },
+              { label: '신고하기', icon: Flag },
+            ]}
+            onClose={() => setSheetOpen(false)}
+          />
+          <ReportDialog
+            open={reportOpen}
+            target="게시글"
+            reason={reportReason}
+            onReasonChange={setReportReason}
+            onClose={() => setReportOpen(false)}
+            onSubmit={() => setReportOpen(false)}
+          />
+        </Specimen>
+        <Specimen name="AttachmentComposer" className="w-[720px]">
+          <AttachmentComposer
+            value={composerValue}
+            onChange={setComposerValue}
+            onSubmit={() => setComposerValue('')}
+            onAttach={() => setDropzoneOpen(true)}
+            attachments={SAMPLE_ATTACHMENTS}
+            onRemoveAttachment={() => {}}
+            canSend={composerValue.trim() !== ''}
+          />
+        </Specimen>
+        <Specimen name="AttachDropzone" className="w-[720px]">
+          <div className="relative h-[360px] rounded-lg border border-border-subtle bg-bg-surface">
+            <Button size="sm" variant="secondary" className="m-md" onClick={() => setDropzoneOpen(true)}>
+              열기
+            </Button>
+            <AttachDropzone
+              open={dropzoneOpen}
+              onClose={() => setDropzoneOpen(false)}
+              onFiles={(files) => console.log(files)}
+            />
+          </div>
+        </Specimen>
+        <Specimen name="MobileNav (모바일 너비에서만 보여요)" className="w-[375px]">
+          <div className="overflow-hidden rounded-lg border border-border-subtle">
+            <MobileNav activeMenu="community" onNewChat={() => {}} />
+          </div>
+        </Specimen>
+        <Specimen name="Toast (화면 아래 고정)">
+          <p className="text-caption text-text-secondary">useToast의 showToast로 띄워요.</p>
+          <Toast message="" />
         </Specimen>
       </Group>
     </main>
