@@ -243,7 +243,7 @@ function MyPage() {
               <EmptyState icon={TabIcon} title="아직 표시할 활동이 없어요" />
             </div>
           ) : (
-            <ListCard className="px-md">
+            <ListCard className="animate-fade-up px-md">
               {activeRows.map((row) => (
                 <ListRow
                   key={row.id}

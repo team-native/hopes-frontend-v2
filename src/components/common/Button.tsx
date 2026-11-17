@@ -35,7 +35,7 @@ function variantClass(variant: NonNullable<ButtonProps['variant']>, inactive: bo
   // primary
   const color = inactive
     ? 'bg-bg-brand-disabled'
-    : 'bg-bg-brand enabled:shadow-cloud-brand enabled:hover:bg-bg-brand-pressed enabled:active:scale-[0.99]'
+    : 'bg-bg-brand enabled:shadow-cloud-brand enabled:hover:bg-bg-brand-pressed'
   return `${color} text-text-on-brand ${loading ? 'disabled:bg-bg-brand-loading' : 'disabled:bg-bg-brand-disabled'}`
 }
 
@@ -59,7 +59,7 @@ function Button({
       aria-busy={loading}
       aria-disabled={inactive || undefined}
       {...rest}
-      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-sm transition disabled:cursor-not-allowed ${
+      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-sm transition duration-150 enabled:active:scale-[0.98] disabled:cursor-not-allowed ${
         SIZE_CLASS[size]
       } ${variantClass(variant, inactive, loading)} ${className}`}
     >

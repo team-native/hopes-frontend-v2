@@ -46,6 +46,7 @@ import AppLayout from '../../components/layout/AppLayout'
 import SectionHeader from '../../components/layout/SectionHeader'
 import useProfile from '../../hooks/useProfile'
 import useToast from '../../hooks/useToast'
+import { stagger } from '../../utils/motion'
 
 const SORT_OPTIONS = ['최신순', '인기순'] as const
 type SortOrder = (typeof SORT_OPTIONS)[number]
@@ -141,7 +142,6 @@ function CommunityPage() {
   const [retryKey, setRetryKey] = useState(0)
   const [detailRetryKey, setDetailRetryKey] = useState(0)
   const pendingLikeIds = useRef(new Set<string>())
-  const [pendingLikeIdsState, setPendingLikeIdsState] = useState<Set<string>>(new Set())
   const commentInputRef = useRef<HTMLInputElement>(null)
 
   const boardNames = useMemo(() => ['전체', ...new Set(boards.map(({ name }) => name))], [boards])
@@ -242,21 +242,34 @@ function CommunityPage() {
     }
   }
 
+  /** 목록 · 상세 어디서 눌러도 같은 게시글이면 둘 다 바꿔요 */
+  function updatePostEverywhere(postId: string, change: (post: ViewPost) => ViewPost) {
+    setPosts((current) => current.map((item) => (item.id === postId ? change(item) : item)))
+    setSelectedPost((current) => (current?.id === postId ? change(current) : current))
+  }
+
+  /**
+   * 좋아요 토글 — 화면을 먼저 바꾸고(하트 · 숫자) 서버에 보내요.
+   * 실패하면 원래대로 되돌리고, 성공하면 서버 값으로 숫자를 다시 맞춰요.
+   */
   async function toggleLike(post: ViewPost) {
     if (pendingLikeIds.current.has(post.id)) return
     pendingLikeIds.current.add(post.id)
-    setPendingLikeIdsState(new Set(pendingLikeIds.current))
+    const liked = !post.liked
+    updatePostEverywhere(post.id, (item) => ({
+      ...item,
+      liked,
+      likeCount: Math.max(0, item.likeCount + (liked ? 1 : -1)),
+    }))
     try {
-      await setPostLike(post.id, !post.liked)
-      const updated = await getPost(post.id)
-      const mapped = mapPost(updated, boards)
-      setSelectedPost(mapped)
-      setPosts((current) => current.map((item) => (item.id === mapped.id ? mapped : item)))
+      await setPostLike(post.id, liked)
+      const synced = mapPost(await getPost(post.id), boards)
+      updatePostEverywhere(post.id, () => synced)
     } catch {
+      updatePostEverywhere(post.id, (item) => ({ ...item, liked: post.liked, likeCount: post.likeCount }))
       showToast('좋아요를 반영하지 못했어요. 잠시 후 다시 시도해 주세요.')
     } finally {
       pendingLikeIds.current.delete(post.id)
-      setPendingLikeIdsState(new Set(pendingLikeIds.current))
     }
   }
 
@@ -389,11 +402,10 @@ function CommunityPage() {
       <main className="mx-auto w-full max-w-[1200px] flex-1 px-5 py-5 md:px-8 md:py-6">
         {selectedPostId ? (
           detailStatus === 'ready' && visiblePost ? (
-            <div className="mx-auto max-w-[760px] space-y-sm">
+            <div className="mx-auto max-w-[760px] animate-fade-up space-y-sm">
               <BackButton onClick={() => openPost(null)}>{visiblePost.board} 게시판</BackButton>
               <PostDetail
                 post={visiblePost}
-                likeDisabled={pendingLikeIdsState.has(visiblePost.id)}
                 onToggleLike={() => void toggleLike(visiblePost)}
                 onCommentClick={() => commentInputRef.current?.focus()}
                 onMoreClick={() => setModal({ type: 'postMenu', postId: visiblePost.id })}
@@ -480,7 +492,15 @@ function CommunityPage() {
                     />
                   </div>
                 ) : filteredPosts.length > 0 ? (
-                  filteredPosts.map((post) => <PostCard key={post.id} post={post} onClick={() => openPost(post.id)} />)
+                  filteredPosts.map((post, index) => (
+                    <div key={post.id} className="animate-fade-up" style={stagger(index)}>
+                      <PostCard
+                        post={post}
+                        onClick={() => openPost(post.id)}
+                        onToggleLike={() => void toggleLike(post)}
+                      />
+                    </div>
+                  ))
                 ) : (
                   <div className="py-3xl">
                     {search.trim() ? (
@@ -500,7 +520,7 @@ function CommunityPage() {
                   </div>
                 )}
               </section>
-              <aside className="space-y-sm">
+              <aside className="animate-fade-up space-y-sm" style={stagger(2, 60)}>
                 <HomePanel title="이번 주 인기글">
                   {popularPosts.map((post, index) => (
                     <HomePanelRow

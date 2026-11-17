@@ -101,7 +101,7 @@ function HistoryPage() {
             {groups.map((group) => (
               <section key={group.title} className="space-y-xs">
                 <SectionHeader title={group.title} />
-                <ListCard>
+                <ListCard className="animate-fade-up">
                   {group.conversations.map((conversation) => (
                     <ListRow
                       key={conversation.id}
@@ -133,9 +133,7 @@ function HistoryPage() {
         description={
           <>
             <p className="line-clamp-1">{deleteTarget?.title}</p>
-            <p className="mt-1 text-caption text-text-tertiary">
-              삭제한 대화는 되돌릴 수 없어요.
-            </p>
+            <p className="mt-1 text-caption text-text-tertiary">삭제한 대화는 되돌릴 수 없어요.</p>
           </>
         }
         confirmText="삭제"

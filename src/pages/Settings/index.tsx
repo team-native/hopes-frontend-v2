@@ -207,7 +207,8 @@ function SettingsPage() {
         <div className="grid grid-cols-1 items-start gap-md md:grid-cols-[220px_minmax(0,1fr)]">
           <SettingsNav active={activeMenu} onSelect={setActiveMenu} onLogout={() => setLogoutOpen(true)} />
 
-          <div className="space-y-md">
+          {/* 메뉴를 바꾸면 오른쪽 내용이 새로 나타나요 */}
+          <div key={activeMenu} className="animate-fade-up space-y-md">
             {activeMenu === 'profile' && (
               <>
                 <PromptCard value={systemPrompt} onChange={setSystemPrompt} />

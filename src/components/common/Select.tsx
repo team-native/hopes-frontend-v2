@@ -123,7 +123,7 @@ function Select({
           className={`flex items-center justify-between gap-2 border bg-bg-surface text-left transition outline-none ${
             isCompact
               ? 'h-9 gap-1 rounded-full px-3.5 text-caption'
-              : `w-full rounded-sm px-4 ${isInline ? 'h-11 text-label' : 'h-[52px] text-body'}`
+              : `w-full rounded-sm px-4 ${isInline ? 'h-11 text-caption' : 'h-[52px] text-body'}`
           } ${borderClass}`}
         >
           {isInline && (
@@ -131,7 +131,9 @@ function Select({
               {label}
             </span>
           )}
-          <span className={`truncate ${value ? (isInline ? 'font-semibold' : '') : 'text-text-tertiary'}`}>
+          <span
+            className={`truncate ${value ? (isInline ? 'font-medium text-text-primary' : '') : 'text-text-tertiary'}`}
+          >
             {value || placeholder}
           </span>
           <svg

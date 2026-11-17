@@ -15,7 +15,7 @@ import Toast from '../../components/common/Toast'
 import { EmptyState } from '../../components/feedback/Feedback'
 import { HeroCard, HomePanel, HomePanelRow, PopularPostRow, TipCard } from '../../components/home/HomeCards'
 import AppLayout from '../../components/layout/AppLayout'
-import { getBoards, getPosts } from '../../api/community'
+import { getBoards, getPost, getPosts, setPostLike } from '../../api/community'
 import {
   getChatPreferences,
   getDepartments,
@@ -40,6 +40,7 @@ import {
 import type { Conversation, LocalAttachment } from '../../types/conversation'
 import type { Profile } from '../../types/profile'
 import { ATTACHMENT_ACCEPT } from '../../utils/attachments'
+import { stagger } from '../../utils/motion'
 
 const QUESTION_ICONS = [BedDouble, FileText, Code, Heart]
 
@@ -256,6 +257,7 @@ function HomePage() {
           onShowHistory={() => goToSection('history')}
           onShowCommunity={() => goToSection('community')}
           onNotify={() => showToast('새로운 알림이 없어요.')}
+          onToast={showToast}
         />
       ) : screen === 'chat' ? (
         <NewChatView
@@ -309,7 +311,10 @@ type HomeViewProps = {
   onShowHistory: () => void
   onShowCommunity: () => void
   onNotify: () => void
+  onToast: (message: string) => void
 }
+
+type PopularPost = { id: string; board: string; title: string; likes: number; liked: boolean }
 
 function HomeView({
   profile,
@@ -320,8 +325,32 @@ function HomeView({
   onShowHistory,
   onShowCommunity,
   onNotify,
+  onToast,
 }: HomeViewProps) {
-  const [popularPosts, setPopularPosts] = useState<{ id: string; board: string; title: string; likes: number }[]>([])
+  const [popularPosts, setPopularPosts] = useState<PopularPost[]>([])
+  const pendingLikeIds = useRef(new Set<string>())
+
+  function updatePopularPost(postId: string, change: (post: PopularPost) => PopularPost) {
+    setPopularPosts((current) => current.map((post) => (post.id === postId ? change(post) : post)))
+  }
+
+  /** 좋아요 — 화면을 먼저 바꾸고 서버에 보내요. 실패하면 되돌리고, 성공하면 서버 숫자로 맞춰요 */
+  async function toggleLike(post: PopularPost) {
+    if (pendingLikeIds.current.has(post.id)) return
+    pendingLikeIds.current.add(post.id)
+    const liked = !post.liked
+    updatePopularPost(post.id, (item) => ({ ...item, liked, likes: Math.max(0, item.likes + (liked ? 1 : -1)) }))
+    try {
+      await setPostLike(post.id, liked)
+      const synced = await getPost(post.id)
+      updatePopularPost(post.id, (item) => ({ ...item, liked: synced.likedByMe, likes: synced.likeCount }))
+    } catch {
+      updatePopularPost(post.id, (item) => ({ ...item, liked: post.liked, likes: post.likes }))
+      onToast('좋아요를 반영하지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      pendingLikeIds.current.delete(post.id)
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -337,6 +366,7 @@ function HomeView({
               board: boards.find((board) => board.id === post.boardId)?.name ?? '전체',
               title: post.title,
               likes: post.likeCount,
+              liked: post.likedByMe,
             })),
         )
       })
@@ -362,20 +392,28 @@ function HomeView({
       </header>
 
       <div className="space-y-lg">
-        <HeroCard
-          title={
-            <>
-              <span className="text-text-brand">선배</span>에게 묻는{'\n'}
-              <span className="text-text-brand">가장 솔직한</span> 학교 이야기
-            </>
-          }
-          description="기숙사, 전공, 취업 질문에 선배 경험으로 답해요."
-          actionText="채팅 시작하기"
-          onAction={onStartChat}
-        />
+        <div className="animate-fade-up">
+          <HeroCard
+            title={
+              <>
+                <span className="text-text-brand">선배</span>에게 묻는{'\n'}
+                <span className="text-text-brand">가장 솔직한</span> 학교 이야기
+              </>
+            }
+            description="기숙사, 전공, 취업 질문에 선배 경험으로 답해요."
+            actionText="채팅 시작하기"
+            onAction={onStartChat}
+          />
+        </div>
 
         <div className="grid grid-cols-1 items-start gap-lg md:grid-cols-2 xl:grid-cols-3">
-          <HomePanel title="이어서 하기" actionText="더보기" onAction={onShowHistory}>
+          <HomePanel
+            title="이어서 하기"
+            actionText="더보기"
+            onAction={onShowHistory}
+            className="animate-fade-up"
+            style={stagger(1, 60)}
+          >
             {recentConversations.length === 0 ? (
               <li className="py-md text-caption text-text-secondary">아직 대화가 없어요.</li>
             ) : (
@@ -390,19 +428,32 @@ function HomeView({
             )}
           </HomePanel>
 
-          <HomePanel title="커뮤니티 인기글" actionText="더보기" onAction={onShowCommunity}>
+          <HomePanel
+            title="커뮤니티 인기글"
+            actionText="더보기"
+            onAction={onShowCommunity}
+            className="animate-fade-up"
+            style={stagger(2, 60)}
+          >
             {popularPosts.map((post) => (
               <PopularPostRow
                 key={post.id}
                 board={post.board}
                 title={post.title}
                 likeCount={post.likes}
+                liked={post.liked}
                 onClick={() => onOpenPost(post.id)}
+                onToggleLike={() => void toggleLike(post)}
               />
             ))}
           </HomePanel>
 
-          <HomePanel title="질문 잘하는 방법" divided={false} className="md:col-span-2 xl:col-span-1">
+          <HomePanel
+            title="질문 잘하는 방법"
+            divided={false}
+            className="animate-fade-up md:col-span-2 xl:col-span-1"
+            style={stagger(3, 60)}
+          >
             <TipCard step={1} caption="질문 전에," text="학과·전공을 먼저 골라요" />
             <TipCard step={2} caption="“기숙사 어때” 보단," text="“1학년 기숙사 평일 루틴 알려줘”" />
           </HomePanel>
@@ -498,14 +549,15 @@ function NewChatView({
         </div>
         <div className="mt-xs grid grid-cols-1 gap-sm text-left sm:grid-cols-2">
           {rotatedSuggestions.length ? (
-            rotatedSuggestions.map((question) => (
-              <QuestionCard
-                key={question.id ?? question.title}
-                question={question.title}
-                category={question.category}
-                icon={question.icon}
-                onClick={() => onAsk(question.title)}
-              />
+            rotatedSuggestions.map((question, index) => (
+              <div key={question.id ?? question.title} className="animate-fade-up" style={stagger(index, 50)}>
+                <QuestionCard
+                  question={question.title}
+                  category={question.category}
+                  icon={question.icon}
+                  onClick={() => onAsk(question.title)}
+                />
+              </div>
             ))
           ) : (
             <p className="py-md text-caption text-text-secondary">추천 질문을 불러오지 못했어요.</p>
@@ -608,12 +660,12 @@ function ConversationView({
       <section className="mx-auto flex w-full max-w-[720px] flex-1 flex-col justify-end gap-md overflow-y-auto py-xl">
         {messages.map((message) =>
           message.role === 'USER' ? (
-            <div key={message.id} className="space-y-2">
+            <div key={message.id} className="animate-fade-up space-y-2">
               <UserBubble>{message.content}</UserBubble>
               <MessageAttachments attachments={message.attachments} />
             </div>
           ) : (
-            <div key={message.id} className="flex items-start gap-3">
+            <div key={message.id} className="flex animate-fade-up items-start gap-3">
               <LogoMark size={40} />
               <div className="min-w-0 flex-1">
                 <AnswerBubble
