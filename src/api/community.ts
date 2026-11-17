@@ -24,6 +24,7 @@ export type CommunityCommentDto = {
   authorLabel: string
 }
 type Page<T> = { items: T[]; page: number; size: number; hasNext: boolean }
+export type MyCommentDto = { id: number; postId: number; postTitle?: string | null; content: string; createdAt: string; isMine: boolean }
 
 export async function getBoards() {
   const { data } = await client.get<Record<string, BoardDto[]>>('/api/community/boards')
@@ -62,6 +63,16 @@ export async function getComments(postId: string) {
   return data.items
 }
 
+export async function getMyPosts(params: { page?: number; size?: number } = {}) {
+  const { data } = await client.get<Page<CommunityPostPreviewDto>>('/api/community/me/posts', { params })
+  return data
+}
+
+export async function getMyComments(params: { page?: number; size?: number } = {}) {
+  const { data } = await client.get<Page<MyCommentDto>>('/api/community/me/comments', { params })
+  return data
+}
+
 export async function createComment(postId: string, content: string) {
   const { data } = await client.post<CommunityCommentDto>(
     `/api/community/posts/${encodeURIComponent(postId)}/comments`,
@@ -72,6 +83,11 @@ export async function createComment(postId: string, content: string) {
 
 export async function deleteComment(id: string) {
   await client.delete(`/api/community/comments/${encodeURIComponent(id)}`)
+}
+
+export async function updateComment(id: string, content: string) {
+  const { data } = await client.patch<CommunityCommentDto>(`/api/community/comments/${encodeURIComponent(id)}`, { content })
+  return data
 }
 
 export async function setPostLike(postId: string, liked: boolean) {

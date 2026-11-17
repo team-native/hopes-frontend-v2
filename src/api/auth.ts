@@ -60,6 +60,13 @@ export async function logout(): Promise<void> {
   }
 }
 
+export async function deleteAccount(password: string): Promise<void> {
+  await client.delete('/api/account', { data: { password } })
+  localStorage.removeItem('hopes:access-token')
+  sessionStorage.removeItem('hopes:access-token')
+  window.dispatchEvent(new Event('hopes:logged-out'))
+}
+
 export async function sendSignupCode(email: string): Promise<void> {
   try {
     await client.post('/api/signup/email-verifications', { email })

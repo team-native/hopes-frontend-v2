@@ -1,5 +1,5 @@
 import { MessageCircle, Search, Trash2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Button from '../../components/common/Button'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
 import IconButton from '../../components/common/IconButton'
@@ -18,16 +18,37 @@ const RECENT_DAYS = 7
 
 function HistoryPage() {
   const { startNewChat, openConversation } = useAppNavigation()
-  const { conversations, deleteConversation } = useConversations()
+  const { conversations, deleteConversation, searchConversations } = useConversations()
   const { toast, showToast } = useToast()
   const [search, setSearch] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Conversation | null>(null)
+  const [searchResults, setSearchResults] = useState<Conversation[]>([])
 
   const query = search.trim().toLocaleLowerCase()
+  useEffect(() => {
+    if (!query) {
+      setSearchResults([])
+      return
+    }
+    let active = true
+    const timer = window.setTimeout(() => {
+      void searchConversations(query)
+        .then((results) => {
+          if (active) setSearchResults(results)
+        })
+        .catch(() => {
+          if (active) showToast('대화를 검색하지 못했어요. 잠시 후 다시 시도해 주세요.')
+        })
+    }, 250)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [query, searchConversations, showToast])
   const filtered = useMemo(() => {
     if (!query) return conversations
-    return conversations.filter(({ title, preview }) => `${title} ${preview}`.toLocaleLowerCase().includes(query))
-  }, [conversations, query])
+    return searchResults
+  }, [conversations, query, searchResults])
 
   // 검색 중에는 기간으로 나누지 않고 한 묶음으로 보여 줘요.
   const groups: { title: string; conversations: Conversation[] }[] = query

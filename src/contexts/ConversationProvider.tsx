@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import client from '../api/client'
-import { createChat, getChat, sendChatMessage, uploadChatAttachment, type ChatResponse } from '../api/chats'
+import { createChat, getChat, getMain, sendChatMessage, uploadChatAttachment, type ChatResponse } from '../api/chats'
+import { updateSettings } from '../api/settings'
 import type { Conversation, LocalAttachment } from '../types/conversation'
 import { getToken } from '../utils/token'
 import { ConversationContext } from './conversationContext'
-
-type ChatSummary = { id: number; title: string; updatedAt: string }
-type MainResponse = { chatList: ChatSummary[] }
 
 function formatAge(updatedAt: string) {
   const daysAgo = Math.max(0, Math.floor((Date.now() - new Date(updatedAt).getTime()) / 86_400_000))
@@ -44,7 +42,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         return
       }
       try {
-        const { data } = await client.get<MainResponse>('/api/main', { params: { page: 0, size: 50 } })
+        const data = await getMain({ page: 0, size: 50 })
         if (active) {
           setConversations(
             data.chatList.map((chat) => ({
@@ -75,6 +73,17 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     return conversations.find((conversation) => conversation.id === id)
   }
 
+  const searchConversations = useCallback(async (keyword: string) => {
+    const data = await getMain({ searchKeyword: keyword, page: 0, size: 50 })
+    return data.chatList.map((chat) => ({
+      id: String(chat.id),
+      title: chat.title,
+      preview: '',
+      ...formatAge(chat.updatedAt),
+      messages: [],
+    }))
+  }, [])
+
   const loadConversation = useCallback(async (id: string) => {
     const chat = await getChat(id)
     const conversation = toConversation(chat)
@@ -87,6 +96,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
   async function createConversation(
     title: string,
     attachments: LocalAttachment[] = [],
+    preferences: { departmentId?: number; specialtyId?: number } = {},
     onCreated?: (id: string) => void,
   ) {
     const uploaded = await Promise.all(attachments.map(({ file }) => uploadChatAttachment(file)))
@@ -116,6 +126,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         id,
         title,
         uploaded.map(({ id: attachmentId }) => attachmentId),
+        preferences,
       )
       const conversation = toConversation(response, attachments)
       setConversations((current) => [conversation, ...current.filter((item) => item.id !== id)])
@@ -128,7 +139,12 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     return id
   }
 
-  async function sendMessage(id: string, content: string, attachments: LocalAttachment[] = []) {
+  async function sendMessage(
+    id: string,
+    content: string,
+    attachments: LocalAttachment[] = [],
+    preferences: { departmentId?: number; specialtyId?: number } = {},
+  ) {
     const previous = getConversation(id)
     if (!previous) throw new Error('CONVERSATION_NOT_FOUND')
     const optimisticMessage: ChatResponse['messages'][number] = {
@@ -158,6 +174,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         id,
         content,
         uploaded.map(({ id: attachmentId }) => attachmentId),
+        preferences,
       )
       const conversation = toConversation(response, allAttachments)
       setConversations((current) => [conversation, ...current.filter((item) => item.id !== id)])
@@ -176,9 +193,17 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  async function deleteAllConversations() {
+    await updateSettings({ deleteAllChats: true })
+    setConversations((current) => {
+      current.forEach(revokePreviews)
+      return []
+    })
+  }
+
   return (
     <ConversationContext.Provider
-      value={{ conversations, getConversation, loadConversation, createConversation, sendMessage, deleteConversation }}
+      value={{ conversations, getConversation, searchConversations, loadConversation, createConversation, sendMessage, deleteConversation, deleteAllConversations }}
     >
       {children}
     </ConversationContext.Provider>

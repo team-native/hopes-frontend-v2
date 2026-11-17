@@ -13,4 +13,5 @@ export const ROUTES = {
   login: '/login',
   signup: '/signup',
   findPassword: '/find-password',
+  campus: '/campus',
 } as const
