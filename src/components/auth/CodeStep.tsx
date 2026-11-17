@@ -16,6 +16,7 @@ interface CodeStepProps {
   email: string
   /** 제목 아래 설명 (없으면 생략) */
   description?: ReactNode
+  initialError?: string
   /** 인증번호 다시 보내기 API */
   resendCode: (email: string) => Promise<void>
   /** 인증번호 확인 API (틀리면 Error('INVALID_CODE'), 잠기면 Error('TOO_MANY_ATTEMPTS')) */
@@ -40,7 +41,17 @@ function formatTime(seconds: number) {
  * 메일로 받은 인증번호 입력 (회원가입 · 비밀번호 찾기 공통)
  * 상태: 입력 중 → 틀림(n/5회) → 5회 틀리면 10분 잠금 / 서버 코드 유효시간 경과 시 시간 초과
  */
-function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, onVerified, onCodeVerified, footer }: CodeStepProps) {
+function CodeStep({
+  email,
+  description,
+  initialError,
+  resendCode,
+  verifyCode,
+  onChangeEmail,
+  onVerified,
+  onCodeVerified,
+  footer,
+}: CodeStepProps) {
   const [code, setCode] = useState('')
   const [expiresAt, setExpiresAt] = useState(() => Date.now() + CODE_TTL_SECONDS * 1000)
   const [lockedUntil, setLockedUntil] = useState(0)
@@ -50,7 +61,7 @@ function CodeStep({ email, description, resendCode, verifyCode, onChangeEmail, o
   const [isVerifying, setIsVerifying] = useState(false)
   const [isResending, setIsResending] = useState(false)
   /** 네트워크 · 서버 오류 안내 (번호 틀림과 구분) */
-  const [requestError, setRequestError] = useState('')
+  const [requestError, setRequestError] = useState(initialError ?? '')
 
   const remaining = Math.max(0, Math.ceil((expiresAt - now) / 1000))
   const isLocked = now < lockedUntil

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import client from '../api/client'
-import { mockProfile } from '../mocks/profile'
 import type { Profile } from '../types/profile'
+import { getToken } from '../utils/token'
 import { ProfileContext } from './profileContext'
 
 type UserResponse = {
@@ -24,14 +24,18 @@ function toProfile(user: UserResponse): Profile {
   }
 }
 
+const EMPTY_PROFILE: Profile = { id: '', name: '', bio: '', department: '', generation: '', email: '' }
+
 export function ProfileProvider({ children }: { children: ReactNode }) {
-  const [profile, setProfile] = useState(mockProfile)
+  const [profile, setProfile] = useState(EMPTY_PROFILE)
 
   useEffect(() => {
     let active = true
     const loadProfile = async () => {
-      const token = localStorage.getItem('hopes:access-token') ?? sessionStorage.getItem('hopes:access-token')
-      if (!token) return
+      if (!getToken()) {
+        setProfile(EMPTY_PROFILE)
+        return
+      }
       try {
         const { data } = await client.get<UserResponse>('/api/mypage')
         if (active) setProfile(toProfile(data))
@@ -40,7 +44,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       }
     }
     const onLogout = () => {
-      if (active) setProfile(mockProfile)
+      if (active) setProfile(EMPTY_PROFILE)
     }
     window.addEventListener('hopes:authenticated', loadProfile)
     window.addEventListener('hopes:logged-out', onLogout)

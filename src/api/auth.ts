@@ -1,7 +1,6 @@
 import axios from 'axios'
 import client from './client'
-
-const RESET_CODE_KEY = 'hopes:password-reset-code'
+import { clearToken, setToken } from '../utils/token'
 
 export interface LoginRequest {
   email: string
@@ -38,10 +37,7 @@ function throwApiError(error: unknown): never {
 }
 
 function persistToken(token: string, keepLogin: boolean) {
-  localStorage.removeItem('hopes:access-token')
-  sessionStorage.removeItem('hopes:access-token')
-  ;(keepLogin ? localStorage : sessionStorage).setItem('hopes:access-token', token)
-  window.dispatchEvent(new Event('hopes:authenticated'))
+  setToken(token, keepLogin)
 }
 
 export async function login(request: LoginRequest): Promise<void> {
@@ -60,9 +56,7 @@ export async function logout(): Promise<void> {
   try {
     await client.post('/api/logout')
   } finally {
-    localStorage.removeItem('hopes:access-token')
-    sessionStorage.removeItem('hopes:access-token')
-    window.dispatchEvent(new Event('hopes:logged-out'))
+    clearToken()
   }
 }
 
@@ -90,24 +84,18 @@ export async function sendPasswordResetCode(email: string): Promise<void> {
   }
 }
 
-// 서버는 코드를 재설정 요청과 함께 확인하므로, 이 단계에서는 입력한 코드를 보관하고 UI 단계만 진행합니다.
-export async function verifyPasswordResetCode(email: string, code: string): Promise<void> {
+export async function verifyPasswordResetCode(_email: string, code: string): Promise<void> {
   if (!/^\d{6}$/.test(code)) throw new Error('INVALID_CODE')
-  sessionStorage.setItem(RESET_CODE_KEY, JSON.stringify({ email, code }))
 }
 
-export async function resetPassword(email: string, password: string): Promise<void> {
-  const saved = sessionStorage.getItem(RESET_CODE_KEY)
-  const verification = saved ? (JSON.parse(saved) as { email: string; code: string }) : undefined
-  if (!verification || verification.email !== email) throw new Error('VERIFICATION_REQUIRED')
+export async function resetPassword(email: string, code: string, password: string): Promise<void> {
   try {
     await client.post('/api/password/reset', {
       email,
-      code: verification.code,
+      code,
       newPassword: password,
       passwordConfirm: password,
     })
-    sessionStorage.removeItem(RESET_CODE_KEY)
   } catch (error) {
     throwApiError(error)
   }

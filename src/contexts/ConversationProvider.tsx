@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import client from '../api/client'
 import type { Conversation, LocalAttachment } from '../types/conversation'
 import { createId } from '../utils/id'
+import { getToken } from '../utils/token'
 import { ConversationContext } from './conversationContext'
 
 type ChatSummary = { id: number; title: string; updatedAt: string }
@@ -34,8 +35,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true
     const loadConversations = async () => {
-      const token = localStorage.getItem('hopes:access-token') ?? sessionStorage.getItem('hopes:access-token')
-      if (!token) {
+      if (!getToken()) {
         setConversations([])
         return
       }
