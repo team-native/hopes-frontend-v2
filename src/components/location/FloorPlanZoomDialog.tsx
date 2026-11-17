@@ -23,8 +23,9 @@ const INITIAL: View = { scale: 1, x: 0, y: 0 }
 
 /**
  * 도면 크게 보기 팝업
- * - 확대 · 축소: + / − 버튼, 마우스 휠(가리킨 곳 기준), 두 번 누르기(그 자리 확대)
- * - 이동: 확대한 상태에서 끌기 (마우스 · 터치)
+ * - 확대 · 축소: + / − 버튼, 마우스 휠(가리킨 곳 기준), 두 손가락 벌리기 · 오므리기(휴대폰), 두 번 누르기
+ * - 이동: 확대한 상태에서 끌기 (마우스 · 손가락 하나)
+ * - 브라우저 기본 확대 · 스크롤은 막고(touch-none) 위 동작으로 대신해요.
  * - 도면 밖으로 빈 곳이 보이지 않게 이동 범위를 막아요.
  */
 function FloorPlanZoomDialog({
@@ -39,7 +40,14 @@ function FloorPlanZoomDialog({
   const titleId = useId()
   const viewportRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<View>(INITIAL)
-  const dragRef = useRef<{ pointerId: number; startX: number; startY: number; origin: View } | null>(null)
+  /** 화면에 닿아 있는 손가락 · 마우스 (뷰포트 기준 위치) */
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>())
+  /** 끌기(손가락 하나) 또는 두 손가락 확대가 시작될 때의 상태 */
+  const gestureRef = useRef<
+    | { type: 'drag'; startX: number; startY: number; origin: View }
+    | { type: 'pinch'; startDistance: number; startMidX: number; startMidY: number; origin: View }
+    | null
+  >(null)
 
   /** 이동 범위 제한: 확대한 도면이 화면(뷰포트)을 항상 덮도록 */
   function clampView(next: View): View {
@@ -82,30 +90,86 @@ function FloorPlanZoomDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
+  /** 뷰포트 기준 좌표 */
+  function localPoint(event: PointerEvent<HTMLDivElement>) {
+    const box = event.currentTarget.getBoundingClientRect()
+    return { x: event.clientX - box.left, y: event.clientY - box.top }
+  }
+
+  /** 지금 닿아 있는 손가락 수에 맞춰 제스처를 새로 시작해요 (하나 = 끌기, 둘 = 두 손가락 확대) */
+  function startGesture(current: View) {
+    const points = [...pointersRef.current.values()]
+    if (points.length >= 2) {
+      const [a, b] = points
+      gestureRef.current = {
+        type: 'pinch',
+        startDistance: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+        startMidX: (a.x + b.x) / 2,
+        startMidY: (a.y + b.y) / 2,
+        origin: current,
+      }
+    } else if (points.length === 1 && current.scale > 1) {
+      gestureRef.current = { type: 'drag', startX: points[0].x, startY: points[0].y, origin: current }
+    } else {
+      gestureRef.current = null
+    }
+  }
+
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (view.scale <= 1) return
     event.currentTarget.setPointerCapture(event.pointerId)
-    dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: view }
+    pointersRef.current.set(event.pointerId, localPoint(event))
+    startGesture(view)
   }
 
   function onPointerMove(event: PointerEvent<HTMLDivElement>) {
-    const drag = dragRef.current
-    if (!drag || drag.pointerId !== event.pointerId) return
+    if (!pointersRef.current.has(event.pointerId)) return
+    pointersRef.current.set(event.pointerId, localPoint(event))
+    const gesture = gestureRef.current
+    if (!gesture) return
+    if (gesture.type === 'drag') {
+      const [point] = pointersRef.current.values()
+      setView(
+        clampView({
+          scale: gesture.origin.scale,
+          x: gesture.origin.x + point.x - gesture.startX,
+          y: gesture.origin.y + point.y - gesture.startY,
+        }),
+      )
+      return
+    }
+    // 두 손가락: 벌린 만큼 확대하고, 두 손가락 가운데가 움직인 만큼 같이 이동해요
+    const [a, b] = pointersRef.current.values()
+    if (!b) return
+    const { origin } = gesture
+    const scale = Math.min(
+      MAX_SCALE,
+      Math.max(MIN_SCALE, origin.scale * (Math.hypot(a.x - b.x, a.y - b.y) / gesture.startDistance)),
+    )
+    const midX = (a.x + b.x) / 2
+    const midY = (a.y + b.y) / 2
+    const ratio = scale / origin.scale
     setView(
       clampView({
-        scale: drag.origin.scale,
-        x: drag.origin.x + event.clientX - drag.startX,
-        y: drag.origin.y + event.clientY - drag.startY,
+        scale,
+        x: midX - (gesture.startMidX - origin.x) * ratio,
+        y: midY - (gesture.startMidY - origin.y) * ratio,
       }),
     )
   }
 
-  function endDrag(event: PointerEvent<HTMLDivElement>) {
-    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null
+  function endPointer(event: PointerEvent<HTMLDivElement>) {
+    if (!pointersRef.current.delete(event.pointerId)) return
+    // 두 손가락 중 하나를 떼면 남은 손가락으로 이어서 끌 수 있게 다시 시작해요
+    setView((current) => {
+      startGesture(current)
+      return current
+    })
   }
 
   function close() {
     setView(INITIAL)
+    pointersRef.current.clear()
+    gestureRef.current = null
     onClose()
   }
 
@@ -136,8 +200,8 @@ function FloorPlanZoomDialog({
         style={{ aspectRatio: `${floorPlan.width} / ${floorPlan.height}` }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
+        onPointerUp={endPointer}
+        onPointerCancel={endPointer}
         onDoubleClick={(event) => {
           const box = event.currentTarget.getBoundingClientRect()
           zoomAt(STEP, event.clientX - box.left, event.clientY - box.top)
@@ -151,7 +215,8 @@ function FloorPlanZoomDialog({
         </div>
       </div>
       <p className="mt-xs text-caption text-text-tertiary">
-        휠이나 + / − 버튼으로 확대 · 축소하고, 확대한 뒤에는 끌어서 움직일 수 있어요. 두 번 누르면 그 자리를 확대해요.
+        휠 · 두 손가락 · + / − 버튼으로 확대 · 축소하고, 확대한 뒤에는 끌어서 움직일 수 있어요. 두 번 누르면 그 자리를
+        확대해요.
       </p>
     </Modal>
   )

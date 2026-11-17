@@ -98,13 +98,21 @@ function FloorPlanView({ floorPlan, onPick, label, ...marks }: FloorPlanViewProp
   )
 }
 
-/** 도면 이미지가 준비되면 목적지 방의 실제 모양(강조 이미지)을 계산해요. 못 찾으면 null */
+/**
+ * 도면 이미지가 준비되면 목적지 방의 실제 모양(강조 이미지)을 계산해요. 못 찾으면 null
+ * 메시지를 보낼 때마다 서버 응답으로 메시지 객체가 새로 만들어져서 area도 새 객체가 돼요.
+ * 그래서 객체 대신 숫자 값(x · y · 너비 · 높이)으로 비교해, 값이 같으면 다시 계산하지 않아요.
+ */
 function useRoomShape(imageUrl: string | undefined, width: number, height: number, area: FloorPlanMarks['area']) {
   const [shape, setShape] = useState<{ key: string; url: string | null }>({ key: '', url: null })
-  const key = imageUrl && area ? `${imageUrl}|${area.x},${area.y},${area.width},${area.height}` : ''
+  const ax = area?.x
+  const ay = area?.y
+  const aw = area?.width
+  const ah = area?.height
+  const key = imageUrl && area ? `${imageUrl}|${ax},${ay},${aw},${ah}` : ''
 
   useEffect(() => {
-    if (!imageUrl || !area) return
+    if (!imageUrl || ax === undefined || ay === undefined || aw === undefined || ah === undefined) return
     let active = true
     const image = new Image()
     image.onload = () => {
@@ -113,17 +121,17 @@ function useRoomShape(imageUrl: string | undefined, width: number, height: numbe
       const brand = getComputedStyle(document.documentElement).getPropertyValue('--color-bg-brand').trim() || 'blue'
       let url: string | null = null
       try {
-        url = computeRoomShape(image, width, height, area, brand)
+        url = computeRoomShape(image, width, height, { x: ax, y: ay, width: aw, height: ah }, brand)
       } catch {
         url = null
       }
-      setShape({ key: `${imageUrl}|${area.x},${area.y},${area.width},${area.height}`, url })
+      setShape({ key: `${imageUrl}|${ax},${ay},${aw},${ah}`, url })
     }
     image.src = imageUrl
     return () => {
       active = false
     }
-  }, [imageUrl, width, height, area])
+  }, [imageUrl, width, height, ax, ay, aw, ah])
 
   return shape.key === key ? shape.url : null
 }
