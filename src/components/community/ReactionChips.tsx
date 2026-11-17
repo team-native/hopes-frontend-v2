@@ -36,7 +36,8 @@ interface LikeChipProps {
   /** 내가 좋아요를 눌렀는지 */
   liked?: boolean
   disabled?: boolean
-  onClick?: () => void
+  /** false를 돌려주면(요청 진행 중이라 무시) 하트 모션도 재생하지 않아요 */
+  onClick?: () => boolean | void
 }
 
 /** 하트 + 숫자 (Community/Like Chip). 누르면 좋아요 토글 */
@@ -46,8 +47,7 @@ export function LikeChip({ count, liked = false, disabled = false, onClick }: Li
     <button
       type="button"
       onClick={() => {
-        if (!liked) pop()
-        onClick?.()
+        if (onClick?.() !== false && !liked) pop()
       }}
       disabled={disabled}
       aria-pressed={liked}

@@ -127,8 +127,11 @@ interface PopularPostRowProps {
   /** 내가 좋아요를 눌렀는지 */
   liked?: boolean
   onClick?: () => void
-  /** 넘기면 하트를 눌러 홈에서 바로 좋아요할 수 있어요 */
-  onToggleLike?: () => void
+  /**
+   * 넘기면 하트를 눌러 바로 좋아요할 수 있어요.
+   * false를 돌려주면(요청 진행 중이라 무시) 하트 모션도 재생하지 않아요.
+   */
+  onToggleLike?: () => boolean | void
 }
 
 /** 인기 글 한 줄 (Home/Popular Post Row) — HomePanel 안에 넣어요 */
@@ -146,8 +149,7 @@ export function PopularPostRow({ board, title, likeCount, liked = false, onClick
           <button
             type="button"
             onClick={() => {
-              if (!liked) pop()
-              onToggleLike()
+              if (onToggleLike() !== false && !liked) pop()
             }}
             aria-pressed={liked}
             aria-label={`${title} ${likeLabel}`}

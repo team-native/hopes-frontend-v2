@@ -5,7 +5,8 @@ import type { Post } from './types'
 
 interface PostDetailProps {
   post: Post
-  onToggleLike?: () => void
+  /** false를 돌려주면 하트 모션을 재생하지 않아요 (LikeChip 참고) */
+  onToggleLike?: () => boolean | void
   likeDisabled?: boolean
   onCommentClick?: () => void
   /** 오른쪽 위 ⋯ 버튼 (수정 · 삭제 · 신고 메뉴 등) */

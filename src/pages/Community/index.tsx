@@ -13,7 +13,6 @@ import {
   getPost,
   getPosts,
   reportCommunityItem,
-  setPostLike,
   updateComment,
   updatePost,
   type BoardDto,
@@ -46,6 +45,7 @@ import AppLayout from '../../components/layout/AppLayout'
 import SectionHeader from '../../components/layout/SectionHeader'
 import useProfile from '../../hooks/useProfile'
 import useToast from '../../hooks/useToast'
+import useLikeToggle from '../../hooks/useLikeToggle'
 import { stagger } from '../../utils/motion'
 
 const SORT_OPTIONS = ['최신순', '인기순'] as const
@@ -141,7 +141,6 @@ function CommunityPage() {
   const [editingCommentContent, setEditingCommentContent] = useState('')
   const [retryKey, setRetryKey] = useState(0)
   const [detailRetryKey, setDetailRetryKey] = useState(0)
-  const pendingLikeIds = useRef(new Set<string>())
   const commentInputRef = useRef<HTMLInputElement>(null)
 
   const boardNames = useMemo(() => ['전체', ...new Set(boards.map(({ name }) => name))], [boards])
@@ -242,36 +241,16 @@ function CommunityPage() {
     }
   }
 
-  /** 목록 · 상세 어디서 눌러도 같은 게시글이면 둘 다 바꿔요 */
-  function updatePostEverywhere(postId: string, change: (post: ViewPost) => ViewPost) {
-    setPosts((current) => current.map((item) => (item.id === postId ? change(item) : item)))
-    setSelectedPost((current) => (current?.id === postId ? change(current) : current))
-  }
-
-  /**
-   * 좋아요 토글 — 화면을 먼저 바꾸고(하트 · 숫자) 서버에 보내요.
-   * 실패하면 원래대로 되돌리고, 성공하면 서버 값으로 숫자를 다시 맞춰요.
-   */
-  async function toggleLike(post: ViewPost) {
-    if (pendingLikeIds.current.has(post.id)) return
-    pendingLikeIds.current.add(post.id)
-    const liked = !post.liked
-    updatePostEverywhere(post.id, (item) => ({
-      ...item,
-      liked,
-      likeCount: Math.max(0, item.likeCount + (liked ? 1 : -1)),
-    }))
-    try {
-      await setPostLike(post.id, liked)
-      const synced = mapPost(await getPost(post.id), boards)
-      updatePostEverywhere(post.id, () => synced)
-    } catch {
-      updatePostEverywhere(post.id, (item) => ({ ...item, liked: post.liked, likeCount: post.likeCount }))
-      showToast('좋아요를 반영하지 못했어요. 잠시 후 다시 시도해 주세요.')
-    } finally {
-      pendingLikeIds.current.delete(post.id)
-    }
-  }
+  /** 좋아요 — 목록 · 상세 어디서 눌러도 같은 게시글이면 둘 다 바꿔요 (useLikeToggle 참고) */
+  const toggleLikeRequest = useLikeToggle({
+    onChange: (postId, state) => {
+      setPosts((current) => current.map((item) => (item.id === postId ? { ...item, ...state } : item)))
+      setSelectedPost((current) => (current?.id === postId ? { ...current, ...state } : current))
+    },
+    onError: () => showToast('좋아요를 반영하지 못했어요. 잠시 후 다시 시도해 주세요.'),
+  })
+  const toggleLike = (post: ViewPost) =>
+    toggleLikeRequest(post.id, { liked: Boolean(post.liked), likeCount: post.likeCount })
 
   async function submitComment(content: string) {
     if (!selectedPost) return
@@ -406,7 +385,7 @@ function CommunityPage() {
               <BackButton onClick={() => openPost(null)}>{visiblePost.board} 게시판</BackButton>
               <PostDetail
                 post={visiblePost}
-                onToggleLike={() => void toggleLike(visiblePost)}
+                onToggleLike={() => toggleLike(visiblePost)}
                 onCommentClick={() => commentInputRef.current?.focus()}
                 onMoreClick={() => setModal({ type: 'postMenu', postId: visiblePost.id })}
               />
@@ -494,11 +473,7 @@ function CommunityPage() {
                 ) : filteredPosts.length > 0 ? (
                   filteredPosts.map((post, index) => (
                     <div key={post.id} className="animate-fade-up" style={stagger(index)}>
-                      <PostCard
-                        post={post}
-                        onClick={() => openPost(post.id)}
-                        onToggleLike={() => void toggleLike(post)}
-                      />
+                      <PostCard post={post} onClick={() => openPost(post.id)} onToggleLike={() => toggleLike(post)} />
                     </div>
                   ))
                 ) : (

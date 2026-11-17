@@ -15,7 +15,7 @@ import Toast from '../../components/common/Toast'
 import { EmptyState } from '../../components/feedback/Feedback'
 import { HeroCard, HomePanel, HomePanelRow, PopularPostRow, TipCard } from '../../components/home/HomeCards'
 import AppLayout from '../../components/layout/AppLayout'
-import { getBoards, getPost, getPosts, setPostLike } from '../../api/community'
+import { getBoards, getPosts } from '../../api/community'
 import {
   getChatPreferences,
   getDepartments,
@@ -25,6 +25,7 @@ import {
 } from '../../api/catalog'
 import { getRecommendations, getRecommendationConsent, type RecommendationDto } from '../../api/recommendations'
 import useAppNavigation from '../../hooks/useAppNavigation'
+import useLikeToggle from '../../hooks/useLikeToggle'
 import useAttachmentDraft from '../../hooks/useAttachmentDraft'
 import useConversations from '../../hooks/useConversations'
 import useProfile from '../../hooks/useProfile'
@@ -328,29 +329,15 @@ function HomeView({
   onToast,
 }: HomeViewProps) {
   const [popularPosts, setPopularPosts] = useState<PopularPost[]>([])
-  const pendingLikeIds = useRef(new Set<string>())
-
-  function updatePopularPost(postId: string, change: (post: PopularPost) => PopularPost) {
-    setPopularPosts((current) => current.map((post) => (post.id === postId ? change(post) : post)))
-  }
-
-  /** 좋아요 — 화면을 먼저 바꾸고 서버에 보내요. 실패하면 되돌리고, 성공하면 서버 숫자로 맞춰요 */
-  async function toggleLike(post: PopularPost) {
-    if (pendingLikeIds.current.has(post.id)) return
-    pendingLikeIds.current.add(post.id)
-    const liked = !post.liked
-    updatePopularPost(post.id, (item) => ({ ...item, liked, likes: Math.max(0, item.likes + (liked ? 1 : -1)) }))
-    try {
-      await setPostLike(post.id, liked)
-      const synced = await getPost(post.id)
-      updatePopularPost(post.id, (item) => ({ ...item, liked: synced.likedByMe, likes: synced.likeCount }))
-    } catch {
-      updatePopularPost(post.id, (item) => ({ ...item, liked: post.liked, likes: post.likes }))
-      onToast('좋아요를 반영하지 못했어요. 잠시 후 다시 시도해 주세요.')
-    } finally {
-      pendingLikeIds.current.delete(post.id)
-    }
-  }
+  /** 좋아요 — 커뮤니티 목록과 같은 방식 (useLikeToggle 참고) */
+  const toggleLikeRequest = useLikeToggle({
+    onChange: (postId, { liked, likeCount }) =>
+      setPopularPosts((current) =>
+        current.map((post) => (post.id === postId ? { ...post, liked, likes: likeCount } : post)),
+      ),
+    onError: () => onToast('좋아요를 반영하지 못했어요. 잠시 후 다시 시도해 주세요.'),
+  })
+  const toggleLike = (post: PopularPost) => toggleLikeRequest(post.id, { liked: post.liked, likeCount: post.likes })
 
   useEffect(() => {
     let active = true
@@ -443,7 +430,7 @@ function HomeView({
                 likeCount={post.likes}
                 liked={post.liked}
                 onClick={() => onOpenPost(post.id)}
-                onToggleLike={() => void toggleLike(post)}
+                onToggleLike={() => toggleLike(post)}
               />
             ))}
           </HomePanel>
@@ -510,6 +497,7 @@ function NewChatView({
         <div className="flex flex-wrap items-center gap-2">
           <Select
             variant="inline"
+            size="sm"
             label="학과"
             placeholder="선택"
             options={departmentOptions}
@@ -519,6 +507,7 @@ function NewChatView({
           />
           <Select
             variant="inline"
+            size="sm"
             label="전공"
             placeholder="선택"
             options={majorOptions}

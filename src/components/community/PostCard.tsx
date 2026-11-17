@@ -8,8 +8,11 @@ interface PostCardProps {
   post: Post
   /** 카드를 누르면 (게시글 열기) */
   onClick?: () => void
-  /** 넘기면 오른쪽 위 하트를 눌러 목록에서 바로 좋아요할 수 있어요 */
-  onToggleLike?: () => void
+  /**
+   * 넘기면 하트를 눌러 바로 좋아요할 수 있어요.
+   * false를 돌려주면(요청 진행 중이라 무시) 하트 모션도 재생하지 않아요.
+   */
+  onToggleLike?: () => boolean | void
 }
 
 /** 게시글 목록의 카드 한 개 (Community/Post Card) — 위: 게시판 · 작성자 · 시간 / 좋아요 · 댓글, 아래: 제목 · 내용 한 줄 */
@@ -33,8 +36,7 @@ function PostCard({ post, onClick, onToggleLike }: PostCardProps) {
             <button
               type="button"
               onClick={() => {
-                if (!liked) pop()
-                onToggleLike()
+                if (onToggleLike() !== false && !liked) pop()
               }}
               aria-pressed={liked}
               aria-label={likeLabel}
