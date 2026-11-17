@@ -61,7 +61,14 @@ export async function logout(): Promise<void> {
 }
 
 export async function deleteAccount(password: string): Promise<void> {
-  await client.delete('/api/account', { data: { password } })
+  try {
+    await client.delete('/api/account', { data: { password } })
+  } catch (error) {
+    // 비밀번호가 틀리면 400 → 화면에서 "비밀번호가 맞지 않아요"로 안내 (401은 세션 만료라 client가 토큰을 지워요)
+    // TODO: 서버 에러 응답(code)이 정해지면 그 값으로 구분
+    if (axios.isAxiosError(error) && error.response?.status === 400) throw new Error('INVALID_PASSWORD')
+    throwApiError(error)
+  }
   localStorage.removeItem('hopes:access-token')
   sessionStorage.removeItem('hopes:access-token')
   window.dispatchEvent(new Event('hopes:logged-out'))

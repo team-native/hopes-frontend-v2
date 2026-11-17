@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { logout } from '../../api/auth'
+import { deleteAccount, logout } from '../../api/auth'
 import { getSettings, sendInquiry, updateSettings } from '../../api/settings'
 import {
   getRecommendationConsent,
@@ -20,12 +20,14 @@ import {
   ContactCard,
   PromptCard,
   SettingsNav,
+  WithdrawCard,
   type SettingsMenu,
 } from '../../components/settings/SettingsCards'
 import SettingToggleRow from '../../components/settings/SettingToggleRow'
 import useProfile from '../../hooks/useProfile'
 import useConversations from '../../hooks/useConversations'
 import useToast from '../../hooks/useToast'
+import { RETRY_LATER, getErrorCode } from '../../utils/error'
 
 // API 연동 전까지 설정값은 이 브라우저(localStorage)에만 저장한다.
 const SETTINGS_STORAGE_KEY = 'hopes.settings'
@@ -86,6 +88,10 @@ function SettingsPage() {
   const [message, setMessage] = useState('')
   const [contactErrors, setContactErrors] = useState({ email: false, message: false })
   const [logoutOpen, setLogoutOpen] = useState(false)
+  const [withdrawPassword, setWithdrawPassword] = useState('')
+  const [withdrawError, setWithdrawError] = useState('')
+  const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false)
+  const [withdrawing, setWithdrawing] = useState(false)
   const [deleteChatsOpen, setDeleteChatsOpen] = useState(false)
   const [settingsError, setSettingsError] = useState(false)
   const [recommendationConsent, setRecommendationConsent] = useState(false)
@@ -125,6 +131,33 @@ function SettingsPage() {
       setConsentPolicyVersion(consent.policyVersion)
     } catch {
       showToast('추천 설정을 저장하지 못했어요. 다시 시도해 주세요.')
+    }
+  }
+
+  /** "탈퇴하기" — 비밀번호를 입력했으면 확인 팝업을 띄워요 */
+  function requestWithdraw() {
+    if (withdrawing) return
+    if (!withdrawPassword) {
+      setWithdrawError('현재 비밀번호를 입력해 주세요.')
+      return
+    }
+    setWithdrawConfirmOpen(true)
+  }
+
+  /** 팝업에서 "탈퇴하기" — 서버가 비밀번호를 확인하고 계정을 삭제해요 (성공하면 deleteAccount가 토큰도 지워요) */
+  async function confirmWithdraw() {
+    setWithdrawConfirmOpen(false)
+    setWithdrawing(true)
+    try {
+      await deleteAccount(withdrawPassword)
+      navigate('/login', { replace: true })
+    } catch (error) {
+      setWithdrawError(
+        getErrorCode(error) === 'INVALID_PASSWORD'
+          ? '비밀번호가 맞지 않아요. 다시 확인해 주세요.'
+          : `탈퇴하지 못했어요. ${RETRY_LATER}`,
+      )
+      setWithdrawing(false)
     }
   }
 
@@ -276,6 +309,19 @@ function SettingsPage() {
                 </ListCard>
               </>
             )}
+
+            {activeMenu === 'withdraw' && (
+              <WithdrawCard
+                password={withdrawPassword}
+                onPasswordChange={(value) => {
+                  setWithdrawPassword(value)
+                  setWithdrawError('')
+                }}
+                error={withdrawError}
+                loading={withdrawing}
+                onSubmit={requestWithdraw}
+              />
+            )}
           </div>
         </div>
       </main>
@@ -314,6 +360,15 @@ function SettingsPage() {
             navigate('/login', { replace: true })
           }
         }}
+      />
+      <ConfirmDialog
+        open={withdrawConfirmOpen}
+        title="정말 탈퇴할까요?"
+        description="계정과 대화 기록이 모두 삭제되고 되돌릴 수 없어요."
+        confirmText="탈퇴하기"
+        tone="danger"
+        onCancel={() => setWithdrawConfirmOpen(false)}
+        onConfirm={() => void confirmWithdraw()}
       />
       <Toast message={toast} />
     </AppLayout>
