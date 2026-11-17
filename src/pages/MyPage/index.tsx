@@ -59,21 +59,25 @@ function MyPage() {
     Promise.all([getMyPosts({ page: 0, size: 50 }), getMyComments({ page: 0, size: 50 })])
       .then(([postPage, commentPage]) => {
         if (!active) return
-        setPosts(postPage.items.map((post) => ({
-          id: String(post.id),
-          title: post.title,
-          excerpt: post.preview,
-          age: formatAge(post.createdAt),
-          likes: post.likeCount,
-          commentCount: post.commentCount,
-        })))
-        setComments(commentPage.items.map((comment) => ({
-          id: String(comment.id),
-          postId: String(comment.postId),
-          content: comment.content,
-          postTitle: comment.postTitle ?? '게시글',
-          age: formatAge(comment.createdAt),
-        })))
+        setPosts(
+          postPage.items.map((post) => ({
+            id: String(post.id),
+            title: post.title,
+            excerpt: post.preview,
+            age: formatAge(post.createdAt),
+            likes: post.likeCount,
+            commentCount: post.commentCount,
+          })),
+        )
+        setComments(
+          commentPage.items.map((comment) => ({
+            id: String(comment.id),
+            postId: String(comment.postId),
+            content: comment.content,
+            postTitle: comment.postTitle ?? '게시글',
+            age: formatAge(comment.createdAt),
+          })),
+        )
       })
       .catch(() => {
         if (active) showToast('내 활동을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
@@ -109,7 +113,7 @@ function MyPage() {
       meta: `${post.age} · ♡ ${post.likes} · 댓글 ${post.commentCount}`,
       onClick: () => openCommunityPost(post.id),
       actions: [
-        { label: '수정', icon: Pencil, onSelect: () => openCommunityPost(post.id) },
+        { label: '수정', icon: Pencil, onSelect: () => openCommunityPost(post.id, true) },
         {
           label: '삭제',
           icon: Trash2,

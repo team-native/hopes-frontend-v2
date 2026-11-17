@@ -8,6 +8,8 @@ import {
   deletePost,
   getBoards,
   getComments,
+  getMyComments,
+  getMyPosts,
   getPost,
   getPosts,
   reportCommunityItem,
@@ -103,14 +105,29 @@ function mapComment(comment: CommunityCommentDto): ViewComment {
   }
 }
 
+async function countAllPages(fetchPage: (page: number) => Promise<{ items: unknown[]; hasNext: boolean }>) {
+  let page = 0
+  let count = 0
+  let hasNext = true
+  while (hasNext) {
+    const result = await fetchPage(page)
+    count += result.items.length
+    hasNext = result.hasNext
+    page += 1
+  }
+  return count
+}
+
 function CommunityPage() {
   const { profile } = useProfile()
   const { toast, showToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedPostId = searchParams.get('post')
+  const editRequested = searchParams.get('edit') === '1'
   const [boards, setBoards] = useState<BoardDto[]>([])
   const [posts, setPosts] = useState<ViewPost[]>([])
   const [comments, setComments] = useState<ViewComment[]>([])
+  const [myActivityCounts, setMyActivityCounts] = useState({ posts: 0, comments: 0 })
   const [selectedPost, setSelectedPost] = useState<ViewPost | null>(null)
   const [postLoad, setPostLoad] = useState<{ id: string; status: 'loading' | 'ready' | 'error' } | null>(null)
   const [selectedBoard, setSelectedBoard] = useState('전체')
@@ -164,6 +181,21 @@ function CommunityPage() {
   }, [loadFeed, retryKey, search])
 
   useEffect(() => {
+    let active = true
+    Promise.all([
+      countAllPages((page) => getMyPosts({ page, size: 50 })),
+      countAllPages((page) => getMyComments({ page, size: 50 })),
+    ])
+      .then(([postCount, commentCount]) => {
+        if (active) setMyActivityCounts({ posts: postCount, comments: commentCount })
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
     if (!selectedPostId) return
     let active = true
     Promise.all([getBoards(), getPost(selectedPostId), getComments(selectedPostId)])
@@ -173,6 +205,7 @@ function CommunityPage() {
         setSelectedPost(mapPost(postData, boardData))
         setComments(commentData.map(mapComment))
         setPostLoad({ id: selectedPostId, status: 'ready' })
+        if (editRequested && postData.isMine) setModal({ type: 'edit', postId: selectedPostId })
       })
       .catch(() => {
         if (active) setPostLoad({ id: selectedPostId, status: 'error' })
@@ -180,19 +213,20 @@ function CommunityPage() {
     return () => {
       active = false
     }
-  }, [selectedPostId, detailRetryKey])
+  }, [selectedPostId, detailRetryKey, editRequested])
 
   const detailStatus = postLoad?.id === selectedPostId ? postLoad.status : 'loading'
   const visiblePost = selectedPost?.id === selectedPostId ? selectedPost : null
 
-  const myPostCount = posts.filter(({ isMine }) => isMine).length
-  const myCommentCount = comments.filter(({ isMine }) => isMine).length
+  const myPostCount = myActivityCounts.posts
+  const myCommentCount = myActivityCounts.comments
   const openPost = (postId: string | null) => setSearchParams(postId ? { post: postId } : {})
 
   async function submitPost(values: WritePostValues) {
     try {
       if (modal?.type === 'edit') {
         await updatePost(modal.postId, { title: values.title, content: values.content })
+        setSearchParams({ post: modal.postId })
         showToast('게시글을 수정했어요')
         await loadFeed()
       } else {
@@ -300,7 +334,13 @@ function CommunityPage() {
       const commentId = modal.commentId
       const comment = comments.find((item) => item.id === commentId)
       if (!comment?.isMine) {
-        return [{ label: '신고하기', icon: Flag, onSelect: () => setModal({ type: 'report', target: '댓글', targetId: commentId }) }]
+        return [
+          {
+            label: '신고하기',
+            icon: Flag,
+            onSelect: () => setModal({ type: 'report', target: '댓글', targetId: commentId }),
+          },
+        ]
       }
       return [
         {
@@ -325,10 +365,21 @@ function CommunityPage() {
       if (post?.isMine) {
         return [
           { label: '게시글 수정', icon: Pencil, onSelect: () => setModal({ type: 'edit', postId }) },
-          { label: '게시글 삭제', icon: Trash2, danger: true, onSelect: () => setModal({ type: 'deletePost', postId }) },
+          {
+            label: '게시글 삭제',
+            icon: Trash2,
+            danger: true,
+            onSelect: () => setModal({ type: 'deletePost', postId }),
+          },
         ]
       }
-      return [{ label: '신고하기', icon: Flag, onSelect: () => setModal({ type: 'report', target: '게시글', targetId: postId }) }]
+      return [
+        {
+          label: '신고하기',
+          icon: Flag,
+          onSelect: () => setModal({ type: 'report', target: '게시글', targetId: postId }),
+        },
+      ]
     }
     return []
   })()
@@ -507,12 +558,27 @@ function CommunityPage() {
       />
 
       <Modal open={modal?.type === 'editComment'} onClose={() => setModal(null)} className="w-[520px] p-lg">
-        <form onSubmit={(event) => { event.preventDefault(); void submitCommentEdit() }}>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            void submitCommentEdit()
+          }}
+        >
           <h2 className="text-heading">댓글 수정</h2>
-          <TextArea className="mt-md" label="댓글 내용" value={editingCommentContent} onChange={(event) => setEditingCommentContent(event.target.value)} rows={4} />
+          <TextArea
+            className="mt-md"
+            label="댓글 내용"
+            value={editingCommentContent}
+            onChange={(event) => setEditingCommentContent(event.target.value)}
+            rows={4}
+          />
           <div className="mt-md flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setModal(null)}>취소</Button>
-            <Button type="submit" disabled={!editingCommentContent.trim()}>저장</Button>
+            <Button type="button" variant="secondary" onClick={() => setModal(null)}>
+              취소
+            </Button>
+            <Button type="submit" disabled={!editingCommentContent.trim()}>
+              저장
+            </Button>
           </div>
         </form>
       </Modal>

@@ -10,7 +10,8 @@ function useAppNavigation() {
     goToSection: (section: SidebarMenu) => navigate(ROUTES[section]),
     startNewChat: () => navigate(ROUTES.chat),
     openConversation: (conversationId: string) => navigate(ROUTES.chatDetail(encodeURIComponent(conversationId))),
-    openCommunityPost: (postId: string) => navigate(`${ROUTES.community}?post=${encodeURIComponent(postId)}`),
+    openCommunityPost: (postId: string, edit = false) =>
+      navigate(`${ROUTES.community}?post=${encodeURIComponent(postId)}${edit ? '&edit=1' : ''}`),
     openCampus: () => navigate(ROUTES.campus),
   }
 }

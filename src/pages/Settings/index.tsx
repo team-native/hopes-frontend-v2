@@ -1,8 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { deleteAccount, logout } from '../../api/auth'
-import { getSettings, sendInquiry, updateSettings, updateTheme } from '../../api/settings'
-import { getRecommendationConsent, setRecommendationConsent as saveRecommendationConsent } from '../../api/recommendations'
+import { getSettings, sendInquiry, updateSettings } from '../../api/settings'
+import {
+  getRecommendationConsent,
+  setRecommendationConsent as saveRecommendationConsent,
+} from '../../api/recommendations'
 import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
@@ -87,7 +90,6 @@ function SettingsPage() {
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false)
   const [deleteChatsOpen, setDeleteChatsOpen] = useState(false)
   const [accountPassword, setAccountPassword] = useState('')
-  const [theme, setTheme] = useState<'DARK' | 'LIGHT'>('LIGHT')
   const [settingsError, setSettingsError] = useState(false)
   const [recommendationConsent, setRecommendationConsent] = useState(false)
   const [consentPolicyVersion, setConsentPolicyVersion] = useState('')
@@ -99,8 +101,6 @@ function SettingsPage() {
       .then((settings) => {
         if (!active) return
         setSystemPrompt(settings.customPrompt)
-        setTheme(settings.theme)
-        document.documentElement.dataset.theme = settings.theme.toLowerCase()
       })
       .catch(() => {
         if (active) setSettingsError(true)
@@ -142,18 +142,6 @@ function SettingsPage() {
       showToast('설정을 저장했어요')
     } catch {
       showToast('서버에 설정을 저장하지 못했어요. 다시 시도해 주세요.')
-    }
-  }
-
-  async function changeTheme(enabled: boolean) {
-    const nextTheme = enabled ? 'DARK' : 'LIGHT'
-    try {
-      const result = await updateTheme(nextTheme)
-      setTheme(result.theme)
-      document.documentElement.dataset.theme = result.theme.toLowerCase()
-      showToast('화면 설정을 저장했어요')
-    } catch {
-      showToast('화면 설정을 저장하지 못했어요. 다시 시도해 주세요.')
     }
   }
 
@@ -236,9 +224,11 @@ function SettingsPage() {
                 <li>
                   <SettingToggleRow
                     title="다크 모드"
-                    description="계정 화면 설정에 저장해요."
-                    checked={theme === 'DARK'}
-                    onChange={(checked) => void changeTheme(checked)}
+                    description="다크 모드는 준비 중이에요."
+                    badge="준비 중"
+                    checked={false}
+                    disabled
+                    onChange={() => {}}
                   />
                 </li>
               </ListCard>
@@ -337,16 +327,25 @@ function SettingsPage() {
         description={
           <div className="space-y-sm">
             <p>계정과 대화, 메시지, 문의가 영구 삭제돼요.</p>
-            <TextField label="비밀번호 확인" type="password" value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} />
+            <TextField
+              label="비밀번호 확인"
+              type="password"
+              value={accountPassword}
+              onChange={(event) => setAccountPassword(event.target.value)}
+            />
           </div>
         }
         confirmText="탈퇴"
         tone="danger"
-        onCancel={() => setDeleteAccountOpen(false)}
+        onCancel={() => {
+          setDeleteAccountOpen(false)
+          setAccountPassword('')
+        }}
         onConfirm={async () => {
           try {
             await deleteAccount(accountPassword)
             setDeleteAccountOpen(false)
+            setAccountPassword('')
             navigate('/login', { replace: true })
           } catch {
             showToast('회원 탈퇴를 완료하지 못했어요. 비밀번호를 확인해 주세요.')

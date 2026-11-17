@@ -16,14 +16,27 @@ import { EmptyState } from '../../components/feedback/Feedback'
 import { HeroCard, HomePanel, HomePanelRow, PopularPostRow, TipCard } from '../../components/home/HomeCards'
 import AppLayout from '../../components/layout/AppLayout'
 import { getBoards, getPosts } from '../../api/community'
-import { getChatPreferences, getDepartments, getSpecialties, updateChatPreferences, type CategoryDto } from '../../api/catalog'
+import {
+  getChatPreferences,
+  getDepartments,
+  getSpecialties,
+  updateChatPreferences,
+  type CategoryDto,
+} from '../../api/catalog'
 import { getRecommendations, getRecommendationConsent, type RecommendationDto } from '../../api/recommendations'
 import useAppNavigation from '../../hooks/useAppNavigation'
 import useAttachmentDraft from '../../hooks/useAttachmentDraft'
 import useConversations from '../../hooks/useConversations'
 import useProfile from '../../hooks/useProfile'
 import useToast from '../../hooks/useToast'
-import { getAttachment, getAttachmentContent, sendLocationCheck, type AttachmentDto, type ChatMessage, type LocationRequest } from '../../api/chats'
+import {
+  getAttachment,
+  getAttachmentContent,
+  sendLocationCheck,
+  type AttachmentDto,
+  type ChatMessage,
+  type LocationRequest,
+} from '../../api/chats'
 import type { Conversation, LocalAttachment } from '../../types/conversation'
 import type { Profile } from '../../types/profile'
 import { ATTACHMENT_ACCEPT } from '../../utils/attachments'
@@ -41,7 +54,7 @@ function HomePage() {
   const { pathname } = useLocation()
   const screen: HomeScreen = conversationId ? 'conversation' : pathname.startsWith('/chat') ? 'chat' : 'home'
 
-  const { goToSection, startNewChat, openConversation, openCommunityPost, openCampus } = useAppNavigation()
+  const { goToSection, startNewChat, openConversation, openCommunityPost } = useAppNavigation()
   const { conversations, getConversation, createConversation, sendMessage, loadConversation } = useConversations()
   const { profile } = useProfile()
   const conversation = conversationId ? getConversation(conversationId) : undefined
@@ -78,15 +91,19 @@ function HomePage() {
     Promise.all([getDepartments(), getSpecialties(), getChatPreferences(), getRecommendationConsent()])
       .then(([departmentGroups, specialtyGroupsData, preferences, consent]) => {
         if (!active) return
-        const departments = Object.values(departmentGroups).flat().filter(({ isActive }) => isActive)
-        const specialties = Object.values(specialtyGroupsData).flat().filter(({ isActive }) => isActive)
+        const departments = Object.values(departmentGroups)
+          .flat()
+          .filter(({ isActive }) => isActive)
+        const specialties = Object.values(specialtyGroupsData)
+          .flat()
+          .filter(({ isActive }) => isActive)
         setDepartmentCatalog(departments)
         setDepartmentOptions(departments.map(({ name }) => name))
         setSpecialtyGroups(specialtyGroupsData)
         const activeDepartment = departments.find(({ id }) => id === preferences.departmentId) ?? departments[0]
         const activeSpecialty = specialties.find(({ id }) => id === preferences.specialtyId)
         const relatedSpecialties = activeDepartment
-          ? specialtyGroupsData[activeDepartment.name] ?? specialties
+          ? (specialtyGroupsData[activeDepartment.name] ?? specialties)
           : specialties
         const selectedSpecialty = activeSpecialty ?? relatedSpecialties[0]
         setDepartmentId(activeDepartment?.id)
@@ -102,23 +119,26 @@ function HomePage() {
     }
   }, [])
 
-  const loadRecommendations = useCallback(async (refresh = false) => {
-    try {
-      const result = await getRecommendations({
-        departmentId,
-        specialtyId,
-        personalized: recommendationConsent,
-        limit: 4,
-        refreshToken: refresh ? recommendationRefreshTokenRef.current : undefined,
-        excludeIds: refresh ? recommendationItemsRef.current.map(({ id }) => id) : undefined,
-      })
-      recommendationItemsRef.current = result.items
-      setRecommendationItems(result.items)
-      recommendationRefreshTokenRef.current = result.nextRefreshToken
-    } catch {
-      setRecommendationItems([])
-    }
-  }, [departmentId, specialtyId, recommendationConsent])
+  const loadRecommendations = useCallback(
+    async (refresh = false) => {
+      try {
+        const result = await getRecommendations({
+          departmentId,
+          specialtyId,
+          personalized: recommendationConsent,
+          limit: 4,
+          refreshToken: refresh ? recommendationRefreshTokenRef.current : undefined,
+          excludeIds: refresh ? recommendationItemsRef.current.map(({ id }) => id) : undefined,
+        })
+        recommendationItemsRef.current = result.items
+        setRecommendationItems(result.items)
+        recommendationRefreshTokenRef.current = result.nextRefreshToken
+      } catch {
+        setRecommendationItems([])
+      }
+    },
+    [departmentId, specialtyId, recommendationConsent],
+  )
 
   useEffect(() => {
     void loadRecommendations()
@@ -141,7 +161,9 @@ function HomePage() {
     setSpecialtyId(undefined)
     setSpecialtyOptions(specialties.filter(({ isActive }) => isActive).map(({ name }) => name))
     setMajor('')
-    void updateChatPreferences({ departmentId: nextDepartmentId ?? null, specialtyId: null }).catch(() => showToast('학과 설정을 저장하지 못했어요.'))
+    void updateChatPreferences({ departmentId: nextDepartmentId ?? null, specialtyId: null }).catch(() =>
+      showToast('학과 설정을 저장하지 못했어요.'),
+    )
   }
 
   function changeMajor(value: string) {
@@ -149,9 +171,10 @@ function HomePage() {
     const nextSpecialtyId = specialties.find(({ name }) => name === value)?.id
     setMajor(value)
     setSpecialtyId(nextSpecialtyId)
-    void updateChatPreferences({ departmentId: departmentId ?? null, specialtyId: nextSpecialtyId ?? null }).catch(() => showToast('전공 설정을 저장하지 못했어요.'))
+    void updateChatPreferences({ departmentId: departmentId ?? null, specialtyId: nextSpecialtyId ?? null }).catch(() =>
+      showToast('전공 설정을 저장하지 못했어요.'),
+    )
   }
-
 
   async function startConversation(
     question: string,
@@ -232,7 +255,6 @@ function HomePage() {
           onOpenPost={openCommunityPost}
           onShowHistory={() => goToSection('history')}
           onShowCommunity={() => goToSection('community')}
-          onShowCampus={openCampus}
           onNotify={() => showToast('새로운 알림이 없어요.')}
         />
       ) : screen === 'chat' ? (
@@ -252,7 +274,7 @@ function HomePage() {
         <ConversationView
           key={conversation.id}
           title={conversation.title}
-          category={`${department} · ${major}`}
+          category={[department, major].filter(Boolean).join(' · ') || '추천 질문'}
           suggestions={suggestions}
           onCheckLocation={() => void checkChatLocation(conversation.id)}
           onAsk={startConversation}
@@ -286,7 +308,6 @@ type HomeViewProps = {
   onOpenPost: (postId: string) => void
   onShowHistory: () => void
   onShowCommunity: () => void
-  onShowCampus: () => void
   onNotify: () => void
 }
 
@@ -298,7 +319,6 @@ function HomeView({
   onOpenPost,
   onShowHistory,
   onShowCommunity,
-  onShowCampus,
   onNotify,
 }: HomeViewProps) {
   const [popularPosts, setPopularPosts] = useState<{ id: string; board: string; title: string; likes: number }[]>([])
@@ -338,10 +358,7 @@ function HomeView({
             {profile.department} · {profile.generation}
           </p>
         </div>
-        <div className="flex gap-2">
-          <IconButton icon={MapPin} label="학교 위치" variant="boxed" onClick={onShowCampus} />
-          <IconButton icon={Bell} label="알림" variant="boxed" onClick={onNotify} />
-        </div>
+        <IconButton icon={Bell} label="알림" variant="boxed" onClick={onNotify} />
       </header>
 
       <div className="space-y-lg">
@@ -480,15 +497,19 @@ function NewChatView({
           />
         </div>
         <div className="mt-xs grid grid-cols-1 gap-sm text-left sm:grid-cols-2">
-          {rotatedSuggestions.length ? rotatedSuggestions.map((question) => (
-            <QuestionCard
-              key={question.id ?? question.title}
-              question={question.title}
-              category={question.category}
-              icon={question.icon}
-              onClick={() => onAsk(question.title)}
-            />
-          )) : <p className="py-md text-caption text-text-secondary">추천 질문을 불러오지 못했어요.</p>}
+          {rotatedSuggestions.length ? (
+            rotatedSuggestions.map((question) => (
+              <QuestionCard
+                key={question.id ?? question.title}
+                question={question.title}
+                category={question.category}
+                icon={question.icon}
+                onClick={() => onAsk(question.title)}
+              />
+            ))
+          ) : (
+            <p className="py-md text-caption text-text-secondary">추천 질문을 불러오지 못했어요.</p>
+          )}
         </div>
       </section>
 
@@ -652,21 +673,24 @@ function MessageAttachments({ attachments }: { attachments: AttachmentDto[] }) {
   const downloadUrlsRef = useRef<Record<number, string>>({})
   const [error, setError] = useState('')
 
+  const attachmentIdsKey = attachments.map(({ id }) => id).join(',')
+
   useEffect(() => {
+    if (!attachmentIdsKey) return
     let active = true
-    Promise.all(attachments.map(({ id }) => getAttachment(id)))
+    Promise.all(attachmentIdsKey.split(',').map((id) => getAttachment(Number(id))))
       .then((items) => {
         if (active) setMetadata(items)
       })
-      .catch(() => {
-        if (active) setMetadata(attachments)
-      })
+      .catch(() => undefined)
     return () => {
       active = false
     }
-  }, [attachments])
+  }, [attachmentIdsKey])
 
   useEffect(() => () => Object.values(downloadUrlsRef.current).forEach((url) => URL.revokeObjectURL(url)), [])
+
+  const visibleMetadata = metadata.map(({ id }) => id).join(',') === attachmentIdsKey ? metadata : attachments
 
   async function downloadAttachment(attachment: AttachmentDto) {
     try {
@@ -683,24 +707,39 @@ function MessageAttachments({ attachments }: { attachments: AttachmentDto[] }) {
     }
   }
 
-  if (!metadata.length) return null
+  if (!attachments.length) return null
   return (
     <div className="flex flex-wrap gap-2">
-      {metadata.map((attachment) => (
-        <div key={attachment.id} className="rounded-md border border-border-subtle bg-bg-surface px-3 py-2 text-caption">
+      {visibleMetadata.map((attachment) => (
+        <div
+          key={attachment.id}
+          className="rounded-md border border-border-subtle bg-bg-surface px-3 py-2 text-caption"
+        >
           <span>{attachment.fileName}</span>
           {downloadUrls[attachment.id] ? (
-            <a className="ml-2 text-text-brand underline" href={downloadUrls[attachment.id]} download={attachment.fileName}>
+            <a
+              className="ml-2 text-text-brand underline"
+              href={downloadUrls[attachment.id]}
+              download={attachment.fileName}
+            >
               다운로드
             </a>
           ) : (
-            <button className="ml-2 text-text-brand underline" type="button" onClick={() => void downloadAttachment(attachment)}>
+            <button
+              className="ml-2 text-text-brand underline"
+              type="button"
+              onClick={() => void downloadAttachment(attachment)}
+            >
               다운로드
             </button>
           )}
         </div>
       ))}
-      {error && <p role="alert" className="w-full text-caption text-text-danger">{error}</p>}
+      {error && (
+        <p role="alert" className="w-full text-caption text-text-danger">
+          {error}
+        </p>
+      )}
     </div>
   )
 }
