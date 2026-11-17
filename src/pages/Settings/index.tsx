@@ -295,7 +295,7 @@ function SettingsPage() {
                   <LogoMark size={48} />
                   <div>
                     <h2 className="text-label-strong">hopes</h2>
-                    <p className="mt-0.5 text-caption text-text-secondary">버전 1.5 · 최신 버전 사용 중</p>
+                    <p className="mt-0.5 text-caption text-text-secondary">버전 2.00 · 최신 버전 사용 중</p>
                   </div>
                 </section>
                 <ListCard className="px-md">
