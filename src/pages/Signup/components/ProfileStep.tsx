@@ -6,21 +6,20 @@ import FieldError from '../../../components/common/FieldError'
 import Select from '../../../components/common/Select'
 import TextField from '../../../components/common/TextField'
 import { COHORTS, DEPARTMENTS } from '../../../constants/school'
-import { RETRY_LATER, getErrorCode } from '../../../utils/error'
+import { RETRY_LATER, getErrorCode, getServerMessage } from '../../../utils/error'
 
+/** 원인을 아는 실패는 우리 말투의 안내 문구로 바꿔요 */
 const SIGNUP_ERRORS: Record<string, string> = {
   EMAIL_ALREADY_REGISTERED: '이미 가입된 이메일이에요. 로그인해 주세요.',
-  INVALID_CODE: '이메일 인증이 만료됐어요. 인증번호를 다시 받아 주세요.',
+  INVALID_CODE: '이메일 인증이 만료됐어요. 이메일 인증을 다시 해 주세요.',
   TOO_MANY_ATTEMPTS: `요청이 너무 많아요. ${RETRY_LATER}`,
 }
 
-/** 서버가 알려 준 이유를 그대로 보여 주고, 아는 코드면 안내 문구로 바꿔요 */
+/** 아는 원인 → 안내 문구, 모르는 원인 → 서버가 알려 준 문구, 그것도 없으면 기본 문구 */
 function signupErrorMessage(error: unknown) {
   const code = getErrorCode(error)
-  if (!code) return `가입하지 못했어요. ${RETRY_LATER}`
-  if (SIGNUP_ERRORS[code]) return SIGNUP_ERRORS[code]
-  // 정규화되지 않은 에러 코드는 사용자에게 의미가 없어서 기본 문구로 바꿔요
-  return /^[A-Z0-9_]+$/.test(code) ? `가입하지 못했어요. ${RETRY_LATER}` : code
+  const known = code ? SIGNUP_ERRORS[code] : undefined
+  return known ?? getServerMessage(error) ?? `가입하지 못했어요. ${RETRY_LATER}`
 }
 
 export interface Profile {
@@ -34,13 +33,15 @@ export interface Profile {
 interface ProfileStepProps {
   /** 가입 완료 버튼 → 가입 요청 (실패하면 throw) */
   onSubmit: (profile: Profile) => Promise<void>
+  /** 이메일 인증이 만료돼서 가입이 안 될 때 "이메일 인증 다시 하기" → 1단계로 */
+  onRestartVerification: () => void
 }
 
 /**
  * 회원가입 3단계: 프로필 (이름 · 과 · 기수 · 약관)
  * 덜 채웠을 때 버튼은 연한 색이지만 누를 수 있고, 누르면 빠진 항목에 에러 표시
  */
-function ProfileStep({ onSubmit }: ProfileStepProps) {
+function ProfileStep({ onSubmit, onRestartVerification }: ProfileStepProps) {
   const [name, setName] = useState('')
   const [department, setDepartment] = useState('')
   const [cohort, setCohort] = useState('')
@@ -49,6 +50,8 @@ function ProfileStep({ onSubmit }: ProfileStepProps) {
   const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  /** 인증 만료로 실패했으면 1단계로 돌아가는 버튼을 같이 보여 줘요 */
+  const [verificationExpired, setVerificationExpired] = useState(false)
 
   const agreeAll = agreeTerms && agreePrivacy
   const isComplete = name.trim() !== '' && department !== '' && cohort !== '' && agreeAll
@@ -66,11 +69,13 @@ function ProfileStep({ onSubmit }: ProfileStepProps) {
 
     setIsSubmitting(true)
     setSubmitError('')
+    setVerificationExpired(false)
     try {
       await onSubmit({ name: name.trim(), department, cohort, agreeTerms, agreePrivacy })
     } catch (error) {
       // 마지막 단계라 실패하면 꼭 알려 줘요 (입력값은 그대로 남아서 다시 누르면 돼요)
       setSubmitError(signupErrorMessage(error))
+      setVerificationExpired(getErrorCode(error) === 'INVALID_CODE')
     } finally {
       setIsSubmitting(false)
     }
@@ -138,6 +143,15 @@ function ProfileStep({ onSubmit }: ProfileStepProps) {
       </fieldset>
 
       {submitError && <FieldError className="mt-md">{submitError}</FieldError>}
+      {verificationExpired && (
+        <button
+          type="button"
+          onClick={onRestartVerification}
+          className="mt-xs text-label font-medium text-text-brand hover:underline"
+        >
+          이메일 인증 다시 하기
+        </button>
+      )}
 
       <Button type="submit" className="mt-5" inactive={!isComplete} loading={isSubmitting} loadingText="가입 중...">
         가입 완료

@@ -6,7 +6,7 @@ import FieldError from '../../../components/common/FieldError'
 import TextField from '../../../components/common/TextField'
 import { SCHOOL_EMAIL_DOMAIN } from '../../../constants/school'
 import { hasWrongEmailDomain, isSchoolEmail } from '../../../utils/email'
-import { RETRY_LATER, getErrorCode } from '../../../utils/error'
+import { RETRY_LATER, getErrorCode, getServerMessage } from '../../../utils/error'
 
 const DOMAIN_ERROR = `학교 이메일(@${SCHOOL_EMAIL_DOMAIN})만 사용할 수 있어요.`
 const NOT_REGISTERED_ERROR = '가입되지 않은 이메일이에요. 회원가입을 진행해 주세요.'
@@ -50,8 +50,8 @@ function EmailStep({ defaultEmail = '', onSent }: EmailStepProps) {
       if (getErrorCode(error) === 'EMAIL_NOT_REGISTERED') {
         setIsNotRegistered(true)
       } else {
-        // 네트워크 · 서버 오류: 버튼은 막지 않고 다시 누를 수 있게 안내만
-        setSendError(`인증번호를 보내지 못했어요. ${RETRY_LATER}`)
+        // 버튼은 막지 않고 다시 누를 수 있게 안내만 (요청 횟수 초과 등은 서버 문구로)
+        setSendError(getServerMessage(error) ?? `인증번호를 보내지 못했어요. ${RETRY_LATER}`)
       }
     } finally {
       setIsSending(false)

@@ -1,5 +1,6 @@
 import axios from 'axios'
 import client from './client'
+import { ApiError } from '../utils/error'
 import { clearToken, setToken } from '../utils/token'
 
 export interface LoginRequest {
@@ -21,19 +22,53 @@ export interface SignupRequest {
 
 type TokenResponse = { accessToken: string; tokenType: string }
 
+/**
+ * 서버가 code에 넣어 주는 HTTP 상태 이름들 (예: 400 → "BAD_REQUEST")
+ * 원인을 구분해 주지 않아서 무시하고, 상태 코드 + message 문구로 원인을 판단해요.
+ */
+const GENERIC_SERVER_CODES = new Set([
+  'BAD_REQUEST',
+  'UNAUTHORIZED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'CONFLICT',
+  'TOO_MANY_REQUESTS',
+  'INTERNAL_SERVER_ERROR',
+  'BAD_GATEWAY',
+  'SERVICE_UNAVAILABLE',
+])
+
+/**
+ * 상태 코드와 서버 문구로 원인 코드를 추측해요. (서버 문구 예시는 Swagger · 실제 응답 기준)
+ * - 401 "등록된 회원을 찾을 수 없습니다." → INVALID_CREDENTIALS
+ * - 400 "인증번호를 먼저 요청해주세요" · "인증번호가 일치하지 않습니다" → INVALID_CODE
+ */
+function guessErrorCode(status: number | undefined, message: string): string | undefined {
+  if (status === 401) return 'INVALID_CREDENTIALS'
+  if (status === 429) return 'TOO_MANY_ATTEMPTS'
+  if (status === 409 || (status === 400 && /이미.*(가입|등록|사용|존재)/.test(message))) {
+    return 'EMAIL_ALREADY_REGISTERED'
+  }
+  if (status === 404 && /계정|이메일|사용자|회원/.test(message)) return 'EMAIL_NOT_REGISTERED'
+  if (status === 400 && /(이전|기존).*비밀번호/.test(message)) return 'SAME_AS_OLD_PASSWORD'
+  if (status === 400 && /인증번호|코드/.test(message)) return 'INVALID_CODE'
+  return undefined
+}
+
+/** axios 에러를 ApiError(원인 코드 + 서버 문구)로 바꿔서 던져요 */
 function throwApiError(error: unknown): never {
   if (!axios.isAxiosError(error)) throw error
   const status = error.response?.status
-  const payload = error.response?.data as { code?: string; message?: string } | undefined
-  const message = payload?.message
-  const code =
-    payload?.code ??
-    (status === 401 ? 'INVALID_CREDENTIALS' : status === 409 ? 'EMAIL_ALREADY_REGISTERED' : undefined) ??
-    (status === 404 && /계정|이메일|사용자/.test(message ?? '') ? 'EMAIL_NOT_REGISTERED' : undefined) ??
-    (status === 429 ? 'TOO_MANY_ATTEMPTS' : undefined) ??
-    (status === 400 && /인증번호|코드/.test(message ?? '') ? 'INVALID_CODE' : undefined) ??
-    (status === 400 && /이전.*비밀번호|기존.*비밀번호/.test(message ?? '') ? 'SAME_AS_OLD_PASSWORD' : undefined)
-  throw new Error(code ?? payload?.message ?? error.message)
+  const payload = error.response?.data as { code?: unknown; message?: unknown } | undefined
+  const serverMessage = typeof payload?.message === 'string' ? payload.message : undefined
+  const serverCode =
+    typeof payload?.code === 'string' && !GENERIC_SERVER_CODES.has(payload.code) ? payload.code : undefined
+  throw new ApiError({
+    code: serverCode ?? guessErrorCode(status, serverMessage ?? ''),
+    status,
+    serverMessage,
+    cause: error,
+  })
 }
 
 function persistToken(token: string, keepLogin: boolean) {
