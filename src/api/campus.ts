@@ -46,12 +46,19 @@ export async function searchNavigationPlaces(q: string) {
 
 /**
  * 도면 이미지 받기 — 로그인 토큰(Bearer)이 필요해서 <img src>로 바로 쓰지 않고 axios로 받아요.
- * 응답의 url은 서버 절대 주소라, 같은 경로를 우리 /api 프록시로 요청해요 (CORS · 혼합 콘텐츠 방지).
+ * 응답의 url은 서버 절대 주소(다른 도메인)라 그대로 부르면 CORS에 걸려요.
+ * 경로(pathname)만 꺼내 같은 출처로 요청해요 (로컬은 Vite 프록시, 배포는 Vercel rewrite).
+ * url이 없거나 /api 경로가 아니면 도면 id로 경로를 만들어요.
  */
-export async function getFloorPlanImage(floorPlanId: string) {
-  const { data } = await client.get<Blob>(`/api/campus/floor-plans/${encodeURIComponent(floorPlanId)}/image`, {
-    responseType: 'blob',
-  })
+export async function getFloorPlanImage(url: string | undefined, floorPlanId: string) {
+  let path = `/api/campus/floor-plans/${encodeURIComponent(floorPlanId)}/image`
+  try {
+    const pathname = url ? new URL(url, window.location.origin).pathname : ''
+    if (pathname.startsWith('/api/')) path = pathname
+  } catch {
+    // 주소 형식이 이상하면 위의 기본 경로를 써요
+  }
+  const { data } = await client.get<Blob>(path, { responseType: 'blob' })
   return data
 }
 

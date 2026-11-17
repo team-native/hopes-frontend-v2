@@ -154,7 +154,10 @@ function DestinationCard({
 
       <div className="space-y-xs border-t border-border-subtle pt-sm">
         <p className="text-label font-medium">길찾기 — 지금 어디에 있나요?</p>
-        <p className="text-caption text-text-tertiary">GPS로는 층을 알 수 없어서 출발 위치를 직접 골라 주세요.</p>
+        <p className="text-caption text-text-tertiary">
+          GPS로는 층을 알 수 없어서 출발 위치를 직접 골라 주세요. 길 안내는 저장되지 않아서, 새로고침했다면 출발 위치를
+          다시 골라 주세요.
+        </p>
 
         <div className="flex flex-wrap gap-2">
           <Button
