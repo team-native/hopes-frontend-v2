@@ -107,6 +107,7 @@ function CommunityPage() {
   const [posts, setPosts] = useState<ViewPost[]>([])
   const [comments, setComments] = useState<ViewComment[]>([])
   const [selectedPost, setSelectedPost] = useState<ViewPost | null>(null)
+  const [postLoad, setPostLoad] = useState<{ id: string; status: 'loading' | 'ready' | 'error' } | null>(null)
   const [selectedBoard, setSelectedBoard] = useState('전체')
   const [sortOrder, setSortOrder] = useState<SortOrder>('최신순')
   const [search, setSearch] = useState('')
@@ -115,11 +116,18 @@ function CommunityPage() {
   const [feedStatus, setFeedStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [commentInputError, setCommentInputError] = useState('')
   const [retryKey, setRetryKey] = useState(0)
+  const [detailRetryKey, setDetailRetryKey] = useState(0)
+  const pendingLikeIds = useRef(new Set<string>())
+  const [pendingLikeIdsState, setPendingLikeIdsState] = useState<Set<string>>(new Set())
   const commentInputRef = useRef<HTMLInputElement>(null)
 
   const boardNames = useMemo(() => ['전체', ...new Set(boards.map(({ name }) => name))], [boards])
   const myBoard = boardNames.includes(profile.generation) ? profile.generation : '전체'
-  const editingPost = modal?.type === 'edit' ? posts.find((post) => post.id === modal.postId) : undefined
+  const editingPost =
+    modal?.type === 'edit'
+      ? ((selectedPost?.id === modal.postId ? selectedPost : undefined) ??
+        posts.find((post) => post.id === modal.postId))
+      : undefined
   const popularPosts = useMemo(() => [...posts].sort((a, b) => b.likeCount - a.likeCount).slice(0, 3), [posts])
   const filteredPosts = useMemo(
     () => (sortOrder === '인기순' ? [...posts].sort((a, b) => b.likeCount - a.likeCount) : posts),
@@ -142,19 +150,15 @@ function CommunityPage() {
     } catch {
       setFeedStatus('error')
     }
-  }, [search, selectedBoard, retryKey])
+  }, [search, selectedBoard])
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadFeed(), search ? 250 : 0)
     return () => window.clearTimeout(timer)
-  }, [loadFeed, search])
+  }, [loadFeed, retryKey, search])
 
   useEffect(() => {
-    if (!selectedPostId) {
-      setSelectedPost(null)
-      setComments([])
-      return
-    }
+    if (!selectedPostId) return
     let active = true
     Promise.all([getBoards(), getPost(selectedPostId), getComments(selectedPostId)])
       .then(([boardData, postData, commentData]) => {
@@ -162,14 +166,18 @@ function CommunityPage() {
         setBoards(boardData)
         setSelectedPost(mapPost(postData, boardData))
         setComments(commentData.map(mapComment))
+        setPostLoad({ id: selectedPostId, status: 'ready' })
       })
       .catch(() => {
-        if (active) showToast('게시글을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
+        if (active) setPostLoad({ id: selectedPostId, status: 'error' })
       })
     return () => {
       active = false
     }
-  }, [selectedPostId, showToast])
+  }, [selectedPostId, detailRetryKey])
+
+  const detailStatus = postLoad?.id === selectedPostId ? postLoad.status : 'loading'
+  const visiblePost = selectedPost?.id === selectedPostId ? selectedPost : null
 
   const myPostCount = posts.filter(({ isMine }) => isMine).length
   const myCommentCount = comments.filter(({ isMine }) => isMine).length
@@ -190,12 +198,14 @@ function CommunityPage() {
         openPost(String(post.id))
       }
     } catch {
-      showToast(`게시글을 ${modal?.type === 'edit' ? '수정' : '등록'}하지 못했어요. 잠시 후 다시 시도해 주세요.`)
       throw new Error('COMMUNITY_REQUEST_FAILED')
     }
   }
 
   async function toggleLike(post: ViewPost) {
+    if (pendingLikeIds.current.has(post.id)) return
+    pendingLikeIds.current.add(post.id)
+    setPendingLikeIdsState(new Set(pendingLikeIds.current))
     try {
       await setPostLike(post.id, !post.liked)
       const updated = await getPost(post.id)
@@ -204,6 +214,9 @@ function CommunityPage() {
       setPosts((current) => current.map((item) => (item.id === mapped.id ? mapped : item)))
     } catch {
       showToast('좋아요를 반영하지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      pendingLikeIds.current.delete(post.id)
+      setPendingLikeIdsState(new Set(pendingLikeIds.current))
     }
   }
 
@@ -237,7 +250,9 @@ function CommunityPage() {
     try {
       await deleteComment(commentId)
       setComments((current) => current.filter((comment) => comment.id !== commentId))
-      setSelectedPost((current) => (current ? { ...current, commentCount: Math.max(0, current.commentCount - 1) } : current))
+      setSelectedPost((current) =>
+        current ? { ...current, commentCount: Math.max(0, current.commentCount - 1) } : current,
+      )
       setModal(null)
     } catch {
       showToast('댓글을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.')
@@ -265,39 +280,65 @@ function CommunityPage() {
     <AppLayout activeMenu="community">
       <main className="mx-auto w-full max-w-[1200px] flex-1 px-5 py-5 md:px-8 md:py-6">
         {selectedPostId ? (
-          selectedPost ? (
+          detailStatus === 'ready' && visiblePost ? (
             <div className="mx-auto max-w-[760px] space-y-sm">
-              <BackButton onClick={() => openPost(null)}>{selectedPost.board} 게시판</BackButton>
+              <BackButton onClick={() => openPost(null)}>{visiblePost.board} 게시판</BackButton>
               <PostDetail
-                post={selectedPost}
-                onToggleLike={() => void toggleLike(selectedPost)}
+                post={visiblePost}
+                likeDisabled={pendingLikeIdsState.has(visiblePost.id)}
+                onToggleLike={() => void toggleLike(visiblePost)}
                 onCommentClick={() => commentInputRef.current?.focus()}
-                onMoreClick={() => setModal({ type: 'postMenu', postId: selectedPost.id })}
+                onMoreClick={() => setModal({ type: 'postMenu', postId: visiblePost.id })}
               />
-              <SectionHeader title={`댓글 ${selectedPost.commentCount}`} className="pt-xs" />
+              <SectionHeader title={`댓글 ${visiblePost.commentCount}`} className="pt-xs" />
               {comments.length > 0 ? (
                 <CommentList comments={comments} onMoreClick={(comment) => handleCommentMore(comment as ViewComment)} />
               ) : (
                 <p className="py-sm text-caption text-text-secondary">첫 댓글을 남겨 보세요.</p>
               )}
-              {commentInputError && <p role="alert" className="text-caption text-text-danger">{commentInputError}</p>}
+              {commentInputError && (
+                <p role="alert" className="text-caption text-text-danger">
+                  {commentInputError}
+                </p>
+              )}
               <CommentInput onSubmit={(content) => void submitComment(content)} inputRef={commentInputRef} />
             </div>
+          ) : detailStatus === 'error' ? (
+            <div className="mx-auto max-w-[760px] rounded-lg border border-border-subtle bg-bg-surface p-lg shadow-cloud-sm">
+              <InlineError
+                title="게시글을 불러오지 못했어요"
+                description="네트워크 상태를 확인한 뒤 다시 시도해 주세요."
+                onRetry={() => {
+                  if (selectedPostId) setPostLoad({ id: selectedPostId, status: 'loading' })
+                  setDetailRetryKey((key) => key + 1)
+                }}
+              />
+            </div>
           ) : (
-            <div className="mx-auto max-w-[760px] py-3xl"><CardSkeleton count={1} label="게시글 불러오는 중" /></div>
+            <div className="mx-auto max-w-[760px] py-3xl">
+              <CardSkeleton count={1} label="게시글 불러오는 중" />
+            </div>
           )
         ) : (
           <>
             <header className="flex flex-col gap-md sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h1 className="text-title">커뮤니티</h1>
-                <p className="mt-1 text-caption text-text-secondary">기수와 상관없이 모든 게시판을 읽고 쓸 수 있어요. 작성자는 기수만 표시돼요.</p>
+                <p className="mt-1 text-caption text-text-secondary">
+                  기수와 상관없이 모든 게시판을 읽고 쓸 수 있어요. 작성자는 기수만 표시돼요.
+                </p>
               </div>
               <div className="flex items-center gap-2 sm:mt-xs">
-                <SearchField value={search} onChange={setSearch} placeholder="제목·내용 검색" className="h-10! min-w-0 flex-1 sm:w-[260px] sm:flex-none" />
+                <SearchField
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="제목·내용 검색"
+                  className="h-10! min-w-0 flex-1 sm:w-[260px] sm:flex-none"
+                />
                 <div className="hidden sm:block">
                   <Button size="sm" className="h-8! px-3! text-caption!" onClick={() => setModal({ type: 'write' })}>
-                    <Pencil className="size-3.5" strokeWidth={1.75} aria-hidden />글쓰기
+                    <Pencil className="size-3.5" strokeWidth={1.75} aria-hidden />
+                    글쓰기
                   </Button>
                 </div>
               </div>
@@ -309,7 +350,14 @@ function CommunityPage() {
                 value={selectedBoard}
                 onChange={setSelectedBoard}
               />
-              <Select variant="compact" label="정렬" placeholder="선택" options={SORT_OPTIONS} value={sortOrder} onChange={(value) => setSortOrder(value as SortOrder)} />
+              <Select
+                variant="compact"
+                label="정렬"
+                placeholder="선택"
+                options={SORT_OPTIONS}
+                value={sortOrder}
+                onChange={(value) => setSortOrder(value as SortOrder)}
+              />
             </div>
             <div className="mt-md grid grid-cols-1 items-start gap-xl lg:grid-cols-[minmax(0,1fr)_278px]">
               <section className="space-y-sm" aria-label="게시글 목록">
@@ -317,30 +365,59 @@ function CommunityPage() {
                   <CardSkeleton count={4} label="게시글 불러오는 중" />
                 ) : feedStatus === 'error' ? (
                   <div className="rounded-lg border border-border-subtle bg-bg-surface p-lg shadow-cloud-sm">
-                    <InlineError title="게시글을 불러오지 못했어요" description="네트워크 상태를 확인한 뒤 다시 시도해 주세요." onRetry={() => setRetryKey((key) => key + 1)} />
+                    <InlineError
+                      title="게시글을 불러오지 못했어요"
+                      description="네트워크 상태를 확인한 뒤 다시 시도해 주세요."
+                      onRetry={() => setRetryKey((key) => key + 1)}
+                    />
                   </div>
                 ) : filteredPosts.length > 0 ? (
                   filteredPosts.map((post) => <PostCard key={post.id} post={post} onClick={() => openPost(post.id)} />)
                 ) : (
                   <div className="py-3xl">
                     {search.trim() ? (
-                      <EmptyState icon={Search} title="검색 결과가 없어요" description="다른 단어로 검색하거나 게시판을 바꿔 보세요." />
+                      <EmptyState
+                        icon={Search}
+                        title="검색 결과가 없어요"
+                        description="다른 단어로 검색하거나 게시판을 바꿔 보세요."
+                      />
                     ) : (
-                      <EmptyState title="아직 게시글이 없어요" description={`${selectedBoard} 게시판의 첫 글을 남겨보세요.`} actionText="글쓰기" onAction={() => setModal({ type: 'write' })} />
+                      <EmptyState
+                        title="아직 게시글이 없어요"
+                        description={`${selectedBoard} 게시판의 첫 글을 남겨보세요.`}
+                        actionText="글쓰기"
+                        onAction={() => setModal({ type: 'write' })}
+                      />
                     )}
                   </div>
                 )}
               </section>
               <aside className="space-y-sm">
                 <HomePanel title="이번 주 인기글">
-                  {popularPosts.map((post, index) => <HomePanelRow key={post.id} size="sm" leading={index + 1} title={post.title} onClick={() => openPost(post.id)} />)}
+                  {popularPosts.map((post, index) => (
+                    <HomePanelRow
+                      key={post.id}
+                      size="sm"
+                      leading={index + 1}
+                      title={post.title}
+                      onClick={() => openPost(post.id)}
+                    />
+                  ))}
                 </HomePanel>
                 <HomePanel title="내 활동" divided={false}>
-                  <li><dl className="flex gap-xl pb-xs">
-                    {[{ label: '작성글', value: myPostCount }, { label: '댓글', value: myCommentCount }].map((stat) => (
-                      <div key={stat.label} className="flex flex-col-reverse"><dt className="text-caption text-text-secondary">{stat.label}</dt><dd className="text-heading font-normal tabular-nums">{stat.value}</dd></div>
-                    ))}
-                  </dl></li>
+                  <li>
+                    <dl className="flex gap-xl pb-xs">
+                      {[
+                        { label: '작성글', value: myPostCount },
+                        { label: '댓글', value: myCommentCount },
+                      ].map((stat) => (
+                        <div key={stat.label} className="flex flex-col-reverse">
+                          <dt className="text-caption text-text-secondary">{stat.label}</dt>
+                          <dd className="text-heading font-normal tabular-nums">{stat.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </li>
                 </HomePanel>
               </aside>
             </div>
@@ -348,12 +425,16 @@ function CommunityPage() {
         )}
       </main>
 
-      {!selectedPostId && <WriteFab onClick={() => setModal({ type: 'write' })} className="fixed right-5 bottom-6 z-30 sm:hidden" />}
+      {!selectedPostId && (
+        <WriteFab onClick={() => setModal({ type: 'write' })} className="fixed right-5 bottom-6 z-30 sm:hidden" />
+      )}
 
       <WritePostModal
         open={modal?.type === 'write' || modal?.type === 'edit'}
         onClose={() => setModal(null)}
-        boards={modal?.type === 'edit' ? [editingPost?.board ?? myBoard] : boardNames.filter((board) => board !== '전체')}
+        boards={
+          modal?.type === 'edit' ? [editingPost?.board ?? myBoard] : boardNames.filter((board) => board !== '전체')
+        }
         defaultBoard={myBoard}
         mode={modal?.type === 'edit' ? 'edit' : 'create'}
         initialValues={editingPost}
@@ -364,12 +445,33 @@ function CommunityPage() {
       <ActionSheet
         open={modal?.type === 'postMenu'}
         title="게시글 메뉴"
-        items={modal?.type === 'postMenu' && posts.find((post) => post.id === modal.postId)?.isMine
-          ? [
-              { label: '게시글 수정', icon: Pencil, onSelect: () => setModal({ type: 'edit', postId: modal.postId }) },
-              { label: '게시글 삭제', icon: Trash2, danger: true, onSelect: () => setModal({ type: 'deletePost', postId: modal.postId }) },
-            ]
-          : [{ label: '신고하기', icon: Flag, onSelect: () => modal?.type === 'postMenu' && setModal({ type: 'report', target: '게시글', targetId: modal.postId }) }]}
+        items={
+          modal?.type === 'postMenu' &&
+          ((selectedPost?.id === modal.postId && selectedPost.isMine) ||
+            posts.find((post) => post.id === modal.postId)?.isMine)
+            ? [
+                {
+                  label: '게시글 수정',
+                  icon: Pencil,
+                  onSelect: () => setModal({ type: 'edit', postId: modal.postId }),
+                },
+                {
+                  label: '게시글 삭제',
+                  icon: Trash2,
+                  danger: true,
+                  onSelect: () => setModal({ type: 'deletePost', postId: modal.postId }),
+                },
+              ]
+            : [
+                {
+                  label: '신고하기',
+                  icon: Flag,
+                  onSelect: () =>
+                    modal?.type === 'postMenu' &&
+                    setModal({ type: 'report', target: '게시글', targetId: modal.postId }),
+                },
+              ]
+        }
         onClose={() => setModal(null)}
       />
 

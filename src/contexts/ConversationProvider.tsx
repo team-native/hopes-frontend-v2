@@ -84,21 +84,87 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     ])
   }, [])
 
-  async function createConversation(title: string, attachments: LocalAttachment[] = []) {
+  async function createConversation(
+    title: string,
+    attachments: LocalAttachment[] = [],
+    onCreated?: (id: string) => void,
+  ) {
+    const uploaded = await Promise.all(attachments.map(({ file }) => uploadChatAttachment(file)))
     const chat = await createChat(title)
     const id = String(chat.id)
-    const uploaded = await Promise.all(attachments.map(({ file }) => uploadChatAttachment(file)))
-    const response = await sendChatMessage(id, title, uploaded.map(({ id: attachmentId }) => attachmentId))
-    const conversation = toConversation(response, attachments)
-    setConversations((current) => [conversation, ...current.filter((item) => item.id !== id)])
+    const optimisticMessage: ChatResponse['messages'][number] = {
+      id: -Date.now(),
+      role: 'USER',
+      content: title,
+      createdAt: new Date().toISOString(),
+      attachments: [],
+      contentFormat: 'TEXT',
+    }
+    const optimisticConversation: Conversation = {
+      id,
+      title: chat.title,
+      preview: title,
+      age: '방금',
+      daysAgo: 0,
+      attachments,
+      messages: [optimisticMessage],
+    }
+    setConversations((current) => [optimisticConversation, ...current.filter((item) => item.id !== id)])
+    onCreated?.(id)
+    try {
+      const response = await sendChatMessage(
+        id,
+        title,
+        uploaded.map(({ id: attachmentId }) => attachmentId),
+      )
+      const conversation = toConversation(response, attachments)
+      setConversations((current) => [conversation, ...current.filter((item) => item.id !== id)])
+    } catch (error) {
+      setConversations((current) =>
+        current.map((item) => (item.id === id ? { ...optimisticConversation, messages: [] } : item)),
+      )
+      throw error
+    }
     return id
   }
 
   async function sendMessage(id: string, content: string, attachments: LocalAttachment[] = []) {
-    const uploaded = await Promise.all(attachments.map(({ file }) => uploadChatAttachment(file)))
-    const response = await sendChatMessage(id, content, uploaded.map(({ id: attachmentId }) => attachmentId))
-    const conversation = toConversation(response, [...(getConversation(id)?.attachments ?? []), ...attachments])
-    setConversations((current) => [conversation, ...current.filter((item) => item.id !== id)])
+    const previous = getConversation(id)
+    if (!previous) throw new Error('CONVERSATION_NOT_FOUND')
+    const optimisticMessage: ChatResponse['messages'][number] = {
+      id: -Date.now(),
+      role: 'USER',
+      content,
+      createdAt: new Date().toISOString(),
+      attachments: [],
+      contentFormat: 'TEXT',
+    }
+    const allAttachments = [...(previous.attachments ?? []), ...attachments]
+    setConversations((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              preview: content,
+              attachments: allAttachments,
+              messages: [...(item.messages ?? []), optimisticMessage],
+            }
+          : item,
+      ),
+    )
+    try {
+      const uploaded = await Promise.all(attachments.map(({ file }) => uploadChatAttachment(file)))
+      const response = await sendChatMessage(
+        id,
+        content,
+        uploaded.map(({ id: attachmentId }) => attachmentId),
+      )
+      const conversation = toConversation(response, allAttachments)
+      setConversations((current) => [conversation, ...current.filter((item) => item.id !== id)])
+    } catch (error) {
+      setConversations((current) => current.map((item) => (item.id === id ? previous : item)))
+      throw error
+    }
   }
 
   async function deleteConversation(id: string) {

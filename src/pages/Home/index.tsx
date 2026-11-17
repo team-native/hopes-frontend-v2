@@ -1,5 +1,5 @@
 import { BedDouble, Bell, Code, Ellipsis, FileText, Heart, RefreshCw, type LucideIcon } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import AttachDropzone from '../../components/attach/AttachDropzone'
 import { ImageThumb, PdfChip } from '../../components/attach/Attachments'
@@ -136,18 +136,31 @@ function HomePage() {
   const [department, setDepartment] = useState<string>(DEPARTMENTS[0])
   const [major, setMajor] = useState<string>(MAJORS[0])
   const [isSending, setIsSending] = useState(false)
+  const loadedConversationIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (conversationId) void loadConversation(conversationId).catch(() => showToast('대화를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'))
-  }, [conversationId, loadConversation, showToast])
+    if (!conversationId || loadedConversationIdRef.current === conversationId) return
+    loadedConversationIdRef.current = conversationId
+    const current = getConversation(conversationId)
+    if (current?.messages?.some(({ id }) => id < 0)) return
+    void loadConversation(conversationId).catch(() =>
+      showToast('대화를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'),
+    )
+  }, [conversationId, getConversation, loadConversation, showToast])
 
-  async function startConversation(question: string, attachments: LocalAttachment[] = []) {
+  async function startConversation(
+    question: string,
+    attachments: LocalAttachment[] = [],
+    onConversationCreated?: (id: string) => void,
+  ) {
     if (isSending) return false
     setIsSending(true)
     try {
-      const id = await createConversation(question, attachments)
+      await createConversation(question, attachments, (id) => {
+        onConversationCreated?.(id)
+        openConversation(id)
+      })
       setDraft('')
-      openConversation(id)
       return true
     } catch {
       showToast('메시지를 보내지 못했어요. 잠시 후 다시 시도해 주세요.')
@@ -157,10 +170,14 @@ function HomePage() {
     }
   }
 
-  async function submitQuestion(attachments: LocalAttachment[], question: string) {
+  async function submitQuestion(
+    attachments: LocalAttachment[],
+    question: string,
+    onConversationCreated?: (id: string) => void,
+  ) {
     const text = question.trim() || (attachments.length > 0 ? '첨부 자료 요약해줘' : '')
     if (!text || isSending) return false
-    if (!conversationId || screen !== 'conversation') return startConversation(text, attachments)
+    if (!conversationId || screen !== 'conversation') return startConversation(text, attachments, onConversationCreated)
     setIsSending(true)
     try {
       await sendMessage(conversationId, text, attachments)
@@ -343,7 +360,7 @@ type NewChatViewProps = {
   onMajorChange: (value: string) => void
   onAsk: (question: string) => void
   /** 입력창으로 보내기 (첨부 포함). 새 대화를 만들었으면 true */
-  onSubmit: (attachments: LocalAttachment[], question: string) => Promise<boolean>
+  onSubmit: (attachments: LocalAttachment[], question: string, onCreated?: (id: string) => void) => Promise<boolean>
 }
 
 function NewChatView({ department, major, onDepartmentChange, onMajorChange, onAsk, onSubmit }: NewChatViewProps) {
@@ -354,7 +371,7 @@ function NewChatView({ department, major, onDepartmentChange, onMajorChange, onA
 
   async function handleSubmit() {
     if (!canSend) return
-    if (await onSubmit(draftAttachments.attachments, draft)) {
+    if (await onSubmit(draftAttachments.attachments, draft, draftAttachments.handOff)) {
       draftAttachments.handOff()
       setDraft('')
     }
@@ -484,7 +501,9 @@ function ConversationView({
 
   async function copyAnswer() {
     try {
-      await navigator.clipboard.writeText(messages.filter((message) => message.role === 'ASSISTANT').at(-1)?.content ?? '')
+      await navigator.clipboard.writeText(
+        messages.filter((message) => message.role === 'ASSISTANT').at(-1)?.content ?? '',
+      )
       onToast('답변을 복사했어요.')
     } catch {
       onToast('이 브라우저에서는 복사할 수 없어요.')
@@ -540,7 +559,11 @@ function ConversationView({
             </div>
           ),
         )}
-        {isSending && <p role="status" className="text-caption text-text-secondary">답변을 기다리고 있어요…</p>}
+        {isSending && (
+          <p role="status" className="text-caption text-text-secondary">
+            답변을 기다리고 있어요…
+          </p>
+        )}
         <RelatedQuestions questions={relatedQuestions} onSelect={onAsk} />
       </section>
 
