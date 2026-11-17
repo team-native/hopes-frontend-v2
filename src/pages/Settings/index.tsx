@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { deleteAccount, logout } from '../../api/auth'
+import { logout } from '../../api/auth'
 import { getSettings, sendInquiry, updateSettings } from '../../api/settings'
 import {
   getRecommendationConsent,
@@ -23,7 +23,6 @@ import {
   type SettingsMenu,
 } from '../../components/settings/SettingsCards'
 import SettingToggleRow from '../../components/settings/SettingToggleRow'
-import TextField from '../../components/common/TextField'
 import useProfile from '../../hooks/useProfile'
 import useConversations from '../../hooks/useConversations'
 import useToast from '../../hooks/useToast'
@@ -87,9 +86,7 @@ function SettingsPage() {
   const [message, setMessage] = useState('')
   const [contactErrors, setContactErrors] = useState({ email: false, message: false })
   const [logoutOpen, setLogoutOpen] = useState(false)
-  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false)
   const [deleteChatsOpen, setDeleteChatsOpen] = useState(false)
-  const [accountPassword, setAccountPassword] = useState('')
   const [settingsError, setSettingsError] = useState(false)
   const [recommendationConsent, setRecommendationConsent] = useState(false)
   const [consentPolicyVersion, setConsentPolicyVersion] = useState('')
@@ -277,9 +274,6 @@ function SettingsPage() {
                     />
                   ))}
                 </ListCard>
-                <Button variant="secondary" className="text-text-danger" onClick={() => setDeleteAccountOpen(true)}>
-                  회원 탈퇴
-                </Button>
               </>
             )}
           </div>
@@ -318,37 +312,6 @@ function SettingsPage() {
             // The local session is cleared even when the server cannot be reached.
           } finally {
             navigate('/login', { replace: true })
-          }
-        }}
-      />
-      <ConfirmDialog
-        open={deleteAccountOpen}
-        title="계정을 탈퇴할까요?"
-        description={
-          <div className="space-y-sm">
-            <p>계정과 대화, 메시지, 문의가 영구 삭제돼요.</p>
-            <TextField
-              label="비밀번호 확인"
-              type="password"
-              value={accountPassword}
-              onChange={(event) => setAccountPassword(event.target.value)}
-            />
-          </div>
-        }
-        confirmText="탈퇴"
-        tone="danger"
-        onCancel={() => {
-          setDeleteAccountOpen(false)
-          setAccountPassword('')
-        }}
-        onConfirm={async () => {
-          try {
-            await deleteAccount(accountPassword)
-            setDeleteAccountOpen(false)
-            setAccountPassword('')
-            navigate('/login', { replace: true })
-          } catch {
-            showToast('회원 탈퇴를 완료하지 못했어요. 비밀번호를 확인해 주세요.')
           }
         }}
       />
