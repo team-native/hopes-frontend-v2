@@ -14,6 +14,7 @@ const GRADIENT_STOPS = [
 
 const SHOW_MS = 1800
 const FADE_MS = 450
+const SPLASH_SHOWN_KEY = 'hopes:splash-shown'
 
 type Phase = 'playing' | 'leaving' | 'done'
 
@@ -22,10 +23,13 @@ function prefersReducedMotion() {
 }
 
 function SplashScreen() {
-  const [phase, setPhase] = useState<Phase>(() => (prefersReducedMotion() ? 'done' : 'playing'))
+  const [phase, setPhase] = useState<Phase>(() =>
+    prefersReducedMotion() || sessionStorage.getItem(SPLASH_SHOWN_KEY) ? 'done' : 'playing',
+  )
 
   useEffect(() => {
     if (phase === 'done') return
+    sessionStorage.setItem(SPLASH_SHOWN_KEY, 'true')
     const timer = window.setTimeout(
       () => setPhase(phase === 'playing' ? 'leaving' : 'done'),
       phase === 'playing' ? SHOW_MS : FADE_MS,
