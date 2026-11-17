@@ -75,6 +75,11 @@ function HomePage() {
   const [recommendationItems, setRecommendationItems] = useState<RecommendationDto[]>([])
   const recommendationRefreshTokenRef = useRef<string | undefined>(undefined)
   const recommendationItemsRef = useRef<RecommendationDto[]>([])
+  // 학과 · 전공(내 설정)을 다 받은 뒤에 추천 질문을 한 번만 불러와요. (먼저 부르면 일반 추천 → 학과 추천으로 두 번 바뀌어요)
+  const [catalogReady, setCatalogReady] = useState(false)
+  const [recommendationsLoading, setRecommendationsLoading] = useState(true)
+  // 늦게 온 이전 응답이 최신 추천을 덮어쓰지 않게 요청 순서를 세요
+  const recommendationRequestRef = useRef(0)
   const [isSending, setIsSending] = useState(false)
   const loadedConversationIdRef = useRef<string | null>(null)
 
@@ -116,6 +121,10 @@ function HomePage() {
         setRecommendationConsent(consent.enabled)
       })
       .catch(() => undefined)
+      // 설정을 못 받아도 기본 추천은 보여 줘요
+      .finally(() => {
+        if (active) setCatalogReady(true)
+      })
     return () => {
       active = false
     }
@@ -123,6 +132,7 @@ function HomePage() {
 
   const loadRecommendations = useCallback(
     async (refresh = false) => {
+      const request = ++recommendationRequestRef.current
       try {
         const result = await getRecommendations({
           departmentId,
@@ -132,19 +142,23 @@ function HomePage() {
           refreshToken: refresh ? recommendationRefreshTokenRef.current : undefined,
           excludeIds: refresh ? recommendationItemsRef.current.map(({ id }) => id) : undefined,
         })
+        if (request !== recommendationRequestRef.current) return
         recommendationItemsRef.current = result.items
         setRecommendationItems(result.items)
         recommendationRefreshTokenRef.current = result.nextRefreshToken
       } catch {
+        if (request !== recommendationRequestRef.current) return
         setRecommendationItems([])
+      } finally {
+        if (request === recommendationRequestRef.current) setRecommendationsLoading(false)
       }
     },
     [departmentId, specialtyId, recommendationConsent],
   )
 
   useEffect(() => {
-    void loadRecommendations()
-  }, [loadRecommendations])
+    if (catalogReady) void loadRecommendations()
+  }, [catalogReady, loadRecommendations])
 
   const suggestions = useMemo(() => {
     return recommendationItems.map((item, index) => ({
@@ -267,6 +281,7 @@ function HomePage() {
           departmentOptions={departmentOptions}
           majorOptions={specialtyOptions}
           suggestions={suggestions}
+          suggestionsLoading={recommendationsLoading}
           onRefreshSuggestions={() => void loadRecommendations(true)}
           onDepartmentChange={changeDepartment}
           onMajorChange={changeMajor}
@@ -456,6 +471,8 @@ type NewChatViewProps = {
   departmentOptions: string[]
   majorOptions: string[]
   suggestions: QuestionSuggestion[]
+  /** 추천 질문을 처음 불러오는 중 (카드 자리에 회색 자리표시) */
+  suggestionsLoading: boolean
   onRefreshSuggestions: () => void
   onDepartmentChange: (value: string) => void
   onMajorChange: (value: string) => void
@@ -470,6 +487,7 @@ function NewChatView({
   departmentOptions,
   majorOptions,
   suggestions,
+  suggestionsLoading,
   onRefreshSuggestions,
   onDepartmentChange,
   onMajorChange,
@@ -537,7 +555,20 @@ function NewChatView({
           />
         </div>
         <div className="mt-xs grid grid-cols-1 gap-sm text-left sm:grid-cols-2">
-          {rotatedSuggestions.length ? (
+          {suggestionsLoading ? (
+            Array.from({ length: 4 }, (_, index) => (
+              <div
+                key={index}
+                role={index === 0 ? 'status' : undefined}
+                aria-label={index === 0 ? '추천 질문 불러오는 중' : undefined}
+                className="h-[132px] animate-pulse rounded-lg border border-border-subtle bg-bg-surface p-md"
+              >
+                <div className="size-8 rounded-sm bg-bg-canvas" />
+                <div className="mt-sm h-3.5 w-3/4 rounded-full bg-bg-canvas" />
+                <div className="mt-2 h-3 w-1/4 rounded-full bg-bg-canvas" />
+              </div>
+            ))
+          ) : rotatedSuggestions.length ? (
             rotatedSuggestions.map((question, index) => (
               <div key={question.id ?? question.title} className="animate-fade-up" style={stagger(index, 50)}>
                 <QuestionCard

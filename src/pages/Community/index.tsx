@@ -50,6 +50,9 @@ import { stagger } from '../../utils/motion'
 
 const SORT_OPTIONS = ['최신순', '인기순'] as const
 type SortOrder = (typeof SORT_OPTIONS)[number]
+/** 커뮤니티 칩에 항상 보여 줄 기수 (피그마 시안). 서버에 게시판이 없어도 칩은 보여요. */
+const COMMUNITY_COHORTS = ['8기', '9기', '10기', '11기']
+
 type ViewPost = Post & { boardId: number; isMine: boolean }
 type ViewComment = Comment & { isMine: boolean }
 type ModalState =
@@ -143,8 +146,21 @@ function CommunityPage() {
   const [detailRetryKey, setDetailRetryKey] = useState(0)
   const commentInputRef = useRef<HTMLInputElement>(null)
 
-  const boardNames = useMemo(() => ['전체', ...new Set(boards.map(({ name }) => name))], [boards])
-  const myBoard = boardNames.includes(profile.generation) ? profile.generation : '전체'
+  // 서버 기수 게시판(8기 · 9기 …) — 서버의 공통 게시판 이름도 "전체"(cohort 없음)라 칩에서는 빼요.
+  // 기수 게시판은 그 기수 사용자가 생기면 서버가 만들어요. 글쓰기는 서버에 있는 게시판에만 할 수 있어요.
+  const serverBoardNames = useMemo(
+    () => [...new Set(boards.filter(({ cohort }) => cohort != null).map(({ name }) => name))],
+    [boards],
+  )
+  // 칩: "전체"(모든 글) + 시안의 기수(8~11기) + 그 밖에 서버에 있는 기수. 서버에 아직 없는 기수는 눌러도 빈 목록이에요.
+  const boardNames = useMemo(
+    () => [
+      '전체',
+      ...[...new Set([...COMMUNITY_COHORTS, ...serverBoardNames])].sort((a, b) => parseInt(a) - parseInt(b)),
+    ],
+    [serverBoardNames],
+  )
+  const myBoard = serverBoardNames.includes(profile.generation) ? profile.generation : '전체'
   const editingPost =
     modal?.type === 'edit'
       ? ((selectedPost?.id === modal.postId ? selectedPost : undefined) ??
@@ -161,8 +177,15 @@ function CommunityPage() {
     try {
       const boardData = await getBoards()
       setBoards(boardData)
+      const boardId = selectedBoard === '전체' ? undefined : boardData.find((board) => board.name === selectedBoard)?.id
+      // 서버에 아직 없는 기수 게시판(예: 가입자가 없는 11기)은 요청하지 않고 빈 목록으로 보여 줘요
+      if (selectedBoard !== '전체' && boardId === undefined) {
+        setPosts([])
+        setFeedStatus('ready')
+        return
+      }
       const page = await getPosts({
-        boardId: selectedBoard === '전체' ? undefined : boardData.find((board) => board.name === selectedBoard)?.id,
+        boardId,
         keyword: search.trim() || undefined,
         page: 0,
         size: 50,
@@ -535,9 +558,7 @@ function CommunityPage() {
       <WritePostModal
         open={modal?.type === 'write' || modal?.type === 'edit'}
         onClose={() => setModal(null)}
-        boards={
-          modal?.type === 'edit' ? [editingPost?.board ?? myBoard] : boardNames.filter((board) => board !== '전체')
-        }
+        boards={modal?.type === 'edit' ? [editingPost?.board ?? myBoard] : serverBoardNames}
         defaultBoard={myBoard}
         mode={modal?.type === 'edit' ? 'edit' : 'create'}
         initialValues={editingPost}
