@@ -42,6 +42,10 @@ const GENERIC_SERVER_CODES = new Set([
  * 상태 코드와 서버 문구로 원인 코드를 추측해요. (서버 문구 예시는 Swagger · 실제 응답 기준)
  * - 401 "등록된 회원을 찾을 수 없습니다." → INVALID_CREDENTIALS
  * - 400 "인증번호를 먼저 요청해주세요" · "인증번호가 일치하지 않습니다" → INVALID_CODE
+ *
+ * ⚠️ 임시 방법이에요. 문구 비교라서 백엔드가 문구를 바꾸면 조용히 기본 문구로 빠질 수 있어요.
+ * 백엔드가 세부 code(예: EMAIL_EXPIRED)를 주기 시작하면 throwApiError가 그 값을 먼저 쓰니,
+ * 그때 화면의 원인 코드 이름만 맞추고 이 함수는 줄이거나 지우면 돼요.
  */
 function guessErrorCode(status: number | undefined, message: string): string | undefined {
   if (status === 401) return 'INVALID_CREDENTIALS'
@@ -58,8 +62,10 @@ function guessErrorCode(status: number | undefined, message: string): string | u
 /** axios 에러를 ApiError(원인 코드 + 서버 문구)로 바꿔서 던져요 */
 function throwApiError(error: unknown): never {
   if (!axios.isAxiosError(error)) throw error
-  const status = error.response?.status
-  const payload = error.response?.data as { code?: unknown; message?: unknown } | undefined
+  // 네트워크 끊김 · 시간 초과처럼 응답 자체가 없으면 서버 문구도 없어서 화면은 기본 문구를 보여 줘요
+  if (!error.response) throw new ApiError({ code: 'NETWORK_ERROR', cause: error })
+  const status = error.response.status
+  const payload = error.response.data as { code?: unknown; message?: unknown } | undefined
   const serverMessage = typeof payload?.message === 'string' ? payload.message : undefined
   const serverCode =
     typeof payload?.code === 'string' && !GENERIC_SERVER_CODES.has(payload.code) ? payload.code : undefined
@@ -102,10 +108,14 @@ export async function deleteAccount(password: string): Promise<void> {
     // 서버는 비밀번호 불일치와 로그인 만료를 둘 다 401 + code "UNAUTHORIZED"로 줘서 message로 구분해요.
     // (hopes-server HopesServices.deleteAccount: "비밀번호가 일치하지 않습니다" / "로그인이 필요합니다")
     if (axios.isAxiosError(error) && error.response?.status === 401) {
-      const message = (error.response.data as { message?: string } | undefined)?.message ?? ''
-      if (message.includes('비밀번호')) throw new Error('INVALID_PASSWORD')
+      const message = (error.response.data as { message?: unknown } | undefined)?.message
+      const serverMessage = typeof message === 'string' ? message : undefined
+      if (serverMessage?.includes('비밀번호')) {
+        throw new ApiError({ code: 'INVALID_PASSWORD', status: 401, serverMessage, cause: error })
+      }
       // 로그인 만료 — client는 이 요청의 401에서 토큰을 지우지 않으므로 여기서 로그아웃 처리
       clearToken()
+      throw new ApiError({ code: 'SESSION_EXPIRED', status: 401, serverMessage, cause: error })
     }
     throwApiError(error)
   }
