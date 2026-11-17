@@ -55,24 +55,42 @@ export async function getChat(id: string, params: { messagePage?: number; messag
   return data
 }
 
+/**
+ * 메시지 전송 + AI 답변 (서버가 답변까지 만든 뒤 응답해서 최대 60초쯤 걸릴 수 있어요)
+ * clientRequestId: 같은 질문을 다시 보낼 때 같은 값을 넘기면 서버가 한 번만 저장해요.
+ * (이미 저장됐으면 저장된 대화를 그대로 돌려줘요. 내용이 다르면 409)
+ */
 export async function sendChatMessage(
   id: string,
   content: string,
   attachmentIds: number[],
   preferences: { departmentId?: number; specialtyId?: number } = {},
+  clientRequestId?: string,
 ) {
   const { data } = await client.post<ChatResponse>(`/api/chats/${encodeURIComponent(id)}/messages`, {
     content,
     attachmentIds,
     ...preferences,
+    clientRequestId,
   })
   return data
 }
 
-export async function uploadChatAttachment(file: File) {
+/** 대화 개별 삭제 (본인 대화가 아니거나 이미 지워졌으면 404) */
+export async function deleteChat(id: string) {
+  await client.delete(`/api/chats/${encodeURIComponent(id)}`)
+}
+
+/**
+ * 첨부 업로드 (PNG · JPEG · PDF)
+ * clientRequestId: 같은 파일을 다시 올릴 때 같은 값을 넘기면 서버가 같은 첨부를 돌려줘요.
+ */
+export async function uploadChatAttachment(file: File, clientRequestId?: string) {
   const form = new FormData()
   form.append('file', file)
-  const { data } = await client.post<AttachmentDto>('/api/attachments', form)
+  const { data } = await client.post<AttachmentDto>('/api/attachments', form, {
+    params: clientRequestId ? { clientRequestId } : undefined,
+  })
   return data
 }
 
@@ -98,7 +116,24 @@ export type LocationRequest = {
   clientRequestId?: string
 }
 
+/** 대화 화면 위치 확인 응답 — 결과는 locationResult 안에 있어요 */
+export type ChatLocationResponse = {
+  chatId: number
+  cardType: 'LOCATION'
+  locationResult: {
+    /** NEAR_SCHOOL · OUTSIDE · LOW_ACCURACY · UNKNOWN */
+    status: string
+    accuracyMeters: number
+    message: string
+    floorPlansAvailable: boolean
+    matchedBuilding?: number | null
+  }
+}
+
 export async function sendLocationCheck(id: string, location: LocationRequest) {
-  const { data } = await client.post<Record<string, unknown>>(`/api/chats/${encodeURIComponent(id)}/location-check`, location)
+  const { data } = await client.post<ChatLocationResponse>(
+    `/api/chats/${encodeURIComponent(id)}/location-check`,
+    location,
+  )
   return data
 }
