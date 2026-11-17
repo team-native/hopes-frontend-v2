@@ -4,7 +4,7 @@
  * hopes v1.5 Design System 토큰 (Web 1440 기준)
  * - 이름은 피그마와 같아요: 피그마 "bg/brand" → 클래스 bg-bg-brand, "text/secondary" → text-text-secondary
  * - 화면에서는 의미 토큰(bg/·text/·border/·icon/)만 쓰고, Primitives(blue/·slate/…)는 직접 쓰지 않아요.
- * - 색 값은 피그마 토큰표 이미지에서 뽑았어요. 피그마 원본 값과 다르면 여기만 고치면 돼요.
+ * - 색 값은 피그마 Design System 페이지의 스와치에서 직접 뽑은 값이에요.
  */
 @theme {
   /* ---------- Font ---------- */
@@ -12,26 +12,26 @@
   --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 
   /* ---------- Color: Primitives (원색) ---------- */
-  --color-blue-50: #f4f8fe;
-  --color-blue-100: #eaf1fd;
-  --color-blue-200: #dce6fb;
-  --color-blue-300: #b7ccf7;
-  --color-blue-400: #86a7f1;
-  --color-blue-500: #5f84ed;
-  --color-blue-600: #4e6ed0;
-  --color-blue-700: #3e58a7;
-  --color-slate-50: #f7f9fc;
-  --color-slate-100: #eef1f6;
-  --color-slate-200: #edf1f9;
-  --color-slate-300: #e0e6f3;
-  --color-slate-400: #9ca3b6;
-  --color-slate-500: #70788e;
-  --color-slate-700: #3e4458;
-  --color-slate-900: #171b2a;
+  --color-blue-50: #f2f8ff;
+  --color-blue-100: #e6f1fe;
+  --color-blue-200: #d6e7fd;
+  --color-blue-300: #a9cdfb;
+  --color-blue-400: #6aa9f8;
+  --color-blue-500: #2f86f5;
+  --color-blue-600: #1f6fd8;
+  --color-blue-700: #1a59ad;
+  --color-slate-50: #f6f9fc;
+  --color-slate-100: #edf1f7;
+  --color-slate-200: #ebf1fa;
+  --color-slate-300: #dce6f4;
+  --color-slate-400: #98a3b8;
+  --color-slate-500: #6b7890;
+  --color-slate-700: #39445a;
+  --color-slate-900: #141b2b;
   --color-white: #ffffff;
-  --color-red-50: #fbf2f2;
-  --color-red-500: #d1545c;
-  --color-green-500: #63ad81;
+  --color-red-50: #fff1f2;
+  --color-red-500: #ef4458;
+  --color-green-500: #22b07d;
 
   /* ---------- Color: 의미 토큰 ---------- */
   /* bg */
@@ -118,12 +118,39 @@
   --radius-full: 9999px;
 
   /* ---------- Elevation (Cloud) ---------- */
-  /* 검정이 아니라 브랜드 파랑을 옅게 쓴 그림자. 값은 이미지에서 추정 (피그마 원본 값 확인 필요) */
-  --shadow-cloud-sm: 0 4px 16px rgb(62 88 167 / 0.08); /* 카드 · 리스트 */
-  --shadow-cloud-md: 0 8px 32px rgb(62 88 167 / 0.12); /* 히어로 · 시트 · 모달 */
-  --shadow-cloud-brand: 0 8px 24px rgb(95 132 237 / 0.28); /* 주요 버튼 · 내 말풍선 */
+  /* 검정이 아니라 브랜드 파랑을 옅게 쓴 그림자 */
+  --shadow-cloud-sm: 0 4px 16px rgb(26 89 173 / 0.08); /* 카드 · 리스트 */
+  --shadow-cloud-md: 0 8px 32px rgb(26 89 173 / 0.12); /* 히어로 · 시트 · 모달 */
+  --shadow-cloud-brand: 0 8px 24px rgb(47 134 245 / 0.28); /* 주요 버튼 · 내 말풍선 */
 }
 
 body {
   @apply bg-bg-surface font-sans text-text-primary antialiased;
+}
+
+@keyframes splash-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes splash-fill {
+  from {
+    fill-opacity: 0;
+  }
+  to {
+    fill-opacity: 1;
+  }
+}
+
+.splash-logo-path {
+  fill-opacity: 0;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation:
+    splash-draw 1400ms ease-in-out forwards,
+    splash-fill 650ms ease-out 950ms forwards;
 }
