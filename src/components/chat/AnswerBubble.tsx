@@ -2,6 +2,7 @@ import { Check, Copy } from 'lucide-react'
 import { useState, type ComponentPropsWithoutRef, type ReactNode } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkCjkStrong from '../../utils/remarkCjkStrong'
 
 interface AnswerBubbleProps {
   /** 선배 답변 (마크다운 글) */
@@ -81,7 +82,7 @@ function AnswerBubble({ content, footer }: AnswerBubbleProps) {
   return (
     <div className="flex flex-col items-start gap-2.5">
       <div className="w-full max-w-[600px] rounded-lg border border-border-subtle bg-bg-surface px-5 py-4 text-label text-text-primary shadow-cloud-sm">
-        <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+        <Markdown remarkPlugins={[remarkGfm, remarkCjkStrong]} components={markdownComponents}>
           {content}
         </Markdown>
       </div>
