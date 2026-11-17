@@ -40,6 +40,8 @@ import TextArea from '../../components/common/TextArea'
 import { CommentChip, LikeChip } from '../../components/community/ReactionChips'
 import Sidebar, { type RecentChat, type SidebarMenu } from '../../components/layout/Sidebar'
 import AttachDropzone from '../../components/attach/AttachDropzone'
+import StepProgress from '../../components/auth/StepProgress'
+import { SIGNUP_STEPS } from '../Signup/constants'
 import AttachmentComposer from '../../components/chat/AttachmentComposer'
 import ActionMenu from '../../components/common/ActionMenu'
 import ActionSheet from '../../components/common/ActionSheet'
@@ -159,6 +161,7 @@ function DevComponentsPage() {
   const [reportReason, setReportReason] = useState('도배·광고')
   const [dropzoneOpen, setDropzoneOpen] = useState(false)
   const [composerValue, setComposerValue] = useState('')
+  const [progressStep, setProgressStep] = useState(1)
 
   return (
     <main className="min-h-screen bg-bg-canvas px-[111px] pt-12 pb-5xl">
@@ -185,6 +188,26 @@ function DevComponentsPage() {
           <div className="flex items-center gap-3">
             <NativeBadge />
             <NativeBadge size="sm" />
+          </div>
+        </Specimen>
+        <Specimen name="Auth/Step Progress" className="w-[480px]">
+          <StepProgress title="회원가입" current={progressStep} steps={SIGNUP_STEPS} />
+          <div className="mt-md flex gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={progressStep === 1}
+              onClick={() => setProgressStep((step) => step - 1)}
+            >
+              이전 단계
+            </Button>
+            <Button
+              size="sm"
+              disabled={progressStep === SIGNUP_STEPS.length}
+              onClick={() => setProgressStep((step) => step + 1)}
+            >
+              다음 단계
+            </Button>
           </div>
         </Specimen>
       </Group>
