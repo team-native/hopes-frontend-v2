@@ -126,3 +126,38 @@
 body {
   @apply bg-bg-surface font-sans text-text-primary antialiased;
 }
+
+@keyframes splash-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes splash-fill {
+  from {
+    fill-opacity: 0;
+  }
+  to {
+    fill-opacity: 1;
+  }
+}
+
+.splash-logo-path {
+  fill-opacity: 0;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation:
+    splash-draw 1400ms ease-in-out forwards,
+    splash-fill 650ms ease-out 950ms forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-logo-path {
+    fill-opacity: 1;
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+}

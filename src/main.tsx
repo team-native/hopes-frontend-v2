@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
+import SplashScreen from './components/common/SplashScreen'
 import { ConversationProvider } from './contexts/ConversationProvider'
 import { ProfileProvider } from './contexts/ProfileProvider'
 
@@ -11,6 +12,7 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <ProfileProvider>
         <ConversationProvider>
+          <SplashScreen />
           <App />
         </ConversationProvider>
       </ProfileProvider>
