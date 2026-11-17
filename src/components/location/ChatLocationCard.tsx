@@ -139,7 +139,8 @@ function DestinationCard({
         floorPlan={floorPlan}
         area={place.area}
         destination={place}
-        start={picking ? pickedPoint : null}
+        // 고른 출발점은 고르기를 꺼도 계속 보여 줘요 (아래 "출발: …" 문구와 맞추기)
+        start={pickedPoint}
         onPick={
           picking
             ? (point) => {
@@ -170,7 +171,9 @@ function DestinationCard({
           </Button>
         </div>
         {picking && !pickedPoint && (
-          <p className="text-caption text-text-brand">도면에서 지금 있는 곳을 눌러 주세요.</p>
+          <p className="text-caption text-text-brand">
+            도면에서 지금 있는 곳을 눌러 주세요. 키보드로는 아래 장소 검색을 이용해 주세요.
+          </p>
         )}
 
         <SearchField

@@ -260,9 +260,10 @@ function HomePage() {
     if (!text || isSending) return false
     if (!conversationId || screen !== 'conversation') return startConversation(text, attachments, onConversationCreated)
     setIsSending(true)
-    // 보내는 순간 입력창을 비워요(입력창에 쓴 질문을 보낼 때만. 추가 질문을 눌렀을 때 쓰던 글은 그대로 둬요).
-    // 실패하면 사용자가 다시 쓰지 않았을 때만 원래 질문을 되돌려 놔요.
-    setDraft((current) => (current === question ? '' : current))
+    // 입력창에 쓴 질문인지: 도면 카드(navigation) · 추가 질문 버튼은 앱이 만든 문구라 입력창과 상관없어요.
+    const fromComposer = !navigation && draft === question
+    // 보내는 순간 입력창을 비워요(입력창에 쓴 질문을 보낼 때만. 다른 경로로 보낼 때 쓰던 글은 그대로 둬요).
+    if (fromComposer) setDraft('')
     try {
       await sendMessage(
         conversationId,
@@ -275,7 +276,9 @@ function HomePage() {
       retryKeyRef.current = null
       return true
     } catch (error) {
-      setDraft((current) => current || question)
+      // 실패하면 입력창에서 보낸 질문만, 그사이 새로 쓰지 않았을 때 되돌려 놔요.
+      // (도면 카드 · 추가 질문 문구는 사용자가 쓴 글이 아니라서 입력창에 넣지 않아요)
+      if (fromComposer) setDraft((current) => current || question)
       showToast(getApiErrorMessage(error, '메시지를 보내지 못했어요.'))
       return false
     } finally {
