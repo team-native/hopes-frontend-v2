@@ -4,6 +4,7 @@ import { login } from '../../../api/auth'
 import Button from '../../../components/common/Button'
 import Checkbox from '../../../components/common/Checkbox'
 import FieldError from '../../../components/common/FieldError'
+import PasswordToggle from '../../../components/common/PasswordToggle'
 import TextField from '../../../components/common/TextField'
 import { useOnlineStatus } from '../../../hooks/useOnlineStatus'
 import { RETRY_LATER, getErrorCode } from '../../../utils/error'
@@ -12,6 +13,7 @@ function LoginForm() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [keepLogin, setKeepLogin] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -88,8 +90,9 @@ function LoginForm() {
         <TextField
           id="password"
           label="비밀번호"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           autoComplete="current-password"
+          rightSlot={<PasswordToggle visible={showPassword} onToggle={() => setShowPassword((v) => !v)} />}
           placeholder="비밀번호"
           value={password}
           onChange={(e) => {

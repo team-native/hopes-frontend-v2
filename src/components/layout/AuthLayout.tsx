@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import cloudsImage from '../../assets/auth-clouds.png'
 import LogoMark from '../common/LogoMark'
 import NativeBadge from '../common/NativeBadge'
 
@@ -73,18 +74,16 @@ function Hero({ description }: { description: ReactNode }) {
   )
 }
 
-/** 오른쪽 아래 구름 장식 */
+/** 오른쪽 아래 구름 장식 (디자인에서 받은 투명 배경 이미지를 그대로 사용) */
 function Clouds() {
   return (
-    <div
-      className="pointer-events-none absolute right-0 bottom-0 h-[220px] w-[460px] opacity-80 blur-[2px]"
+    <img
+      src={cloudsImage}
+      alt=""
       aria-hidden
-    >
-      <div className="absolute -right-10 -bottom-24 size-[300px] rounded-full bg-gradient-to-b from-bg-surface to-bg-canvas-deep" />
-      <div className="absolute right-24 -bottom-28 size-[260px] rounded-full bg-gradient-to-b from-bg-surface to-bg-canvas-deep opacity-80" />
-      <div className="absolute right-60 -bottom-36 size-[240px] rounded-full bg-gradient-to-b from-bg-surface to-bg-canvas-deep opacity-60" />
-      <div className="absolute -right-6 -bottom-16 size-[150px] rounded-full bg-bg-canvas-deep" />
-    </div>
+      draggable={false}
+      className="pointer-events-none absolute right-0 bottom-0 w-[600px] max-w-[90vw] select-none"
+    />
   )
 }
 
