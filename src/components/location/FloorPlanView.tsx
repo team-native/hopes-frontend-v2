@@ -1,5 +1,5 @@
 import { Maximize2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { getFloorPlanImage } from '../../api/campus'
 import type { FloorPlanInfo } from '../../api/chats'
 import FloorPlanFigure, { type FloorPlanMarks, type Point } from './FloorPlanFigure'
@@ -17,6 +17,7 @@ interface FloorPlanViewProps extends FloorPlanMarks {
 /**
  * 도면 한 장 + 그 위 표시 (목적지 방 · 길 · 출발 · 도착)
  * - 이미지는 로그인 토큰이 필요해서 axios로 받아 blob 주소로 보여 주고, 카드가 사라지면 해제해요.
+ * - 화면 가까이 왔을 때만 받아요. 방 모양 계산도 이미지가 온 뒤라 같이 미뤄져요.
  * - 목적지 방은 서버 사각형 대신 도면에서 찾은 실제 방 모양으로 칠해요 (roomShape.ts). 못 찾으면 사각형.
  * - 도면을 누르거나 오른쪽 위 버튼을 누르면 크게 보기(확대 · 축소 · 이동) 팝업이 열려요.
  *   출발 위치를 고르는 중에는 도면 누르기가 "위치 고르기"라서 버튼으로만 열어요.
@@ -26,8 +27,12 @@ function FloorPlanView({ floorPlan, onPick, label, ...marks }: FloorPlanViewProp
   const [image, setImage] = useState<{ id: string; url?: string; failed?: boolean }>({ id })
   const [retry, setRetry] = useState(0)
   const [zoomOpen, setZoomOpen] = useState(false)
+  const boxRef = useRef<HTMLDivElement>(null)
+  const nearScreen = useNearScreen(boxRef)
 
   useEffect(() => {
+    // 화면 가까이 오기 전에는 받지 않아요 (층별 도면처럼 한 번에 여러 장 올 때 필요한 것만)
+    if (!nearScreen) return
     let active = true
     let objectUrl: string | undefined
     getFloorPlanImage(url, id)
@@ -41,13 +46,14 @@ function FloorPlanView({ floorPlan, onPick, label, ...marks }: FloorPlanViewProp
       active = false
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [id, url, retry])
+  }, [id, url, retry, nearScreen])
 
   const current = image.id === id ? image : { id }
   const roomShape = useRoomShape(current.url, width, height, marks.area)
 
   return (
     <div
+      ref={boxRef}
       className="relative w-full overflow-hidden rounded-md border border-border-subtle bg-bg-surface"
       style={{ aspectRatio: `${width} / ${height}` }}
     >
@@ -96,6 +102,32 @@ function FloorPlanView({ floorPlan, onPick, label, ...marks }: FloorPlanViewProp
       )}
     </div>
   )
+}
+
+/**
+ * 요소가 화면에 들어오거나 가까워지면(위아래 300px) true — 한 번 true가 되면 그대로 둬요.
+ * IntersectionObserver가 없는 환경에서는 바로 true
+ */
+function useNearScreen(ref: RefObject<HTMLElement | null>) {
+  const [near, setNear] = useState(() => typeof IntersectionObserver === 'undefined')
+
+  useEffect(() => {
+    const element = ref.current
+    if (near || !element) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setNear(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '300px 0px' },
+    )
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [ref, near])
+
+  return near
 }
 
 /**
