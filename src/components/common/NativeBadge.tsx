@@ -1,9 +1,52 @@
+import { useId } from 'react'
+
 interface NativeBadgeProps {
   /** sm: 사이드바 로고 옆 / md: 로그인 화면 · 단독 */
   size?: 'sm' | 'md'
 }
 
-/** 팀 "Native" 배지 (노란 빗금 두 개 + 글자) */
+/** 팀 Native 로고 (기울어진 노란 알약 두 개: 진한 노랑 + 연한 노랑) */
+function NativeLogo({ className }: { className?: string }) {
+  // 배지가 한 화면에 여러 개 있어도 그라데이션 id가 겹치지 않게
+  const id = useId()
+  const deep = `${id}-deep`
+  const soft = `${id}-soft`
+
+  return (
+    <svg viewBox="2 8 46.5 27.5" className={className} aria-hidden>
+      <defs>
+        <linearGradient id={deep} x1="0" y1="1" x2="0.4" y2="0">
+          <stop offset="0" className="[stop-color:var(--color-icon-native-from)]" />
+          <stop offset="1" className="[stop-color:var(--color-icon-native)]" />
+        </linearGradient>
+        <linearGradient id={soft} x1="0" y1="1" x2="0.4" y2="0">
+          <stop offset="0" className="[stop-color:var(--color-icon-native-soft-from)]" />
+          <stop offset="1" className="[stop-color:var(--color-icon-native-soft)]" />
+        </linearGradient>
+      </defs>
+      <rect
+        x="8.75"
+        y="6"
+        width="13.5"
+        height="31.5"
+        rx="6.75"
+        transform="rotate(44 15.5 21.75)"
+        fill={`url(#${deep})`}
+      />
+      <rect
+        x="28"
+        y="6"
+        width="13.5"
+        height="31.5"
+        rx="6.75"
+        transform="rotate(44 34.75 21.75)"
+        fill={`url(#${soft})`}
+      />
+    </svg>
+  )
+}
+
+/** 팀 "Native" 배지 (Native 로고 + 글자) */
 function NativeBadge({ size = 'md' }: NativeBadgeProps) {
   const isSmall = size === 'sm'
 
@@ -13,10 +56,7 @@ function NativeBadge({ size = 'md' }: NativeBadgeProps) {
         isSmall ? 'h-[18px] gap-1 px-1.5 text-[10px]' : 'h-[26px] gap-1.5 px-2.5 text-caption'
       }`}
     >
-      <span className="flex gap-[2px]" aria-hidden>
-        <span className={`${isSmall ? 'h-2' : 'h-2.5'} w-[3px] skew-x-[-20deg] rounded-full bg-[#ecce5d]`} />
-        <span className={`${isSmall ? 'h-2' : 'h-2.5'} w-[3px] skew-x-[-20deg] rounded-full bg-[#ecce5d]`} />
-      </span>
+      <NativeLogo className={isSmall ? 'h-[9px] w-[15px]' : 'h-3 w-5'} />
       Native
     </span>
   )
