@@ -7,6 +7,7 @@ import {
   getMain,
   sendChatMessage,
   type ChatMessage,
+  type ChatNavigationRequest,
   type ChatResponse,
 } from '../api/chats'
 import { updateSettings } from '../api/settings'
@@ -208,6 +209,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     attachments: LocalAttachment[] = [],
     preferences: ChatPreferences = {},
     clientRequestId?: string,
+    navigation?: ChatNavigationRequest,
   ) {
     const previous = getConversation(id)
     if (!previous) throw new Error('CONVERSATION_NOT_FOUND')
@@ -227,7 +229,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
       ),
     )
     try {
-      const response = await sendChatMessage(id, content, attachmentIds, preferences, clientRequestId)
+      const response = await sendChatMessage(id, content, attachmentIds, preferences, clientRequestId, navigation)
       setConversations((current) => {
         const latest = current.find((item) => item.id === id)
         return [mergeLatest(latest, response, allAttachments), ...current.filter((item) => item.id !== id)]

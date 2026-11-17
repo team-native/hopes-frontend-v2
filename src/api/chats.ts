@@ -19,6 +19,80 @@ export type ChatMessage = {
   attachments: AttachmentDto[]
   analysisStatus?: string | null
   contentFormat: string
+  /** 위치 질문의 도면 카드 (일반 대화는 null) — 서버 docs/CHAT_LOCATION_CARDS.md */
+  location?: ChatLocation | null
+}
+
+/** 도면 한 장. width · height는 이미지 픽셀 크기이자 좌표 기준이에요 */
+export type FloorPlanInfo = {
+  id: string
+  label: string
+  url: string
+  width: number
+  height: number
+  floor: string
+  group: string
+  buildingId: number
+}
+
+/** 도면 위 장소 (x · y는 문 또는 복도 접점, area는 방 전체 사각형) */
+export type LocationPlace = {
+  id?: string
+  name?: string
+  buildingId?: number
+  buildingName?: string | null
+  floor: string
+  floorPlanId: string
+  x: number
+  y: number
+  area?: { x: number; y: number; width: number; height: number } | null
+  note?: string | null
+}
+
+export type LocationCandidate = { place: LocationPlace; floorPlan: FloorPlanInfo }
+
+export type RouteIndoorLeg = {
+  type: 'INDOOR'
+  floorPlan: FloorPlanInfo
+  path: { x: number; y: number }[]
+  /** 이 층 다음 이동 (계단 · 엘리베이터 · 건물 밖). 마지막 구간은 null */
+  next?: { type: 'STAIR' | 'ELEVATOR'; toFloor: string } | { type: 'OUTDOOR'; toGroup: string } | null
+}
+
+export type RouteOutdoorLeg = {
+  type: 'OUTDOOR'
+  from: { placeId: string; name: string; buildingName?: string | null }
+  to: { placeId: string; name: string; buildingName?: string | null }
+  distanceMeters: number
+  estimated: boolean
+  note?: string | null
+}
+
+export type ChatRoute = {
+  from: LocationPlace
+  to: LocationPlace
+  elevatorOnly: boolean
+  distanceMeters: number
+  floorsMoved: number
+  estimatedSeconds: number
+  legs: (RouteIndoorLeg | RouteOutdoorLeg)[]
+  steps: string[]
+}
+
+export type ChatLocation = {
+  /** DESTINATION_READY: 목적지 하나 · SELECT_DESTINATION: 후보 여러 개 · ROUTE_READY: 경로 포함 */
+  status: 'DESTINATION_READY' | 'SELECT_DESTINATION' | 'ROUTE_READY' | (string & {})
+  requiresOrigin: boolean
+  candidates: LocationCandidate[]
+  route?: ChatRoute | null
+}
+
+/** 위치 질문에 붙이는 길찾기 정보 (목적지 선택 · 출발 위치 · 엘리베이터만) */
+export type ChatNavigationRequest = {
+  destinationPlaceId?: string
+  /** 장소 id 또는 "도면ID@x,y" */
+  navigationOrigin?: string
+  elevatorOnly?: boolean
 }
 
 export type ChatResponse = {
@@ -66,11 +140,13 @@ export async function sendChatMessage(
   attachmentIds: number[],
   preferences: { departmentId?: number; specialtyId?: number } = {},
   clientRequestId?: string,
+  navigation: ChatNavigationRequest = {},
 ) {
   const { data } = await client.post<ChatResponse>(`/api/chats/${encodeURIComponent(id)}/messages`, {
     content,
     attachmentIds,
     ...preferences,
+    ...navigation,
     clientRequestId,
   })
   return data

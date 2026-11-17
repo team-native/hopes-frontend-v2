@@ -1,4 +1,5 @@
 import { createContext } from 'react'
+import type { ChatNavigationRequest } from '../api/chats'
 import type { Conversation, LocalAttachment } from '../types/conversation'
 
 export type ChatPreferences = { departmentId?: number; specialtyId?: number }
@@ -22,12 +23,14 @@ export type ConversationContextValue = {
     onCreated?: (id: string) => void,
     clientRequestId?: string,
   ) => Promise<string>
+  /** navigation: 위치 질문의 목적지 선택 · 출발 위치 · 엘리베이터만 (도면 카드에서 길찾기할 때) */
   sendMessage: (
     id: string,
     content: string,
     attachments?: LocalAttachment[],
     preferences?: ChatPreferences,
     clientRequestId?: string,
+    navigation?: ChatNavigationRequest,
   ) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
   deleteAllConversations: () => Promise<void>
