@@ -1,5 +1,5 @@
 import { BedDouble, Bell, Code, Ellipsis, FileText, Heart, RefreshCw, type LucideIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import AttachDropzone from '../../components/attach/AttachDropzone'
 import { ImageThumb, PdfChip } from '../../components/attach/Attachments'
@@ -16,22 +16,19 @@ import Toast from '../../components/common/Toast'
 import { EmptyState } from '../../components/feedback/Feedback'
 import { HeroCard, HomePanel, HomePanelRow, PopularPostRow, TipCard } from '../../components/home/HomeCards'
 import AppLayout from '../../components/layout/AppLayout'
-import MapCard from '../../components/location/MapCard'
 import { DEPARTMENTS } from '../../constants/school'
+import { getBoards, getPosts } from '../../api/community'
 import useAppNavigation from '../../hooks/useAppNavigation'
 import useAttachmentDraft from '../../hooks/useAttachmentDraft'
 import useConversations from '../../hooks/useConversations'
 import useProfile from '../../hooks/useProfile'
 import useToast from '../../hooks/useToast'
-import { mockCommunityPosts } from '../../mocks/community'
+import type { ChatMessage } from '../../api/chats'
 import type { Conversation, LocalAttachment } from '../../types/conversation'
 import type { Profile } from '../../types/profile'
 import { ATTACHMENT_ACCEPT } from '../../utils/attachments'
 
 const MAJORS = ['Frontend', 'Backend', 'AI'] as const
-
-// TODO: 커뮤니티 API 연동 후 인기글 API로 대체
-const popularPosts = [...mockCommunityPosts].sort((a, b) => b.likes - a.likes).slice(0, 3)
 
 const suggestedQuestions: { title: string; category: string; icon: LucideIcon }[] = [
   { title: '기숙사 하루 일과가 어떻게 돼?', category: '학교생활', icon: BedDouble },
@@ -119,25 +116,6 @@ function getMockAnswer(question: string): MockAnswer {
   return mockAnswers.fallback
 }
 
-function getAttachmentAnswer(attachments: LocalAttachment[]): MockAnswer {
-  const pdfAttachment = attachments.find(({ format }) => format === 'pdf')
-  const reference = pdfAttachment?.file.name ?? attachments[0].file.name
-  const answer = /생활수칙|생활규정|외출/.test(reference) ? mockAnswers.dormRules : mockAnswers.attachment
-  const pages = pdfAttachment?.pageCount ? ` · 1-${pdfAttachment.pageCount}쪽 기반` : ' · 첨부 자료 기반'
-  return { ...answer, citation: `${reference}${pages}` }
-}
-
-/** 목업 답변을 AnswerBubble이 그리는 마크다운으로 바꿔요 (서버 연동 후에는 응답 마크다운을 그대로 사용) */
-function toMarkdown(answer: MockAnswer) {
-  const parts = [`## ${answer.heading}`, answer.body]
-  if (answer.steps) parts.push(answer.steps.map((step, index) => `${index + 1}. ${step}`).join('\n'))
-  if (answer.bullets) parts.push(answer.bullets.map((bullet) => `- ${bullet}`).join('\n'))
-  if (answer.code) parts.push(`\`\`\`html\n${answer.code}\n\`\`\``)
-  if (answer.reference) parts.push(`> 참고: ${answer.reference}`)
-  if (answer.citation) parts.push(`> 출처: ${answer.citation}`)
-  return parts.join('\n\n')
-}
-
 const RECENT_CONVERSATION_COUNT = 3
 
 type HomeScreen = 'home' | 'chat' | 'conversation'
@@ -149,7 +127,7 @@ function HomePage() {
   const screen: HomeScreen = conversationId ? 'conversation' : pathname.startsWith('/chat') ? 'chat' : 'home'
 
   const { goToSection, startNewChat, openConversation, openCommunityPost } = useAppNavigation()
-  const { conversations, getConversation, createConversation } = useConversations()
+  const { conversations, getConversation, createConversation, sendMessage, loadConversation } = useConversations()
   const { profile } = useProfile()
   const conversation = conversationId ? getConversation(conversationId) : undefined
   const { toast, showToast } = useToast()
@@ -157,19 +135,60 @@ function HomePage() {
   const [draft, setDraft] = useState('')
   const [department, setDepartment] = useState<string>(DEPARTMENTS[0])
   const [major, setMajor] = useState<string>(MAJORS[0])
+  const [isSending, setIsSending] = useState(false)
+  const loadedConversationIdRef = useRef<string | null>(null)
 
-  function startConversation(question: string, attachments: LocalAttachment[] = []) {
-    const id = createConversation(question, attachments)
-    setDraft('')
-    openConversation(id)
+  useEffect(() => {
+    if (!conversationId || loadedConversationIdRef.current === conversationId) return
+    loadedConversationIdRef.current = conversationId
+    const current = getConversation(conversationId)
+    if (current?.messages?.some(({ id }) => id < 0)) return
+    void loadConversation(conversationId).catch(() =>
+      showToast('대화를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'),
+    )
+  }, [conversationId, getConversation, loadConversation, showToast])
+
+  async function startConversation(
+    question: string,
+    attachments: LocalAttachment[] = [],
+    onConversationCreated?: (id: string) => void,
+  ) {
+    if (isSending) return false
+    setIsSending(true)
+    try {
+      await createConversation(question, attachments, (id) => {
+        onConversationCreated?.(id)
+        openConversation(id)
+      })
+      setDraft('')
+      return true
+    } catch {
+      showToast('메시지를 보내지 못했어요. 잠시 후 다시 시도해 주세요.')
+      return false
+    } finally {
+      setIsSending(false)
+    }
   }
 
-  /** 질문을 받아 새 대화를 만들었으면 true. 첨부는 이때 대화로 소유권이 넘어간다. */
-  function submitQuestion(attachments: LocalAttachment[], question: string) {
+  async function submitQuestion(
+    attachments: LocalAttachment[],
+    question: string,
+    onConversationCreated?: (id: string) => void,
+  ) {
     const text = question.trim() || (attachments.length > 0 ? '첨부 자료 요약해줘' : '')
-    if (!text) return false
-    startConversation(text, attachments)
-    return true
+    if (!text || isSending) return false
+    if (!conversationId || screen !== 'conversation') return startConversation(text, attachments, onConversationCreated)
+    setIsSending(true)
+    try {
+      await sendMessage(conversationId, text, attachments)
+      setDraft('')
+      return true
+    } catch {
+      showToast('메시지를 보내지 못했어요. 잠시 후 다시 시도해 주세요.')
+      return false
+    } finally {
+      setIsSending(false)
+    }
   }
 
   return (
@@ -204,6 +223,8 @@ function HomePage() {
           onSubmit={submitQuestion}
           onToast={showToast}
           attachments={conversation.attachments ?? []}
+          messages={conversation.messages ?? []}
+          isSending={isSending}
         />
       ) : (
         <main className="flex flex-1 items-center justify-center px-5 py-16">
@@ -241,6 +262,31 @@ function HomeView({
   onShowCommunity,
   onNotify,
 }: HomeViewProps) {
+  const [popularPosts, setPopularPosts] = useState<{ id: string; board: string; title: string; likes: number }[]>([])
+
+  useEffect(() => {
+    let active = true
+    Promise.all([getBoards(), getPosts({ page: 0, size: 20 })])
+      .then(([boards, page]) => {
+        if (!active) return
+        setPopularPosts(
+          [...page.items]
+            .sort((a, b) => b.likeCount - a.likeCount)
+            .slice(0, 3)
+            .map((post) => ({
+              id: String(post.id),
+              board: boards.find((board) => board.id === post.boardId)?.name ?? '전체',
+              title: post.title,
+              likes: post.likeCount,
+            })),
+        )
+      })
+      .catch(() => setPopularPosts([]))
+    return () => {
+      active = false
+    }
+  }, [])
+
   return (
     <main className="mx-auto w-full max-w-[1010px] px-5 pt-5 pb-10 md:px-8 md:pt-6">
       {/* 인사말 · 알림 버튼을 아래 카드들과 같은 폭(946)에 맞춰요 */}
@@ -314,7 +360,7 @@ type NewChatViewProps = {
   onMajorChange: (value: string) => void
   onAsk: (question: string) => void
   /** 입력창으로 보내기 (첨부 포함). 새 대화를 만들었으면 true */
-  onSubmit: (attachments: LocalAttachment[], question: string) => boolean
+  onSubmit: (attachments: LocalAttachment[], question: string, onCreated?: (id: string) => void) => Promise<boolean>
 }
 
 function NewChatView({ department, major, onDepartmentChange, onMajorChange, onAsk, onSubmit }: NewChatViewProps) {
@@ -323,9 +369,9 @@ function NewChatView({ department, major, onDepartmentChange, onMajorChange, onA
   const draftAttachments = useAttachmentDraft()
   const canSend = (draft.trim() !== '' || draftAttachments.attachments.length > 0) && !draftAttachments.hasUnready
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!canSend) return
-    if (onSubmit(draftAttachments.attachments, draft)) {
+    if (await onSubmit(draftAttachments.attachments, draft, draftAttachments.handOff)) {
       draftAttachments.handOff()
       setDraft('')
     }
@@ -417,17 +463,21 @@ function NewChatView({ department, major, onDepartmentChange, onMajorChange, onA
 
 type ConversationViewProps = {
   title: string
+  messages: ChatMessage[]
+  isSending: boolean
   /** 추천 질문을 눌렀을 때 새 대화로 묻기 */
   onAsk: (question: string) => void
   draft: string
   attachments: LocalAttachment[]
   onDraftChange: (value: string) => void
-  onSubmit: (attachments: LocalAttachment[], question: string) => boolean
+  onSubmit: (attachments: LocalAttachment[], question: string) => Promise<boolean>
   onToast: (message: string) => void
 }
 
 function ConversationView({
   title,
+  messages,
+  isSending,
   draft,
   attachments,
   onAsk,
@@ -435,8 +485,7 @@ function ConversationView({
   onSubmit,
   onToast,
 }: ConversationViewProps) {
-  const answer: MockAnswer = attachments.length > 0 ? getAttachmentAnswer(attachments) : getMockAnswer(title)
-  const answerMarkdown = toMarkdown(answer)
+  const answer = getMockAnswer(title)
   const relatedQuestions = suggestedQuestions
     .map(({ title: question }) => question)
     .filter((question) => question !== title)
@@ -444,15 +493,17 @@ function ConversationView({
   const draftAttachments = useAttachmentDraft()
   const canSend = (draft.trim() !== '' || draftAttachments.attachments.length > 0) && !draftAttachments.hasUnready
 
-  function handleConversationSubmit() {
+  async function handleConversationSubmit() {
     if (!canSend) return
-    const accepted = onSubmit(draftAttachments.attachments, draft)
+    const accepted = await onSubmit(draftAttachments.attachments, draft)
     if (accepted) draftAttachments.handOff()
   }
 
   async function copyAnswer() {
     try {
-      await navigator.clipboard.writeText(answerMarkdown)
+      await navigator.clipboard.writeText(
+        messages.filter((message) => message.role === 'ASSISTANT').at(-1)?.content ?? '',
+      )
       onToast('답변을 복사했어요.')
     } catch {
       onToast('이 브라우저에서는 복사할 수 없어요.')
@@ -463,13 +514,13 @@ function ConversationView({
     <main className="relative flex min-h-[calc(100vh-105px)] flex-1 flex-col px-5 pt-5 pb-4 md:min-h-screen md:px-8">
       <header className="flex items-start justify-between">
         <div>
-          <h1 className="text-title">{answer.category}</h1>
-          <p className="mt-1 text-caption text-text-secondary">소프트웨어개발과 · {answer.category}</p>
+          <h1 className="text-title">{title}</h1>
+          <p className="mt-1 text-caption text-text-secondary">{answer.category}</p>
         </div>
         <IconButton icon={Ellipsis} label="대화 옵션" onClick={() => onToast('대화 옵션은 준비 중이에요.')} />
       </header>
 
-      <section className="mx-auto flex w-full max-w-[720px] flex-1 flex-col justify-end gap-md py-xl">
+      <section className="mx-auto flex w-full max-w-[720px] flex-1 flex-col justify-end gap-md overflow-y-auto py-xl">
         {attachments.length > 0 && (
           <div className="flex flex-wrap justify-end gap-2" aria-label="전송한 첨부 파일">
             {attachments.map((attachment) =>
@@ -481,37 +532,39 @@ function ConversationView({
             )}
           </div>
         )}
-        <UserBubble>{title}</UserBubble>
-        <div className="flex items-start gap-3">
-          <LogoMark size={40} />
-          <div className="min-w-0 flex-1">
-            <AnswerBubble
-              content={answerMarkdown}
-              footer={
-                <AnswerReactions
-                  reactions={[
-                    { key: 'copy', label: '복사' },
-                    { key: 'save', label: '저장' },
-                    { key: 'share', label: '공유' },
-                  ]}
-                  onSelect={(key) => {
-                    if (key === 'copy') void copyAnswer()
-                    else onToast(key === 'save' ? '답변 저장은 준비 중이에요.' : '공유는 준비 중이에요.')
-                  }}
+        {messages.map((message) =>
+          message.role === 'USER' ? (
+            <UserBubble key={message.id}>{message.content}</UserBubble>
+          ) : (
+            <div key={message.id} className="flex items-start gap-3">
+              <LogoMark size={40} />
+              <div className="min-w-0 flex-1">
+                <AnswerBubble
+                  content={message.content}
+                  footer={
+                    <AnswerReactions
+                      reactions={[
+                        { key: 'copy', label: '복사' },
+                        { key: 'save', label: '저장' },
+                        { key: 'share', label: '공유' },
+                      ]}
+                      onSelect={(key) => {
+                        if (key === 'copy') void copyAnswer()
+                        else onToast(key === 'save' ? '답변 저장은 준비 중이에요.' : '공유는 준비 중이에요.')
+                      }}
+                    />
+                  }
                 />
-              }
-            />
-            {answer.showMap && (
-              <div className="mt-sm max-w-[360px]">
-                {/* TODO: 실제 지도 연동 전까지는 MapCard 그림만 보여 줘요 */}
-                <MapCard label="광주소프트웨어마이스터고 위치" onClick={() => onToast('지도 보기는 준비 중이에요.')} />
               </div>
-            )}
-            <div className="mt-sm">
-              <RelatedQuestions questions={relatedQuestions} onSelect={onAsk} />
             </div>
-          </div>
-        </div>
+          ),
+        )}
+        {isSending && (
+          <p role="status" className="text-caption text-text-secondary">
+            답변을 기다리고 있어요…
+          </p>
+        )}
+        <RelatedQuestions questions={relatedQuestions} onSelect={onAsk} />
       </section>
 
       <AttachmentComposer
@@ -522,9 +575,9 @@ function ConversationView({
         attachments={draftAttachments.attachments}
         onRemoveAttachment={draftAttachments.removeAttachment}
         error={draftAttachments.error}
-        canSend={canSend}
+        canSend={canSend && !isSending}
       />
-      <p className="mt-2.5 text-center text-caption text-text-tertiary">현재는 화면 확인용 목업 답변입니다.</p>
+      <p className="mt-2.5 text-center text-caption text-text-tertiary">선배 답변은 참고용으로 확인해 주세요.</p>
 
       <AttachDropzone
         open={draftAttachments.dropzoneOpen}

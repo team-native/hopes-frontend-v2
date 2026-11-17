@@ -4,18 +4,20 @@ interface LikeChipProps {
   count: number
   /** 내가 좋아요를 눌렀는지 */
   liked?: boolean
+  disabled?: boolean
   onClick?: () => void
 }
 
 /** 하트 + 숫자 (Community/Like Chip). 누르면 좋아요 토글 */
-export function LikeChip({ count, liked = false, onClick }: LikeChipProps) {
+export function LikeChip({ count, liked = false, disabled = false, onClick }: LikeChipProps) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-pressed={liked}
       aria-label={`좋아요 ${count}개${liked ? ', 누름' : ''}`}
-      className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-caption font-medium transition ${
+      className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-caption font-medium transition disabled:cursor-wait disabled:opacity-60 ${
         liked
           ? 'bg-bg-brand-soft text-text-brand'
           : 'border border-border-subtle bg-bg-surface text-text-secondary hover:bg-bg-canvas'
