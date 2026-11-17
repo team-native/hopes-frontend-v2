@@ -8,8 +8,9 @@ function Toast({ message }: ToastProps) {
   if (!message) return null
   return (
     <div
+      key={message}
       role="status"
-      className="fixed bottom-6 left-1/2 z-50 max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-full bg-bg-inverse px-4 py-2.5 text-caption text-text-on-brand shadow-cloud-md"
+      className="fixed bottom-6 left-1/2 z-50 max-w-[calc(100vw-32px)] -translate-x-1/2 animate-toast-in rounded-full bg-bg-inverse px-4 py-2.5 text-caption text-text-on-brand shadow-cloud-md"
     >
       {message}
     </div>

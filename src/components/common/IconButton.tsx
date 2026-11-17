@@ -26,7 +26,7 @@ function IconButton({
       type={type}
       aria-label={label}
       {...rest}
-      className={`relative inline-flex size-9 shrink-0 items-center justify-center rounded-full text-icon-default transition hover:bg-bg-canvas disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`relative inline-flex size-9 shrink-0 items-center justify-center rounded-full text-icon-default transition duration-150 hover:bg-bg-canvas enabled:active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 ${
         variant === 'boxed' ? 'border border-border-subtle bg-bg-surface shadow-cloud-sm' : ''
       } ${className}`}
     >

@@ -68,7 +68,7 @@ function Modal({
       }}
       aria-labelledby={labelledBy}
       aria-describedby={describedBy}
-      className={`m-auto max-w-[calc(100vw-32px)] rounded-xl bg-bg-surface text-text-primary shadow-cloud-md outline-none backdrop:bg-bg-inverse/36 ${className}`}
+      className={`m-auto max-w-[calc(100vw-32px)] animate-pop-in rounded-xl bg-bg-surface text-text-primary shadow-cloud-md outline-none backdrop:bg-bg-inverse/36 ${className}`}
     >
       {open && children}
     </dialog>

@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './styles/motion.css';
 
 /*
  * hopes v1.5 Design System 토큰 (Web 1440 기준)
@@ -47,6 +48,7 @@
   --color-bg-brand: var(--color-blue-500);
   --color-bg-brand-pressed: var(--color-blue-600);
   --color-bg-brand-soft: var(--color-blue-100);
+  --color-bg-danger: var(--color-red-500); /* 회원탈퇴처럼 되돌릴 수 없는 동작 버튼 */
   --color-bg-danger-soft: var(--color-red-50);
   /* text */
   --color-text-primary: var(--color-slate-900);

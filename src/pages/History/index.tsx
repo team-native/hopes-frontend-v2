@@ -1,5 +1,5 @@
 import { MessageCircle, Search, Trash2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Button from '../../components/common/Button'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
 import IconButton from '../../components/common/IconButton'
@@ -10,21 +10,45 @@ import AppLayout from '../../components/layout/AppLayout'
 import SectionHeader from '../../components/layout/SectionHeader'
 import useAppNavigation from '../../hooks/useAppNavigation'
 import useConversations from '../../hooks/useConversations'
+import useToast from '../../hooks/useToast'
+import Toast from '../../components/common/Toast'
 import type { Conversation } from '../../types/conversation'
 
 const RECENT_DAYS = 7
 
 function HistoryPage() {
   const { startNewChat, openConversation } = useAppNavigation()
-  const { conversations, deleteConversation } = useConversations()
+  const { conversations, deleteConversation, searchConversations } = useConversations()
+  const { toast, showToast } = useToast()
   const [search, setSearch] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Conversation | null>(null)
+  const [searchResults, setSearchResults] = useState<Conversation[]>([])
 
   const query = search.trim().toLocaleLowerCase()
+  useEffect(() => {
+    if (!query) {
+      setSearchResults([])
+      return
+    }
+    let active = true
+    const timer = window.setTimeout(() => {
+      void searchConversations(query)
+        .then((results) => {
+          if (active) setSearchResults(results)
+        })
+        .catch(() => {
+          if (active) showToast('대화를 검색하지 못했어요. 잠시 후 다시 시도해 주세요.')
+        })
+    }, 250)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [query, searchConversations, showToast])
   const filtered = useMemo(() => {
     if (!query) return conversations
-    return conversations.filter(({ title, preview }) => `${title} ${preview}`.toLocaleLowerCase().includes(query))
-  }, [conversations, query])
+    return searchResults
+  }, [conversations, query, searchResults])
 
   // 검색 중에는 기간으로 나누지 않고 한 묶음으로 보여 줘요.
   const groups: { title: string; conversations: Conversation[] }[] = query
@@ -40,7 +64,7 @@ function HistoryPage() {
       await deleteConversation(deleteTarget.id)
       setDeleteTarget(null)
     } catch {
-      // Keep the dialog open so the user can retry after a transient API failure.
+      showToast('대화를 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.')
     }
   }
 
@@ -77,7 +101,7 @@ function HistoryPage() {
             {groups.map((group) => (
               <section key={group.title} className="space-y-xs">
                 <SectionHeader title={group.title} />
-                <ListCard>
+                <ListCard className="animate-fade-up">
                   {group.conversations.map((conversation) => (
                     <ListRow
                       key={conversation.id}
@@ -109,7 +133,7 @@ function HistoryPage() {
         description={
           <>
             <p className="line-clamp-1">{deleteTarget?.title}</p>
-            <p className="mt-1 text-caption text-text-tertiary">삭제한 대화와 메시지는 되돌릴 수 없어요.</p>
+            <p className="mt-1 text-caption text-text-tertiary">삭제한 대화는 되돌릴 수 없어요.</p>
           </>
         }
         confirmText="삭제"
@@ -117,6 +141,7 @@ function HistoryPage() {
         onCancel={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
       />
+      <Toast message={toast} />
     </AppLayout>
   )
 }

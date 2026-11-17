@@ -1,5 +1,7 @@
-import { Bell, Info, LogOut, Mail, Moon, SlidersHorizontal, type LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { Bell, Info, LogOut, Mail, Moon, SlidersHorizontal, UserX, type LucideIcon } from 'lucide-react'
+import { useId, type ReactNode } from 'react'
+import Button from '../common/Button'
+import FieldError from '../common/FieldError'
 import TextArea from '../common/TextArea'
 
 /** 설정 카드 공통 틀: 제목 + 작은 설명 + 내용 */
@@ -87,7 +89,94 @@ export function AccountCard({ rows }: AccountCardProps) {
   )
 }
 
-export type SettingsMenu = 'profile' | 'notification' | 'display' | 'contact' | 'about'
+const WITHDRAW_ITEMS = ['프로필과 계정 정보', '지난 대화와 메시지', '보낸 문의 내역']
+
+interface WithdrawCardProps {
+  password: string
+  onPasswordChange: (value: string) => void
+  /** 비밀번호 칸 아래 에러 문구 (있으면 빨간 테두리) */
+  error?: string
+  /** 탈퇴 요청 중 (버튼 로딩) */
+  loading?: boolean
+  /** "탈퇴하기" — 확인 팝업을 띄우는 쪽에서 처리해요 */
+  onSubmit: () => void
+  /** 카드 위 안내 (API 연동 전 목업 안내 등) */
+  notice?: ReactNode
+}
+
+/** 회원탈퇴 카드 — 삭제되는 정보 + 비밀번호 확인 + 탈퇴하기 (Settings/Withdraw Card) */
+export function WithdrawCard({
+  password,
+  onPasswordChange,
+  error,
+  loading = false,
+  onSubmit,
+  notice,
+}: WithdrawCardProps) {
+  const inputId = useId()
+  const errorId = `${inputId}-error`
+
+  return (
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit()
+      }}
+      className="rounded-lg border border-border-subtle bg-bg-surface p-lg shadow-cloud-sm"
+    >
+      <h2 className="text-heading">회원탈퇴</h2>
+      <p className="mt-sm text-caption text-text-secondary">탈퇴하면 아래 정보가 영구 삭제되고 되돌릴 수 없어요.</p>
+      {notice && <div className="mt-sm">{notice}</div>}
+
+      <p className="mt-sm text-caption text-text-secondary">삭제되는 정보</p>
+      <ul className="mt-xs rounded-md border border-border-subtle px-md py-sm text-label">
+        {WITHDRAW_ITEMS.map((item) => (
+          <li key={item} className="leading-[22px]">
+            · {item}
+          </li>
+        ))}
+      </ul>
+
+      <label htmlFor={inputId} className="mt-md block text-caption text-text-secondary">
+        비밀번호 확인
+      </label>
+      <input
+        id={inputId}
+        type="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(event) => onPasswordChange(event.target.value)}
+        placeholder="현재 비밀번호를 입력해 주세요"
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+        className={`mt-xs h-[46px] w-full rounded-md border bg-bg-surface px-md text-label transition outline-none placeholder:text-text-tertiary ${
+          error ? 'border-border-danger' : 'border-border-subtle focus:border-border-brand'
+        }`}
+      />
+      {error && (
+        <FieldError id={errorId} className="mt-xs">
+          {error}
+        </FieldError>
+      )}
+
+      <div className="mt-md flex justify-end">
+        <Button
+          size="sm"
+          type="submit"
+          variant="danger"
+          className="h-8! px-3! text-caption!"
+          loading={loading}
+          loadingText="탈퇴 중..."
+        >
+          탈퇴하기
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+export type SettingsMenu = 'profile' | 'notification' | 'display' | 'contact' | 'about' | 'withdraw'
 
 const SETTINGS_MENUS: { key: SettingsMenu; label: string; icon: LucideIcon }[] = [
   { key: 'profile', label: '개인 설정', icon: SlidersHorizontal },
@@ -138,6 +227,19 @@ export function SettingsNav({ active, onSelect, onLogout }: SettingsNavProps) {
           <button type="button" onClick={onLogout} className={`${itemClass} text-text-danger hover:bg-bg-danger-soft`}>
             <LogOut className="size-4 text-icon-danger" strokeWidth={1.75} aria-hidden />
             로그아웃
+          </button>
+        </li>
+        <li>
+          <button
+            type="button"
+            onClick={() => onSelect('withdraw')}
+            aria-current={active === 'withdraw' ? 'page' : undefined}
+            className={`${itemClass} text-text-danger ${
+              active === 'withdraw' ? 'bg-bg-brand-soft font-medium' : 'hover:bg-bg-danger-soft'
+            }`}
+          >
+            <UserX className="size-4 text-icon-danger" strokeWidth={1.75} aria-hidden />
+            회원탈퇴
           </button>
         </li>
       </ul>

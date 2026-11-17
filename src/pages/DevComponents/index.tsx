@@ -20,6 +20,7 @@ import {
   ContactCard,
   PromptCard,
   SettingsNav,
+  WithdrawCard,
   type SettingsMenu,
 } from '../../components/settings/SettingsCards'
 import { COHORTS, DEPARTMENTS } from '../../constants/school'
@@ -401,6 +402,17 @@ function DevComponentsPage() {
         </Specimen>
         <Specimen name="Web/Settings Nav" className="w-[220px]">
           <SettingsNav active={settingsMenu} onSelect={setSettingsMenu} onLogout={() => console.log('logout')} />
+        </Specimen>
+        <Specimen name="Settings/Withdraw Card" className="w-[540px]">
+          <WithdrawCard password="" onPasswordChange={() => {}} onSubmit={() => {}} />
+        </Specimen>
+        <Specimen name="Settings/Withdraw Card (비밀번호 틀림)" className="w-[540px]">
+          <WithdrawCard
+            password="12345678"
+            onPasswordChange={() => {}}
+            error="비밀번호가 맞지 않아요. 다시 확인해 주세요."
+            onSubmit={() => {}}
+          />
         </Specimen>
       </Group>
 

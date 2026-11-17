@@ -1,12 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import client from '../api/client'
+import { createChat, getChat, getMain, sendChatMessage, uploadChatAttachment, type ChatResponse } from '../api/chats'
+import { updateSettings } from '../api/settings'
 import type { Conversation, LocalAttachment } from '../types/conversation'
-import { createId } from '../utils/id'
 import { getToken } from '../utils/token'
 import { ConversationContext } from './conversationContext'
-
-type ChatSummary = { id: number; title: string; updatedAt: string }
-type MainResponse = { chatList: ChatSummary[] }
 
 function formatAge(updatedAt: string) {
   const daysAgo = Math.max(0, Math.floor((Date.now() - new Date(updatedAt).getTime()) / 86_400_000))
@@ -14,12 +12,16 @@ function formatAge(updatedAt: string) {
   return { age, daysAgo }
 }
 
-function toConversation(chat: ChatSummary): Conversation {
+function toConversation(chat: ChatResponse, attachments: LocalAttachment[] = []): Conversation {
+  const lastMessage = chat.messages.at(-1)
+  const timestamp = lastMessage?.createdAt
   return {
     id: String(chat.id),
     title: chat.title,
-    preview: '',
-    ...formatAge(chat.updatedAt),
+    preview: lastMessage?.content ?? '',
+    ...(timestamp ? formatAge(timestamp) : { age: '방금', daysAgo: 0 }),
+    attachments,
+    messages: chat.messages,
   }
 }
 
@@ -40,8 +42,18 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         return
       }
       try {
-        const { data } = await client.get<MainResponse>('/api/main', { params: { page: 0, size: 50 } })
-        if (active) setConversations(data.chatList.map(toConversation))
+        const data = await getMain({ page: 0, size: 50 })
+        if (active) {
+          setConversations(
+            data.chatList.map((chat) => ({
+              id: String(chat.id),
+              title: chat.title,
+              preview: '',
+              ...formatAge(chat.updatedAt),
+              messages: [],
+            })),
+          )
+        }
       } catch {
         if (active) setConversations([])
       }
@@ -61,11 +73,115 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     return conversations.find((conversation) => conversation.id === id)
   }
 
-  function createConversation(title: string, attachments: LocalAttachment[] = []) {
-    const id = createId('conversation')
-    const conversation: Conversation = { id, title, preview: '방금 시작한 대화', age: '방금', daysAgo: 0, attachments }
-    setConversations((current) => [conversation, ...current])
+  const searchConversations = useCallback(async (keyword: string) => {
+    const data = await getMain({ searchKeyword: keyword, page: 0, size: 50 })
+    return data.chatList.map((chat) => ({
+      id: String(chat.id),
+      title: chat.title,
+      preview: '',
+      ...formatAge(chat.updatedAt),
+      messages: [],
+    }))
+  }, [])
+
+  const loadConversation = useCallback(async (id: string) => {
+    const chat = await getChat(id)
+    const conversation = toConversation(chat)
+    setConversations((current) => [
+      { ...conversation, attachments: current.find((item) => item.id === id)?.attachments ?? [] },
+      ...current.filter((item) => item.id !== id),
+    ])
+  }, [])
+
+  async function createConversation(
+    title: string,
+    attachments: LocalAttachment[] = [],
+    preferences: { departmentId?: number; specialtyId?: number } = {},
+    onCreated?: (id: string) => void,
+  ) {
+    const uploaded = await Promise.all(attachments.map(({ file }) => uploadChatAttachment(file)))
+    const chat = await createChat(title)
+    const id = String(chat.id)
+    const optimisticMessage: ChatResponse['messages'][number] = {
+      id: -Date.now(),
+      role: 'USER',
+      content: title,
+      createdAt: new Date().toISOString(),
+      attachments: [],
+      contentFormat: 'TEXT',
+    }
+    const optimisticConversation: Conversation = {
+      id,
+      title: chat.title,
+      preview: title,
+      age: '방금',
+      daysAgo: 0,
+      attachments,
+      messages: [optimisticMessage],
+    }
+    setConversations((current) => [optimisticConversation, ...current.filter((item) => item.id !== id)])
+    onCreated?.(id)
+    try {
+      const response = await sendChatMessage(
+        id,
+        title,
+        uploaded.map(({ id: attachmentId }) => attachmentId),
+        preferences,
+      )
+      const conversation = toConversation(response, attachments)
+      setConversations((current) => [conversation, ...current.filter((item) => item.id !== id)])
+    } catch (error) {
+      setConversations((current) =>
+        current.map((item) => (item.id === id ? { ...optimisticConversation, messages: [] } : item)),
+      )
+      throw error
+    }
     return id
+  }
+
+  async function sendMessage(
+    id: string,
+    content: string,
+    attachments: LocalAttachment[] = [],
+    preferences: { departmentId?: number; specialtyId?: number } = {},
+  ) {
+    const previous = getConversation(id)
+    if (!previous) throw new Error('CONVERSATION_NOT_FOUND')
+    const optimisticMessage: ChatResponse['messages'][number] = {
+      id: -Date.now(),
+      role: 'USER',
+      content,
+      createdAt: new Date().toISOString(),
+      attachments: [],
+      contentFormat: 'TEXT',
+    }
+    const allAttachments = [...(previous.attachments ?? []), ...attachments]
+    setConversations((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              preview: content,
+              attachments: allAttachments,
+              messages: [...(item.messages ?? []), optimisticMessage],
+            }
+          : item,
+      ),
+    )
+    try {
+      const uploaded = await Promise.all(attachments.map(({ file }) => uploadChatAttachment(file)))
+      const response = await sendChatMessage(
+        id,
+        content,
+        uploaded.map(({ id: attachmentId }) => attachmentId),
+        preferences,
+      )
+      const conversation = toConversation(response, allAttachments)
+      setConversations((current) => [conversation, ...current.filter((item) => item.id !== id)])
+    } catch (error) {
+      setConversations((current) => current.map((item) => (item.id === id ? previous : item)))
+      throw error
+    }
   }
 
   async function deleteConversation(id: string) {
@@ -77,8 +193,18 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  async function deleteAllConversations() {
+    await updateSettings({ deleteAllChats: true })
+    setConversations((current) => {
+      current.forEach(revokePreviews)
+      return []
+    })
+  }
+
   return (
-    <ConversationContext.Provider value={{ conversations, getConversation, createConversation, deleteConversation }}>
+    <ConversationContext.Provider
+      value={{ conversations, getConversation, searchConversations, loadConversation, createConversation, sendMessage, deleteConversation, deleteAllConversations }}
+    >
       {children}
     </ConversationContext.Provider>
   )

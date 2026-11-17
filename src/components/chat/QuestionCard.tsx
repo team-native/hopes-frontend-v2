@@ -15,7 +15,7 @@ function QuestionCard({ question, category, icon = BedDouble, onClick }: Questio
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-lg border border-border-subtle bg-bg-surface p-md text-left shadow-cloud-sm transition hover:border-border-brand"
+      className="w-full rounded-lg border border-border-subtle bg-bg-surface p-md text-left shadow-cloud-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-border-brand hover:shadow-cloud-md active:translate-y-0"
     >
       <IconTile icon={icon} size="md" />
       <p className="mt-sm text-label-strong">{question}</p>

@@ -4,6 +4,8 @@ import { getToken } from './utils/token'
 import { ROUTES } from './constants/routes'
 import DevComponentsPage from './pages/DevComponents'
 import CommunityPage from './pages/Community'
+import CampusPage from './pages/Campus'
+import AdminReportsPage from './pages/AdminReports'
 import FindPasswordPage from './pages/FindPassword'
 import HistoryPage from './pages/History'
 import HomePage from './pages/Home'
@@ -41,6 +43,8 @@ function App() {
         <Route path={ROUTES.history} element={<HistoryPage />} />
         <Route path={ROUTES.myPage} element={<MyPage />} />
         <Route path={ROUTES.settings} element={<SettingsPage />} />
+        <Route path={ROUTES.campus} element={<CampusPage />} />
+        <Route path="/admin/community/reports" element={<AdminReportsPage />} />
       </Route>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />

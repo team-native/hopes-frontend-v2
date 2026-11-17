@@ -43,7 +43,7 @@ function AppLayout({ activeMenu = null, activeConversationId, children }: AppLay
 
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileNav activeMenu={activeMenu} onNewChat={startNewChat} />
-        {children}
+        <div className="flex min-w-0 flex-1 animate-fade-in flex-col">{children}</div>
       </div>
     </div>
   )
