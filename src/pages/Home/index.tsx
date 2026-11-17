@@ -254,8 +254,9 @@ function HomePage() {
     if (!text || isSending) return false
     if (!conversationId || screen !== 'conversation') return startConversation(text, attachments, onConversationCreated)
     setIsSending(true)
-    // 보내는 순간 입력창을 비워요. 실패하면 사용자가 다시 쓰지 않았을 때만 원래 질문을 되돌려 놔요.
-    setDraft('')
+    // 보내는 순간 입력창을 비워요(입력창에 쓴 질문을 보낼 때만. 추가 질문을 눌렀을 때 쓰던 글은 그대로 둬요).
+    // 실패하면 사용자가 다시 쓰지 않았을 때만 원래 질문을 되돌려 놔요.
+    setDraft((current) => (current === question ? '' : current))
     try {
       await sendMessage(
         conversationId,
@@ -357,7 +358,7 @@ function HomePage() {
           category={[department, major].filter(Boolean).join(' · ') || '추천 질문'}
           suggestions={suggestions}
           onCheckLocation={() => void checkChatLocation(conversation.id)}
-          onAsk={startConversation}
+          onAsk={(question) => void submitQuestion([], question)}
           draft={draft}
           onDraftChange={setDraft}
           onSubmit={submitQuestion}
@@ -829,11 +830,7 @@ function ConversationView({
               </div>
             ),
           )}
-          {isSending && (
-            <p role="status" className="text-caption text-text-secondary">
-              답변을 기다리고 있어요…
-            </p>
-          )}
+          {isSending && <WaitingAnswer />}
           {showRelatedQuestions && <RelatedQuestions questions={relatedQuestions} onSelect={onAsk} />}
         </div>
       </section>
@@ -870,6 +867,47 @@ function ConversationView({
         }}
       />
     </main>
+  )
+}
+
+/** 기다린 시간에 따라 바뀌는 문구 (AI 답변은 길면 1분 가까이 걸려요) */
+const WAITING_STEPS = [
+  { after: 0, text: '답변을 준비하고 있어요' },
+  { after: 5, text: '선배들의 경험을 찾아보고 있어요' },
+  { after: 15, text: '답변을 정리하고 있어요' },
+  { after: 30, text: '조금 오래 걸리고 있어요. 잠시만 기다려 주세요' },
+]
+
+/** 답변 기다리는 중 — 로고 옆 말풍선에서 점 세 개가 차례로 튀어요 */
+function WaitingAnswer() {
+  const [seconds, setSeconds] = useState(0)
+  useEffect(() => {
+    const timer = window.setInterval(() => setSeconds((value) => value + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const text = [...WAITING_STEPS].reverse().find(({ after }) => seconds >= after)?.text ?? WAITING_STEPS[0].text
+
+  return (
+    <div role="status" aria-live="polite" className="flex animate-fade-up items-start gap-3">
+      <span className="animate-soft-pulse rounded-full">
+        <LogoMark size={40} />
+      </span>
+      <div className="flex items-center gap-3 rounded-lg border border-border-subtle bg-bg-surface px-5 py-3.5 shadow-cloud-sm">
+        <span className="flex items-center gap-1" aria-hidden>
+          {[0, 1, 2].map((index) => (
+            <span
+              key={index}
+              className="size-1.5 animate-typing-dot rounded-full bg-icon-brand"
+              style={{ animationDelay: `${index * 160}ms` }}
+            />
+          ))}
+        </span>
+        {/* 문구가 바뀔 때마다 살짝 나타나요 */}
+        <span key={text} className="animate-fade-in text-label text-text-secondary">
+          {text}
+        </span>
+      </div>
+    </div>
   )
 }
 
