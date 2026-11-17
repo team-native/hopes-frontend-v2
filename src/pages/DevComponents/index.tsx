@@ -101,7 +101,13 @@ const SAMPLE_ANSWER = `### Frontend 시작 순서
 const SAMPLE_ATTACHMENTS: LocalAttachment[] = [
   { id: 'a1', file: new File([''], '생활수칙.pdf'), format: 'pdf', status: 'ready', pageCount: 12 },
   { id: 'a2', file: new File([''], '시간표.pdf'), format: 'pdf', status: 'processing' },
-  { id: 'a3', file: new File([''], 'photo.heic'), format: 'heic', status: 'ready', previewUnsupported: true },
+  {
+    id: 'a3',
+    file: new File([''], 'photo.png'),
+    format: 'png',
+    status: 'error',
+    error: '파일 내용이 형식과 맞지 않아요.',
+  },
 ]
 
 const SAMPLE_POST: Post = {

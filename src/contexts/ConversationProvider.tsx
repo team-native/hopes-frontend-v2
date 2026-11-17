@@ -213,6 +213,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     if (!previous) throw new Error('CONVERSATION_NOT_FOUND')
     const attachmentIds = toAttachmentIds(attachments)
     const allAttachments = [...(previous.attachments ?? []), ...attachments]
+    const optimistic = optimisticUserMessage(content)
     setConversations((current) =>
       current.map((item) =>
         item.id === id
@@ -220,7 +221,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
               ...item,
               preview: content,
               attachments: allAttachments,
-              messages: [...(item.messages ?? []), optimisticUserMessage(content)],
+              messages: [...(item.messages ?? []), optimistic],
             }
           : item,
       ),
@@ -232,7 +233,21 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
         return [mergeLatest(latest, response, allAttachments), ...current.filter((item) => item.id !== id)]
       })
     } catch (error) {
-      setConversations((current) => current.map((item) => (item.id === id ? previous : item)))
+      // 보내기 전 상태로 통째로 되돌리면 기다리는 사이 불러온 이전 메시지까지 사라져요.
+      // 방금 넣은 임시 메시지 · 첨부 · 미리보기 문구만 빼요.
+      const addedIds = new Set(attachments.map(({ id: attachmentId }) => attachmentId))
+      setConversations((current) =>
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                preview: previous.preview,
+                attachments: (item.attachments ?? []).filter(({ id: attachmentId }) => !addedIds.has(attachmentId)),
+                messages: (item.messages ?? []).filter(({ id: messageId }) => messageId !== optimistic.id),
+              }
+            : item,
+        ),
+      )
       throw error
     }
   }

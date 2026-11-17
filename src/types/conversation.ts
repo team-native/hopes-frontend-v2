@@ -1,4 +1,4 @@
-export type AttachmentFormat = 'jpeg' | 'png' | 'heic' | 'pdf'
+export type AttachmentFormat = 'jpeg' | 'png' | 'pdf'
 
 /**
  * 입력창 첨부의 상태
@@ -15,8 +15,6 @@ export type LocalAttachment = {
   status: AttachmentStatus
   /** URL.createObjectURL로 만든 미리보기. 소유자가 URL.revokeObjectURL로 해제해야 한다. */
   previewUrl?: string
-  /** 이 브라우저가 이미지를 디코딩하지 못해 미리보기를 만들 수 없음 (주로 HEIC) */
-  previewUnsupported?: boolean
   pageCount?: number
   error?: string
   /** 서버에 올라간 첨부 id (POST /api/attachments 응답). 메시지를 보낼 때 attachmentIds로 넘겨요 */
