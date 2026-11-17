@@ -30,16 +30,59 @@ interface ChatLocationCardProps {
  * - ROUTE_READY: 층별 도면에 길 표시 + 단계 안내
  */
 function ChatLocationCard({ location, onNavigate, disabled = false }: ChatLocationCardProps) {
-  const destination = location.candidates[0]
+  // 층 전체 도면(type FLOOR · routable false)은 목적지가 아니라서 장소 후보에서 빼요
+  const places = location.candidates.filter(({ place, routable }) => routable !== false && place.type !== 'FLOOR')
+  const destination = places[0]
 
+  if (location.status === 'FLOOR_OVERVIEW' || location.status === 'LOCATION_UNVERIFIED') {
+    return <FloorOverviewCard location={location} />
+  }
   if (location.status === 'ROUTE_READY' && location.route) {
     return <RouteCard route={location.route} destination={destination} />
   }
-  if (location.status === 'SELECT_DESTINATION' || location.candidates.length > 1) {
-    return <SelectDestination candidates={location.candidates} onNavigate={onNavigate} disabled={disabled} />
+  if (location.status === 'SELECT_DESTINATION' || places.length > 1) {
+    return <SelectDestination candidates={places} onNavigate={onNavigate} disabled={disabled} />
   }
   if (!destination) return null
   return <DestinationCard destination={destination} onNavigate={onNavigate} disabled={disabled} />
+}
+
+/** 서버 좌표가 둘 다 있을 때만 점으로 (층 전체 카드 등은 null) */
+function toPoint(place?: { x: number | null; y: number | null } | null) {
+  return place && place.x !== null && place.y !== null ? { x: place.x, y: place.y } : null
+}
+
+/**
+ * 층 전체 도면 (FLOOR_OVERVIEW: "기숙사", "본관 4층"처럼 건물 · 층을 물었을 때)
+ * 또는 위치를 확인하지 못했을 때의 참고 도면 (LOCATION_UNVERIFIED)
+ * 특정 방이 아니라서 마커 · 길찾기 없이 서버 안내 문구와 도면만 보여 줘요.
+ */
+function FloorOverviewCard({ location }: { location: ChatLocation }) {
+  // 층 카드(candidates)와 floorPlans 둘 다 올 수 있어서 합치고 같은 도면은 한 번만
+  const plans = [...location.candidates.map(({ floorPlan }) => floorPlan), ...(location.floorPlans ?? [])].filter(
+    (plan, index, all) => all.findIndex(({ id }) => id === plan.id) === index,
+  )
+  const verified = location.status === 'FLOOR_OVERVIEW'
+  const scope = plans[0]?.group
+
+  return (
+    <CardFrame title={verified ? `${scope ? `${scope} ` : ''}층별 도면` : '참고 도면'}>
+      {location.message && <p className="text-label text-text-secondary">{location.message}</p>}
+      <ol className="space-y-sm">
+        {plans.map((plan) => (
+          <li key={plan.id} className="space-y-1.5">
+            <p className="text-caption font-medium text-text-primary">{plan.label}</p>
+            <FloorPlanView floorPlan={plan} label={`${plan.label} 도면`} />
+          </li>
+        ))}
+      </ol>
+      <p className="text-caption text-text-tertiary">
+        {verified
+          ? '호실이나 장소 이름으로 물어보면 위치와 길 안내를 보여 줘요. (예: 401호 어디야?)'
+          : '확인되지 않은 위치는 표시하지 않아요. 도면은 참고용이에요.'}
+      </p>
+    </CardFrame>
+  )
 }
 
 function placeTitle({ place, floorPlan }: LocationCandidate) {
@@ -138,7 +181,7 @@ function DestinationCard({
       <FloorPlanView
         floorPlan={floorPlan}
         area={place.area}
-        destination={place}
+        destination={toPoint(place)}
         // 고른 출발점은 고르기를 꺼도 계속 보여 줘요 (아래 "출발: …" 문구와 맞추기)
         start={pickedPoint}
         onPick={
@@ -257,8 +300,8 @@ function RouteCard({ route, destination }: { route: ChatRoute; destination?: Loc
             {leg.type === 'INDOOR' ? (
               <IndoorLeg
                 leg={leg}
-                start={leg === firstIndoor ? route.from : leg.path[0]}
-                end={leg === lastIndoor ? route.to : null}
+                start={leg === firstIndoor ? toPoint(route.from) : leg.path[0]}
+                end={leg === lastIndoor ? toPoint(route.to) : null}
                 area={leg === lastIndoor ? (route.to.area ?? destination?.place.area) : null}
               />
             ) : (

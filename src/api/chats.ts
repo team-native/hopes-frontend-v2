@@ -35,21 +35,31 @@ export type FloorPlanInfo = {
   buildingId: number
 }
 
-/** 도면 위 장소 (x · y는 문 또는 복도 접점, area는 방 전체 사각형) */
+/**
+ * 도면 위 장소 (x · y는 문 또는 복도 접점, area는 방 전체 사각형)
+ * 층 전체 도면 카드(type "FLOOR")는 특정 지점이 아니라서 x · y · area가 null이에요.
+ */
 export type LocationPlace = {
   id?: string
   name?: string
+  /** ROOM · RESTROOM · AREA · FLOOR(층 전체) 등 */
+  type?: string
   buildingId?: number
   buildingName?: string | null
   floor: string
   floorPlanId: string
-  x: number
-  y: number
+  x: number | null
+  y: number | null
   area?: { x: number; y: number; width: number; height: number } | null
   note?: string | null
 }
 
-export type LocationCandidate = { place: LocationPlace; floorPlan: FloorPlanInfo }
+export type LocationCandidate = {
+  place: LocationPlace
+  floorPlan: FloorPlanInfo
+  /** false면 길찾기 목적지로 쓸 수 없는 후보 (층 전체 도면) */
+  routable?: boolean
+}
 
 export type RouteIndoorLeg = {
   type: 'INDOOR'
@@ -80,10 +90,24 @@ export type ChatRoute = {
 }
 
 export type ChatLocation = {
-  /** DESTINATION_READY: 목적지 하나 · SELECT_DESTINATION: 후보 여러 개 · ROUTE_READY: 경로 포함 */
-  status: 'DESTINATION_READY' | 'SELECT_DESTINATION' | 'ROUTE_READY' | (string & {})
+  /**
+   * DESTINATION_READY: 목적지 하나 · SELECT_DESTINATION: 후보 여러 개 · ROUTE_READY: 경로 포함
+   * FLOOR_OVERVIEW: 건물 · 층을 물었을 때 층 전체 도면 목록 (예: "기숙사", "본관 4층")
+   * LOCATION_UNVERIFIED: 공개 자료에서 위치를 확인하지 못함 → 안내 문구 + 참고 도면만 (마커 · 경로 없음)
+   */
+  status:
+    | 'DESTINATION_READY'
+    | 'SELECT_DESTINATION'
+    | 'ROUTE_READY'
+    | 'FLOOR_OVERVIEW'
+    | 'LOCATION_UNVERIFIED'
+    | (string & {})
   requiresOrigin: boolean
   candidates: LocationCandidate[]
+  /** 층 전체 도면 목록 (FLOOR_OVERVIEW · LOCATION_UNVERIFIED) */
+  floorPlans?: FloorPlanInfo[] | null
+  /** 서버 안내 문구 (FLOOR_OVERVIEW · LOCATION_UNVERIFIED) */
+  message?: string | null
   route?: ChatRoute | null
 }
 
