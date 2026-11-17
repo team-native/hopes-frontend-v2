@@ -6,7 +6,22 @@ import FieldError from '../../../components/common/FieldError'
 import Select from '../../../components/common/Select'
 import TextField from '../../../components/common/TextField'
 import { COHORTS, DEPARTMENTS } from '../../../constants/school'
-import { RETRY_LATER } from '../../../utils/error'
+import { RETRY_LATER, getErrorCode } from '../../../utils/error'
+
+const SIGNUP_ERRORS: Record<string, string> = {
+  EMAIL_ALREADY_REGISTERED: '이미 가입된 이메일이에요. 로그인해 주세요.',
+  INVALID_CODE: '이메일 인증이 만료됐어요. 인증번호를 다시 받아 주세요.',
+  TOO_MANY_ATTEMPTS: `요청이 너무 많아요. ${RETRY_LATER}`,
+}
+
+/** 서버가 알려 준 이유를 그대로 보여 주고, 아는 코드면 안내 문구로 바꿔요 */
+function signupErrorMessage(error: unknown) {
+  const code = getErrorCode(error)
+  if (!code) return `가입하지 못했어요. ${RETRY_LATER}`
+  if (SIGNUP_ERRORS[code]) return SIGNUP_ERRORS[code]
+  // 정규화되지 않은 에러 코드는 사용자에게 의미가 없어서 기본 문구로 바꿔요
+  return /^[A-Z0-9_]+$/.test(code) ? `가입하지 못했어요. ${RETRY_LATER}` : code
+}
 
 export interface Profile {
   name: string
@@ -53,9 +68,9 @@ function ProfileStep({ onSubmit }: ProfileStepProps) {
     setSubmitError('')
     try {
       await onSubmit({ name: name.trim(), department, cohort, agreeTerms, agreePrivacy })
-    } catch {
+    } catch (error) {
       // 마지막 단계라 실패하면 꼭 알려 줘요 (입력값은 그대로 남아서 다시 누르면 돼요)
-      setSubmitError(`가입하지 못했어요. ${RETRY_LATER}`)
+      setSubmitError(signupErrorMessage(error))
     } finally {
       setIsSubmitting(false)
     }
