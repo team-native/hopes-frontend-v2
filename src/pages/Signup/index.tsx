@@ -105,6 +105,12 @@ function SignupPage() {
 
           {step === 3 && (
             <ProfileStep
+              onRestartVerification={() => {
+                // 인증번호는 버리고 이메일은 남겨서 1단계(이메일 입력)부터 다시
+                setVerificationCode('')
+                setEmailPhase('email')
+                setStep(1)
+              }}
               onSubmit={async (profile) => {
                 await signup({ email, password, verificationCode, ...profile })
                 setCompletedProfile(profile)

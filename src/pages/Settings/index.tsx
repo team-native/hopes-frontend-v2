@@ -27,7 +27,7 @@ import SettingToggleRow from '../../components/settings/SettingToggleRow'
 import useProfile from '../../hooks/useProfile'
 import useConversations from '../../hooks/useConversations'
 import useToast from '../../hooks/useToast'
-import { RETRY_LATER, getErrorCode } from '../../utils/error'
+import { RETRY_LATER, getErrorCode, getServerMessage } from '../../utils/error'
 
 // API 연동 전까지 설정값은 이 브라우저(localStorage)에만 저장한다.
 const SETTINGS_STORAGE_KEY = 'hopes.settings'
@@ -155,7 +155,7 @@ function SettingsPage() {
       setWithdrawError(
         getErrorCode(error) === 'INVALID_PASSWORD'
           ? '비밀번호가 맞지 않아요. 다시 확인해 주세요.'
-          : `탈퇴하지 못했어요. ${RETRY_LATER}`,
+          : (getServerMessage(error) ?? `탈퇴하지 못했어요. ${RETRY_LATER}`),
       )
       setWithdrawing(false)
     }
