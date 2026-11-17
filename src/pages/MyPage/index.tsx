@@ -1,5 +1,6 @@
-import { Bookmark, MessageCircle, Pencil, Trash2, Users, type LucideIcon } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { MessageCircle, Pencil, Trash2, Users, type LucideIcon } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { deleteComment, deletePost, getMyComments, getMyPosts } from '../../api/community'
 import ActionMenu, { type ActionMenuItem } from '../../components/common/ActionMenu'
 import Avatar from '../../components/common/Avatar'
 import Button from '../../components/common/Button'
@@ -8,38 +9,83 @@ import { ListCard, ListRow } from '../../components/common/ListRow'
 import TextArea from '../../components/common/TextArea'
 import TextField from '../../components/common/TextField'
 import Toast from '../../components/common/Toast'
-import { EmptyState, NoticeRow } from '../../components/feedback/Feedback'
+import { EmptyState } from '../../components/feedback/Feedback'
 import AppLayout from '../../components/layout/AppLayout'
 import { ProfileCard, ProfileStats } from '../../components/profile/ProfileCards'
 import useAppNavigation from '../../hooks/useAppNavigation'
 import useConversations from '../../hooks/useConversations'
 import useProfile from '../../hooks/useProfile'
 import useToast from '../../hooks/useToast'
-import { mockMyComments, mockMyPosts, mockSavedConversations } from '../../mocks/activity'
 
-type ActivityTab = 'posts' | 'comments' | 'saved'
+type ActivityTab = 'posts' | 'comments'
 
 type ActivityRow = {
   id: string
   title: string
   detail?: string
   meta: string
+  onClick?: () => void
   actions: ActionMenuItem[]
 }
 
-const TAB_ICONS: Record<ActivityTab, LucideIcon> = { posts: Users, comments: MessageCircle, saved: Bookmark }
+type MyPost = { id: string; title: string; excerpt: string; age: string; likes: number; commentCount: number }
+type MyComment = { id: string; postId: string; content: string; postTitle: string; age: string }
+
+function formatAge(value: string) {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000))
+  if (minutes < 1) return '방금'
+  if (minutes < 60) return `${minutes}분 전`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}시간 전`
+  const days = Math.floor(hours / 24)
+  return days === 1 ? '어제' : `${days}일 전`
+}
+
+const TAB_ICONS: Record<ActivityTab, LucideIcon> = { posts: Users, comments: MessageCircle }
 
 function MyPage() {
-  const { openConversation } = useAppNavigation()
+  const { openCommunityPost } = useAppNavigation()
   const { conversations } = useConversations()
   const { profile, updateProfile } = useProfile()
   const { toast, showToast } = useToast()
   const [draftProfile, setDraftProfile] = useState({ name: profile.name, bio: profile.bio })
   const [isEditing, setIsEditing] = useState(false)
   const [activeTab, setActiveTab] = useState<ActivityTab>('posts')
-  const [posts, setPosts] = useState(mockMyPosts)
-  const [comments, setComments] = useState(mockMyComments)
-  const [saved, setSaved] = useState(mockSavedConversations)
+  const [posts, setPosts] = useState<MyPost[]>([])
+  const [comments, setComments] = useState<MyComment[]>([])
+
+  useEffect(() => {
+    let active = true
+    Promise.all([getMyPosts({ page: 0, size: 50 }), getMyComments({ page: 0, size: 50 })])
+      .then(([postPage, commentPage]) => {
+        if (!active) return
+        setPosts(
+          postPage.items.map((post) => ({
+            id: String(post.id),
+            title: post.title,
+            excerpt: post.preview,
+            age: formatAge(post.createdAt),
+            likes: post.likeCount,
+            commentCount: post.commentCount,
+          })),
+        )
+        setComments(
+          commentPage.items.map((comment) => ({
+            id: String(comment.id),
+            postId: String(comment.postId),
+            content: comment.content,
+            postTitle: comment.postTitle ?? '게시글',
+            age: formatAge(comment.createdAt),
+          })),
+        )
+      })
+      .catch(() => {
+        if (active) showToast('내 활동을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
+      })
+    return () => {
+      active = false
+    }
+  }, [showToast])
 
   function startEditing() {
     setDraftProfile({ name: profile.name, bio: profile.bio })
@@ -59,22 +105,27 @@ function MyPage() {
     }
   }
 
-  // TODO: 삭제 · 저장 취소는 API 연동 전까지 화면 목록에서만 제거된다(새로고침 시 복구).
   const rowsByTab: Record<ActivityTab, ActivityRow[]> = {
     posts: posts.map((post) => ({
       id: post.id,
       title: post.title,
       detail: post.excerpt,
       meta: `${post.age} · ♡ ${post.likes} · 댓글 ${post.commentCount}`,
+      onClick: () => openCommunityPost(post.id),
       actions: [
-        { label: '수정', icon: Pencil },
+        { label: '수정', icon: Pencil, onSelect: () => openCommunityPost(post.id, true) },
         {
           label: '삭제',
           icon: Trash2,
           danger: true,
-          onSelect: () => {
-            setPosts((current) => current.filter(({ id }) => id !== post.id))
-            showToast('작성글을 삭제했어요')
+          onSelect: async () => {
+            try {
+              await deletePost(post.id)
+              setPosts((current) => current.filter(({ id }) => id !== post.id))
+              showToast('작성글을 삭제했어요')
+            } catch {
+              showToast('작성글을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.')
+            }
           },
         },
       ],
@@ -83,30 +134,20 @@ function MyPage() {
       id: comment.id,
       title: comment.content,
       meta: `${comment.postTitle} · ${comment.age}`,
+      onClick: () => openCommunityPost(comment.postId),
       actions: [
         {
           label: '댓글 삭제',
           icon: Trash2,
           danger: true,
-          onSelect: () => {
-            setComments((current) => current.filter(({ id }) => id !== comment.id))
-            showToast('댓글을 삭제했어요')
-          },
-        },
-      ],
-    })),
-    saved: saved.map((item) => ({
-      id: item.id,
-      title: item.title,
-      meta: item.savedAge,
-      actions: [
-        { label: '대화 열기', icon: MessageCircle, onSelect: () => openConversation(item.conversationId) },
-        {
-          label: '저장 취소',
-          icon: Bookmark,
-          onSelect: () => {
-            setSaved((current) => current.filter(({ id }) => id !== item.id))
-            showToast('저장을 취소했어요')
+          onSelect: async () => {
+            try {
+              await deleteComment(comment.id)
+              setComments((current) => current.filter(({ id }) => id !== comment.id))
+              showToast('댓글을 삭제했어요')
+            } catch {
+              showToast('댓글을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.')
+            }
           },
         },
       ],
@@ -117,7 +158,6 @@ function MyPage() {
   const tabs: { id: ActivityTab; label: string }[] = [
     { id: 'posts', label: '작성글' },
     { id: 'comments', label: '댓글' },
-    { id: 'saved', label: '저장한 대화' },
   ]
   const activeRows = rowsByTab[activeTab]
   const TabIcon = TAB_ICONS[activeTab]
@@ -197,17 +237,13 @@ function MyPage() {
           onChange={setActiveTab}
         />
 
-        <div className="mt-sm">
-          <NoticeRow message="목업 단계라 삭제 · 저장 취소는 이 화면에서만 반영되고, 새로고침하면 되돌아가요." />
-        </div>
-
         <section className="mt-sm" aria-live="polite">
           {activeRows.length === 0 ? (
             <div className="py-3xl">
               <EmptyState icon={TabIcon} title="아직 표시할 활동이 없어요" />
             </div>
           ) : (
-            <ListCard className="px-md">
+            <ListCard className="animate-fade-up px-md">
               {activeRows.map((row) => (
                 <ListRow
                   key={row.id}
@@ -215,6 +251,7 @@ function MyPage() {
                   title={row.title}
                   description={row.detail}
                   meta={row.meta}
+                  onClick={row.onClick}
                   trailing={<ActionMenu label={`${row.title} 더보기`} items={row.actions} />}
                 />
               ))}

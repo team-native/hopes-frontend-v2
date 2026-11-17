@@ -1,0 +1,119 @@
+/*
+ * 모션 토큰 — Tailwind animate-* 클래스로 써요 (예: animate-fade-up, animate-like-pop)
+ * - 짧고 가볍게: 등장 200~360ms, 누름 반응 120ms
+ * - 운영체제에서 "동작 줄이기"를 켜면 모든 애니메이션 · 전환이 꺼져요 (맨 아래)
+ */
+@theme {
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* 화면 · 카드 등장 */
+  --animate-fade-in: fade-in 220ms var(--ease-out-soft) both;
+  --animate-fade-up: fade-up 360ms var(--ease-out-soft) both;
+  /* 팝업 상자 · 배경 */
+  --animate-pop-in: pop-in 220ms var(--ease-out-soft) both;
+  /* 아래에서 올라오는 알림 (Toast) */
+  --animate-toast-in: toast-in 260ms var(--ease-spring) both;
+  /* 답변 기다리는 중: 점 세 개가 차례로 튀고(지연은 화면에서), 로고는 천천히 숨쉬듯 */
+  --animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
+  --animate-soft-pulse: soft-pulse 1.8s ease-in-out infinite;
+  /* 좋아요 하트 */
+  --animate-like-pop: like-pop 420ms var(--ease-spring);
+  --animate-like-burst: like-burst 480ms var(--ease-out-soft) forwards;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.96);
+    }
+  }
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.96);
+    }
+  }
+
+  @keyframes like-pop {
+    0% {
+      transform: scale(1);
+    }
+    35% {
+      transform: scale(1.35);
+    }
+    65% {
+      transform: scale(0.9);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes typing-dot {
+    0%,
+    60%,
+    100% {
+      opacity: 0.35;
+      transform: translateY(0);
+    }
+    30% {
+      opacity: 1;
+      transform: translateY(-4px);
+    }
+  }
+
+  @keyframes soft-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgb(47 134 245 / 0);
+    }
+    50% {
+      transform: scale(1.04);
+      box-shadow: 0 0 0 6px rgb(47 134 245 / 0.12);
+    }
+  }
+
+  /* 하트 뒤로 퍼지는 연한 원 */
+  @keyframes like-burst {
+    from {
+      opacity: 0.55;
+      transform: scale(0.4);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.8);
+    }
+  }
+}
+
+/* 팝업(<dialog>) 열릴 때 배경도 부드럽게 */
+dialog[open]::backdrop {
+  animation: fade-in 220ms var(--ease-out-soft) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  ::backdrop {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

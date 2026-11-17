@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import Button from '../common/Button'
 import CodeInput from '../common/CodeInput'
 import FieldError from '../common/FieldError'
-import { RETRY_LATER, getErrorCode } from '../../utils/error'
+import { RETRY_LATER, getErrorCode, getServerMessage } from '../../utils/error'
 
 /** 인증번호 유효 시간 (초) */
 const CODE_TTL_SECONDS = 10 * 60
@@ -98,7 +98,7 @@ function CodeStep({
       }
       // 번호가 틀린 경우만 횟수를 세요. 네트워크 · 서버 오류는 횟수에 넣지 않고 따로 안내
       if (errorCode !== 'INVALID_CODE') {
-        setRequestError(`인증번호를 확인하지 못했어요. ${RETRY_LATER}`)
+        setRequestError(getServerMessage(error) ?? `인증번호를 확인하지 못했어요. ${RETRY_LATER}`)
         return
       }
       const nextCount = failCount + 1
@@ -124,9 +124,9 @@ function CodeStep({
       setFailCount(0)
       setExpiresAt(Date.now() + CODE_TTL_SECONDS * 1000)
       setNow(Date.now())
-    } catch {
-      // 실패하면 타이머 · 횟수는 그대로 두고 안내만
-      setRequestError(`인증번호를 다시 보내지 못했어요. ${RETRY_LATER}`)
+    } catch (error) {
+      // 실패하면 타이머 · 횟수는 그대로 두고 안내만 (요청 횟수 초과 등은 서버 문구로)
+      setRequestError(getServerMessage(error) ?? `인증번호를 다시 보내지 못했어요. ${RETRY_LATER}`)
     } finally {
       setIsResending(false)
     }

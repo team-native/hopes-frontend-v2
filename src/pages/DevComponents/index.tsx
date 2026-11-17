@@ -20,6 +20,7 @@ import {
   ContactCard,
   PromptCard,
   SettingsNav,
+  WithdrawCard,
   type SettingsMenu,
 } from '../../components/settings/SettingsCards'
 import { COHORTS, DEPARTMENTS } from '../../constants/school'
@@ -39,6 +40,8 @@ import TextArea from '../../components/common/TextArea'
 import { CommentChip, LikeChip } from '../../components/community/ReactionChips'
 import Sidebar, { type RecentChat, type SidebarMenu } from '../../components/layout/Sidebar'
 import AttachDropzone from '../../components/attach/AttachDropzone'
+import StepProgress from '../../components/auth/StepProgress'
+import { SIGNUP_STEPS } from '../Signup/constants'
 import AttachmentComposer from '../../components/chat/AttachmentComposer'
 import ActionMenu from '../../components/common/ActionMenu'
 import ActionSheet from '../../components/common/ActionSheet'
@@ -98,7 +101,13 @@ const SAMPLE_ANSWER = `### Frontend 시작 순서
 const SAMPLE_ATTACHMENTS: LocalAttachment[] = [
   { id: 'a1', file: new File([''], '생활수칙.pdf'), format: 'pdf', status: 'ready', pageCount: 12 },
   { id: 'a2', file: new File([''], '시간표.pdf'), format: 'pdf', status: 'processing' },
-  { id: 'a3', file: new File([''], 'photo.heic'), format: 'heic', status: 'ready', previewUnsupported: true },
+  {
+    id: 'a3',
+    file: new File([''], 'photo.png'),
+    format: 'png',
+    status: 'error',
+    error: '파일 내용이 형식과 맞지 않아요.',
+  },
 ]
 
 const SAMPLE_POST: Post = {
@@ -158,6 +167,7 @@ function DevComponentsPage() {
   const [reportReason, setReportReason] = useState('도배·광고')
   const [dropzoneOpen, setDropzoneOpen] = useState(false)
   const [composerValue, setComposerValue] = useState('')
+  const [progressStep, setProgressStep] = useState(1)
 
   return (
     <main className="min-h-screen bg-bg-canvas px-[111px] pt-12 pb-5xl">
@@ -184,6 +194,26 @@ function DevComponentsPage() {
           <div className="flex items-center gap-3">
             <NativeBadge />
             <NativeBadge size="sm" />
+          </div>
+        </Specimen>
+        <Specimen name="Auth/Step Progress" className="w-[480px]">
+          <StepProgress title="회원가입" current={progressStep} steps={SIGNUP_STEPS} />
+          <div className="mt-md flex gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={progressStep === 1}
+              onClick={() => setProgressStep((step) => step - 1)}
+            >
+              이전 단계
+            </Button>
+            <Button
+              size="sm"
+              disabled={progressStep === SIGNUP_STEPS.length}
+              onClick={() => setProgressStep((step) => step + 1)}
+            >
+              다음 단계
+            </Button>
           </div>
         </Specimen>
       </Group>
@@ -401,6 +431,17 @@ function DevComponentsPage() {
         </Specimen>
         <Specimen name="Web/Settings Nav" className="w-[220px]">
           <SettingsNav active={settingsMenu} onSelect={setSettingsMenu} onLogout={() => console.log('logout')} />
+        </Specimen>
+        <Specimen name="Settings/Withdraw Card" className="w-[540px]">
+          <WithdrawCard password="" onPasswordChange={() => {}} onSubmit={() => {}} />
+        </Specimen>
+        <Specimen name="Settings/Withdraw Card (비밀번호 틀림)" className="w-[540px]">
+          <WithdrawCard
+            password="12345678"
+            onPasswordChange={() => {}}
+            error="비밀번호가 맞지 않아요. 다시 확인해 주세요."
+            onSubmit={() => {}}
+          />
         </Specimen>
       </Group>
 

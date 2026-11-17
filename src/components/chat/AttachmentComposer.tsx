@@ -3,7 +3,6 @@ import type { FormEvent } from 'react'
 import type { LocalAttachment } from '../../types/conversation'
 import { ImageThumb, PdfCard } from '../attach/Attachments'
 import FieldError from '../common/FieldError'
-import { NoticeRow } from '../feedback/Feedback'
 
 interface AttachmentComposerProps {
   value: string
@@ -35,7 +34,6 @@ function AttachmentComposer({
   placeholder = '추가 질문 입력...',
 }: AttachmentComposerProps) {
   const imageErrors = attachments.filter((attachment) => attachment.format !== 'pdf' && attachment.error)
-  const hasUnsupportedPreview = attachments.some((attachment) => attachment.previewUnsupported)
   // 첨부 · 에러가 없으면 ChatInput과 같은 알약 모양, 있으면 위에 목록이 붙는 카드 모양
   const expanded = attachments.length > 0 || Boolean(error)
 
@@ -69,14 +67,6 @@ function AttachmentComposer({
                 {attachment.file.name} · {attachment.error}
               </FieldError>
             ))}
-            <NoticeRow
-              message={[
-                hasUnsupportedPreview && '이 브라우저에서는 HEIC 미리보기를 지원하지 않아요. 파일은 그대로 첨부돼요.',
-                '목업 단계라 첨부 파일은 서버로 업로드되지 않아요.',
-              ]
-                .filter(Boolean)
-                .join('\n')}
-            />
           </div>
         </>
       )}
@@ -115,7 +105,7 @@ function AttachmentComposer({
 
 /** 입력창 위 첨부 하나 — 이미지는 ImageThumb, PDF는 PdfCard에 로컬 확인 상태를 덧붙여요 */
 function ComposerAttachment({ attachment, onRemove }: { attachment: LocalAttachment; onRemove: () => void }) {
-  const { file, format, status, previewUrl, previewUnsupported, pageCount, error } = attachment
+  const { file, format, status, previewUrl, pageCount, error } = attachment
 
   if (format === 'pdf') {
     const description =
@@ -127,8 +117,7 @@ function ComposerAttachment({ attachment, onRemove }: { attachment: LocalAttachm
     )
   }
 
-  const statusLabel =
-    status === 'processing' ? '확인 중' : status === 'error' ? '오류' : previewUnsupported ? 'HEIC' : undefined
+  const statusLabel = status === 'processing' ? '올리는 중' : status === 'error' ? '오류' : undefined
   return (
     <div className={`relative ${status === 'processing' ? 'animate-pulse' : ''}`} title={error ?? file.name}>
       <ImageThumb src={previewUrl} alt={file.name} onRemove={onRemove} />

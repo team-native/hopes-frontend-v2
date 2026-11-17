@@ -4,14 +4,16 @@ import { login } from '../../../api/auth'
 import Button from '../../../components/common/Button'
 import Checkbox from '../../../components/common/Checkbox'
 import FieldError from '../../../components/common/FieldError'
+import PasswordToggle from '../../../components/common/PasswordToggle'
 import TextField from '../../../components/common/TextField'
 import { useOnlineStatus } from '../../../hooks/useOnlineStatus'
-import { RETRY_LATER, getErrorCode } from '../../../utils/error'
+import { RETRY_LATER, getErrorCode, getServerMessage } from '../../../utils/error'
 
 function LoginForm() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [keepLogin, setKeepLogin] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -37,8 +39,8 @@ function LoginForm() {
       if (getErrorCode(error) === 'INVALID_CREDENTIALS') {
         setErrorMessage('이메일 또는 비밀번호가 맞지 않아요. 다시 확인해 주세요.')
       } else {
-        // 서버 오류 등: 입력값 탓이 아니므로 입력칸을 빨갛게 하지 않고 따로 안내
-        setRequestError(`로그인하지 못했어요. ${RETRY_LATER}`)
+        // 서버 오류 등: 입력값 탓이 아니므로 입력칸을 빨갛게 하지 않고 따로 안내 (서버가 이유를 알려 주면 그 문구로)
+        setRequestError(getServerMessage(error) ?? `로그인하지 못했어요. ${RETRY_LATER}`)
       }
     } finally {
       setIsLoading(false)
@@ -88,8 +90,9 @@ function LoginForm() {
         <TextField
           id="password"
           label="비밀번호"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           autoComplete="current-password"
+          rightSlot={<PasswordToggle visible={showPassword} onToggle={() => setShowPassword((v) => !v)} />}
           placeholder="비밀번호"
           value={password}
           onChange={(e) => {

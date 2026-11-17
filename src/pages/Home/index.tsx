@@ -1,14 +1,15 @@
-import { BedDouble, Bell, Code, Ellipsis, FileText, Heart, RefreshCw, type LucideIcon } from 'lucide-react'
-import { useState } from 'react'
+import { BedDouble, Bell, Code, FileText, Heart, MapPin, RefreshCw, Trash2, type LucideIcon } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import AttachDropzone from '../../components/attach/AttachDropzone'
-import { ImageThumb, PdfChip } from '../../components/attach/Attachments'
 import AnswerBubble from '../../components/chat/AnswerBubble'
 import AnswerReactions from '../../components/chat/AnswerReactions'
 import AttachmentComposer from '../../components/chat/AttachmentComposer'
 import QuestionCard from '../../components/chat/QuestionCard'
 import RelatedQuestions from '../../components/chat/RelatedQuestions'
 import UserBubble from '../../components/chat/UserBubble'
+import ActionMenu from '../../components/common/ActionMenu'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
 import IconButton from '../../components/common/IconButton'
 import LogoMark from '../../components/common/LogoMark'
 import Select from '../../components/common/Select'
@@ -16,131 +17,42 @@ import Toast from '../../components/common/Toast'
 import { EmptyState } from '../../components/feedback/Feedback'
 import { HeroCard, HomePanel, HomePanelRow, PopularPostRow, TipCard } from '../../components/home/HomeCards'
 import AppLayout from '../../components/layout/AppLayout'
-import MapCard from '../../components/location/MapCard'
-import { DEPARTMENTS } from '../../constants/school'
+import { getBoards, getPosts } from '../../api/community'
+import {
+  getChatPreferences,
+  getDepartments,
+  getSpecialties,
+  updateChatPreferences,
+  type CategoryDto,
+} from '../../api/catalog'
+import { getRecommendations, getRecommendationConsent, type RecommendationDto } from '../../api/recommendations'
 import useAppNavigation from '../../hooks/useAppNavigation'
+import useLikeToggle from '../../hooks/useLikeToggle'
 import useAttachmentDraft from '../../hooks/useAttachmentDraft'
 import useConversations from '../../hooks/useConversations'
 import useProfile from '../../hooks/useProfile'
 import useToast from '../../hooks/useToast'
-import { mockCommunityPosts } from '../../mocks/community'
+import {
+  getAttachment,
+  getAttachmentContent,
+  sendLocationCheck,
+  type AttachmentDto,
+  type ChatMessage,
+  type LocationRequest,
+} from '../../api/chats'
 import type { Conversation, LocalAttachment } from '../../types/conversation'
 import type { Profile } from '../../types/profile'
 import { ATTACHMENT_ACCEPT } from '../../utils/attachments'
+import { getApiErrorMessage } from '../../utils/error'
+import { createId } from '../../utils/id'
+import { stagger } from '../../utils/motion'
 
-const MAJORS = ['Frontend', 'Backend', 'AI'] as const
-
-// TODO: 커뮤니티 API 연동 후 인기글 API로 대체
-const popularPosts = [...mockCommunityPosts].sort((a, b) => b.likes - a.likes).slice(0, 3)
-
-const suggestedQuestions: { title: string; category: string; icon: LucideIcon }[] = [
-  { title: '기숙사 하루 일과가 어떻게 돼?', category: '학교생활', icon: BedDouble },
-  { title: '입학하려면 뭘 준비해야 해?', category: '입학', icon: FileText },
-  { title: 'Frontend는 뭐부터 공부하면 좋아?', category: '전공 · Frontend', icon: Code },
-  { title: '후배한테 해주고 싶은 조언 있어?', category: '학교생활', icon: Heart },
-]
-
-type MockAnswer = {
-  category: string
-  heading: string
-  body: string
-  steps?: string[]
-  bullets?: string[]
-  code?: string
-  reference?: string
-  citation?: string
-  /** 학교 지도 카드를 함께 보여 줄지 (위치 질문) */
-  showMap?: boolean
-}
-
-const mockAnswers = {
-  dorm: {
-    category: '학교생활',
-    heading: '기숙사 하루 일과',
-    body: '평일에는 기상 후 아침 식사와 수업을 하고, 방과 후에는 저녁 식사와 자율 학습 시간을 보내요. 이후 점호를 마치고 정해진 시간에 취침하는 흐름이에요. 세부 시간은 학년이나 기숙사 운영 일정에 따라 달라질 수 있어요.',
-    steps: ['기상 및 아침 식사', '정규 수업과 방과 후 일정', '저녁 식사와 자율 학습', '점호 후 취침'],
-  },
-  frontend: {
-    category: '전공 공부',
-    heading: 'Frontend 시작 순서',
-    body: '처음에는 화면을 직접 만들어 보는 것부터 시작하는 걸 추천해요. HTML·CSS로 간단한 페이지를 만들고, JavaScript 기초 문법을 익힌 뒤 작은 프로젝트를 완성해 보세요.',
-    steps: ['HTML·CSS로 간단한 페이지 만들기', 'JavaScript 기초 문법 익히기', 'React로 작은 프로젝트 완성하기'],
-    code: '<button class="primary">질문하기</button>',
-    reference: '학교 전공 소개 페이지',
-  },
-  admission: {
-    category: '입학',
-    heading: '입학 준비 체크리스트',
-    body: '모집 요강과 전형 일정을 먼저 확인하고, 필요한 서류와 평가 항목을 정리해 두세요. 전형 내용은 해마다 달라질 수 있으니 학교의 최신 안내를 기준으로 준비하는 게 좋아요.',
-    steps: ['최신 모집 요강 확인하기', '전형 일정과 제출 서류 정리하기', '학교 공식 안내에서 변경 사항 확인하기'],
-  },
-  club: {
-    category: '학교생활',
-    heading: '동아리 선택과 면접 준비',
-    body: '관심 있는 분야와 동아리 활동 내용을 먼저 살펴보세요. 면접에서는 지원한 이유와 해보고 싶은 활동을 구체적으로 이야기할 수 있도록 정리해 두면 도움이 돼요.',
-    steps: ['동아리별 활동 내용 찾아보기', '관심 분야와 지원 동기 정리하기', '해보고 싶은 활동을 구체적으로 준비하기'],
-  },
-  fallback: {
-    category: '선배 답변',
-    heading: '예시 답변',
-    body: '현재는 화면 확인을 위한 목업 답변만 제공하고 있어요. 실제 질문에 맞는 답변은 서버 연동 후 표시됩니다.',
-  },
-  attachment: {
-    category: '자료 첨부',
-    heading: '첨부 자료 확인',
-    body: '파일은 대화에 첨부했어요. 실제 파일 내용을 읽고 요약하는 기능은 서버 연결 후 사용할 수 있습니다.',
-  },
-  dormRules: {
-    category: '자료 요약',
-    heading: '외출 규정 요약',
-    body: '생활수칙 자료에 포함된 외출 관련 예시 요약입니다.',
-    bullets: [
-      '평일 외출은 사감 선생님 승인 후 가능해요.',
-      '주말 외출은 금요일까지 신청해야 해요.',
-      '복귀 시간은 일요일 저녁 9시예요.',
-    ],
-  },
-  location: {
-    category: '학교 생활',
-    heading: '현재 위치 확인은 hopes 앱에서만 할 수 있어요',
-    body: '웹에서는 학교 지도와 건물 정보를 안내해 드려요.',
-    showMap: true,
-  },
-} satisfies Record<string, MockAnswer>
-
-function getMockAnswer(question: string): MockAnswer {
-  const normalizedQuestion = question.toLowerCase()
-
-  if (/위치|어디야|어디 있/.test(normalizedQuestion)) return mockAnswers.location
-  if (/기숙사|하루 일과|와이파이|외출/.test(normalizedQuestion)) return mockAnswers.dorm
-  if (/입학|준비/.test(normalizedQuestion)) return mockAnswers.admission
-  if (/동아리/.test(normalizedQuestion)) return mockAnswers.club
-  if (/frontend|프론트|전공 공부|공부/.test(normalizedQuestion)) return mockAnswers.frontend
-  return mockAnswers.fallback
-}
-
-function getAttachmentAnswer(attachments: LocalAttachment[]): MockAnswer {
-  const pdfAttachment = attachments.find(({ format }) => format === 'pdf')
-  const reference = pdfAttachment?.file.name ?? attachments[0].file.name
-  const answer = /생활수칙|생활규정|외출/.test(reference) ? mockAnswers.dormRules : mockAnswers.attachment
-  const pages = pdfAttachment?.pageCount ? ` · 1-${pdfAttachment.pageCount}쪽 기반` : ' · 첨부 자료 기반'
-  return { ...answer, citation: `${reference}${pages}` }
-}
-
-/** 목업 답변을 AnswerBubble이 그리는 마크다운으로 바꿔요 (서버 연동 후에는 응답 마크다운을 그대로 사용) */
-function toMarkdown(answer: MockAnswer) {
-  const parts = [`## ${answer.heading}`, answer.body]
-  if (answer.steps) parts.push(answer.steps.map((step, index) => `${index + 1}. ${step}`).join('\n'))
-  if (answer.bullets) parts.push(answer.bullets.map((bullet) => `- ${bullet}`).join('\n'))
-  if (answer.code) parts.push(`\`\`\`html\n${answer.code}\n\`\`\``)
-  if (answer.reference) parts.push(`> 참고: ${answer.reference}`)
-  if (answer.citation) parts.push(`> 출처: ${answer.citation}`)
-  return parts.join('\n\n')
-}
+const QUESTION_ICONS = [BedDouble, FileText, Code, Heart]
 
 const RECENT_CONVERSATION_COUNT = 3
 
 type HomeScreen = 'home' | 'chat' | 'conversation'
+type QuestionSuggestion = { title: string; category: string; icon: LucideIcon; id?: number }
 
 function HomePage() {
   // 화면 상태는 URL에서 매 렌더마다 계산한다. (/ → 홈, /chat → 새 대화, /chat/:conversationId → 대화)
@@ -149,31 +61,270 @@ function HomePage() {
   const screen: HomeScreen = conversationId ? 'conversation' : pathname.startsWith('/chat') ? 'chat' : 'home'
 
   const { goToSection, startNewChat, openConversation, openCommunityPost } = useAppNavigation()
-  const { conversations, getConversation, createConversation } = useConversations()
+  const {
+    conversations,
+    getConversation,
+    createConversation,
+    sendMessage,
+    loadConversation,
+    loadOlderMessages,
+    deleteConversation,
+  } = useConversations()
+  // 재시도 키: 같은 질문(내용 + 첨부)을 다시 보내면 같은 키를 써서 서버가 한 번만 저장해요.
+  // (답변이 늦게 와서 다시 눌러도 질문이 두 번 생기지 않아요. 성공하면 비워요)
+  const retryKeyRef = useRef<{ signature: string; key: string } | null>(null)
   const { profile } = useProfile()
   const conversation = conversationId ? getConversation(conversationId) : undefined
   const { toast, showToast } = useToast()
 
   const [draft, setDraft] = useState('')
-  const [department, setDepartment] = useState<string>(DEPARTMENTS[0])
-  const [major, setMajor] = useState<string>(MAJORS[0])
+  const [department, setDepartment] = useState('')
+  const [major, setMajor] = useState('')
+  const [departmentId, setDepartmentId] = useState<number>()
+  const [specialtyId, setSpecialtyId] = useState<number>()
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([])
+  const [specialtyOptions, setSpecialtyOptions] = useState<string[]>([])
+  const [departmentCatalog, setDepartmentCatalog] = useState<CategoryDto[]>([])
+  const [specialtyGroups, setSpecialtyGroups] = useState<Record<string, CategoryDto[]>>({})
+  const [recommendationConsent, setRecommendationConsent] = useState(false)
+  const [recommendationItems, setRecommendationItems] = useState<RecommendationDto[]>([])
+  const recommendationRefreshTokenRef = useRef<string | undefined>(undefined)
+  const recommendationItemsRef = useRef<RecommendationDto[]>([])
+  // 학과 · 전공(내 설정)을 다 받은 뒤에 추천 질문을 한 번만 불러와요. (먼저 부르면 일반 추천 → 학과 추천으로 두 번 바뀌어요)
+  const [catalogReady, setCatalogReady] = useState(false)
+  const [recommendationsLoading, setRecommendationsLoading] = useState(true)
+  // 늦게 온 이전 응답이 최신 추천을 덮어쓰지 않게 요청 순서를 세요
+  const recommendationRequestRef = useRef(0)
+  const [isSending, setIsSending] = useState(false)
+  const loadedConversationIdRef = useRef<string | null>(null)
 
-  function startConversation(question: string, attachments: LocalAttachment[] = []) {
-    const id = createConversation(question, attachments)
-    setDraft('')
-    openConversation(id)
+  useEffect(() => {
+    if (!conversationId || loadedConversationIdRef.current === conversationId) return
+    loadedConversationIdRef.current = conversationId
+    const current = getConversation(conversationId)
+    if (current?.messages?.some(({ id }) => id < 0)) return
+    void loadConversation(conversationId).catch((error) =>
+      showToast(getApiErrorMessage(error, '대화를 불러오지 못했어요.')),
+    )
+  }, [conversationId, getConversation, loadConversation, showToast])
+
+  useEffect(() => {
+    let active = true
+    Promise.all([getDepartments(), getSpecialties(), getChatPreferences(), getRecommendationConsent()])
+      .then(([departmentGroups, specialtyGroupsData, preferences, consent]) => {
+        if (!active) return
+        const departments = Object.values(departmentGroups)
+          .flat()
+          .filter(({ isActive }) => isActive)
+        const specialties = Object.values(specialtyGroupsData)
+          .flat()
+          .filter(({ isActive }) => isActive)
+        setDepartmentCatalog(departments)
+        setDepartmentOptions(departments.map(({ name }) => name))
+        setSpecialtyGroups(specialtyGroupsData)
+        const activeDepartment = departments.find(({ id }) => id === preferences.departmentId) ?? departments[0]
+        const activeSpecialty = specialties.find(({ id }) => id === preferences.specialtyId)
+        const relatedSpecialties = activeDepartment
+          ? (specialtyGroupsData[activeDepartment.name] ?? specialties)
+          : specialties
+        const selectedSpecialty = activeSpecialty ?? relatedSpecialties[0]
+        setDepartmentId(activeDepartment?.id)
+        setSpecialtyId(selectedSpecialty?.id)
+        setDepartment(activeDepartment?.name ?? '')
+        setSpecialtyOptions(relatedSpecialties.filter(({ isActive }) => isActive).map(({ name }) => name))
+        setMajor(selectedSpecialty?.name ?? '')
+        setRecommendationConsent(consent.enabled)
+      })
+      .catch(() => undefined)
+      // 설정을 못 받아도 기본 추천은 보여 줘요
+      .finally(() => {
+        if (active) setCatalogReady(true)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const loadRecommendations = useCallback(
+    async (refresh = false) => {
+      const request = ++recommendationRequestRef.current
+      try {
+        const result = await getRecommendations({
+          departmentId,
+          specialtyId,
+          personalized: recommendationConsent,
+          limit: 4,
+          refreshToken: refresh ? recommendationRefreshTokenRef.current : undefined,
+          excludeIds: refresh ? recommendationItemsRef.current.map(({ id }) => id) : undefined,
+        })
+        if (request !== recommendationRequestRef.current) return
+        recommendationItemsRef.current = result.items
+        setRecommendationItems(result.items)
+        recommendationRefreshTokenRef.current = result.nextRefreshToken
+      } catch {
+        if (request !== recommendationRequestRef.current) return
+        setRecommendationItems([])
+      } finally {
+        if (request === recommendationRequestRef.current) setRecommendationsLoading(false)
+      }
+    },
+    [departmentId, specialtyId, recommendationConsent],
+  )
+
+  useEffect(() => {
+    if (catalogReady) void loadRecommendations()
+  }, [catalogReady, loadRecommendations])
+
+  const suggestions = useMemo(() => {
+    return recommendationItems.map((item, index) => ({
+      title: item.content,
+      category: major || '추천 질문',
+      icon: QUESTION_ICONS[index % QUESTION_ICONS.length],
+      id: item.id,
+    }))
+  }, [major, recommendationItems])
+
+  function changeDepartment(value: string) {
+    const nextDepartmentId = departmentCatalog.find(({ name }) => name === value)?.id
+    const specialties = specialtyGroups[value] ?? Object.values(specialtyGroups).flat()
+    setDepartment(value)
+    setDepartmentId(nextDepartmentId)
+    setSpecialtyId(undefined)
+    setSpecialtyOptions(specialties.filter(({ isActive }) => isActive).map(({ name }) => name))
+    setMajor('')
+    void updateChatPreferences({ departmentId: nextDepartmentId ?? null, specialtyId: null }).catch(() =>
+      showToast('학과 설정을 저장하지 못했어요.'),
+    )
   }
 
-  /** 질문을 받아 새 대화를 만들었으면 true. 첨부는 이때 대화로 소유권이 넘어간다. */
-  function submitQuestion(attachments: LocalAttachment[], question: string) {
+  function changeMajor(value: string) {
+    const specialties = Object.values(specialtyGroups).flat()
+    const nextSpecialtyId = specialties.find(({ name }) => name === value)?.id
+    setMajor(value)
+    setSpecialtyId(nextSpecialtyId)
+    void updateChatPreferences({ departmentId: departmentId ?? null, specialtyId: nextSpecialtyId ?? null }).catch(() =>
+      showToast('전공 설정을 저장하지 못했어요.'),
+    )
+  }
+
+  function requestKeyFor(text: string, attachments: LocalAttachment[]) {
+    const signature = [text, ...attachments.map(({ serverId }) => serverId)].join('\u0000')
+    if (retryKeyRef.current?.signature !== signature) {
+      const key = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : createId('message')
+      retryKeyRef.current = { signature, key }
+    }
+    return retryKeyRef.current.key
+  }
+
+  async function startConversation(
+    question: string,
+    attachments: LocalAttachment[] = [],
+    onConversationCreated?: (id: string) => void,
+  ) {
+    if (isSending) return false
+    setIsSending(true)
+    try {
+      await createConversation(
+        question,
+        attachments,
+        { departmentId, specialtyId },
+        (id) => {
+          onConversationCreated?.(id)
+          openConversation(id)
+        },
+        requestKeyFor(question, attachments),
+      )
+      retryKeyRef.current = null
+      setDraft('')
+      return true
+    } catch (error) {
+      showToast(getApiErrorMessage(error, '메시지를 보내지 못했어요.'))
+      return false
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  async function submitQuestion(
+    attachments: LocalAttachment[],
+    question: string,
+    onConversationCreated?: (id: string) => void,
+  ) {
     const text = question.trim() || (attachments.length > 0 ? '첨부 자료 요약해줘' : '')
-    if (!text) return false
-    startConversation(text, attachments)
-    return true
+    if (!text || isSending) return false
+    if (!conversationId || screen !== 'conversation') return startConversation(text, attachments, onConversationCreated)
+    setIsSending(true)
+    // 보내는 순간 입력창을 비워요(입력창에 쓴 질문을 보낼 때만. 추가 질문을 눌렀을 때 쓰던 글은 그대로 둬요).
+    // 실패하면 사용자가 다시 쓰지 않았을 때만 원래 질문을 되돌려 놔요.
+    setDraft((current) => (current === question ? '' : current))
+    try {
+      await sendMessage(
+        conversationId,
+        text,
+        attachments,
+        { departmentId, specialtyId },
+        requestKeyFor(text, attachments),
+      )
+      retryKeyRef.current = null
+      return true
+    } catch (error) {
+      setDraft((current) => current || question)
+      showToast(getApiErrorMessage(error, '메시지를 보내지 못했어요.'))
+      return false
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  async function removeConversation(id: string) {
+    try {
+      await deleteConversation(id)
+      showToast('대화를 삭제했어요.')
+      startNewChat()
+    } catch (error) {
+      showToast(getApiErrorMessage(error, '대화를 삭제하지 못했어요.'))
+    }
+  }
+
+  async function showOlderMessages(id: string) {
+    try {
+      await loadOlderMessages(id)
+    } catch (error) {
+      showToast(getApiErrorMessage(error, '이전 메시지를 불러오지 못했어요.'))
+    }
+  }
+
+  async function checkChatLocation(id: string) {
+    if (!navigator.geolocation) {
+      showToast('이 브라우저에서는 현재 위치를 사용할 수 없어요.')
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords, timestamp }) => {
+        const request: LocationRequest = {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          horizontalAccuracyMeters: coords.accuracy,
+          measuredAt: new Date(timestamp).toISOString(),
+        }
+        try {
+          const { locationResult } = await sendLocationCheck(id, request)
+          showToast(locationResult.message)
+        } catch (error) {
+          showToast(getApiErrorMessage(error, '위치를 확인하지 못했어요.'))
+        }
+      },
+      () => showToast('브라우저에서 위치 권한을 허용해 주세요.'),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    )
   }
 
   return (
-    <AppLayout activeMenu={screen === 'home' ? 'home' : 'chat'} activeConversationId={conversation?.id}>
+    <AppLayout
+      activeMenu={screen === 'home' ? 'home' : 'chat'}
+      activeConversationId={conversation?.id}
+      fitScreen={screen === 'conversation' && Boolean(conversation)}
+    >
       {screen === 'home' ? (
         <HomeView
           profile={profile}
@@ -184,13 +335,19 @@ function HomePage() {
           onShowHistory={() => goToSection('history')}
           onShowCommunity={() => goToSection('community')}
           onNotify={() => showToast('새로운 알림이 없어요.')}
+          onToast={showToast}
         />
       ) : screen === 'chat' ? (
         <NewChatView
           department={department}
           major={major}
-          onDepartmentChange={setDepartment}
-          onMajorChange={setMajor}
+          departmentOptions={departmentOptions}
+          majorOptions={specialtyOptions}
+          suggestions={suggestions}
+          suggestionsLoading={recommendationsLoading}
+          onRefreshSuggestions={() => void loadRecommendations(true)}
+          onDepartmentChange={changeDepartment}
+          onMajorChange={changeMajor}
           onAsk={startConversation}
           onSubmit={submitQuestion}
         />
@@ -198,12 +355,19 @@ function HomePage() {
         <ConversationView
           key={conversation.id}
           title={conversation.title}
-          onAsk={startConversation}
+          category={[department, major].filter(Boolean).join(' · ') || '추천 질문'}
+          suggestions={suggestions}
+          onCheckLocation={() => void checkChatLocation(conversation.id)}
+          onAsk={(question) => void submitQuestion([], question)}
           draft={draft}
           onDraftChange={setDraft}
           onSubmit={submitQuestion}
           onToast={showToast}
-          attachments={conversation.attachments ?? []}
+          messages={conversation.messages ?? []}
+          hasMoreMessages={Boolean(conversation.hasMoreMessages)}
+          onLoadOlder={() => showOlderMessages(conversation.id)}
+          onDelete={() => removeConversation(conversation.id)}
+          isSending={isSending}
         />
       ) : (
         <main className="flex flex-1 items-center justify-center px-5 py-16">
@@ -229,7 +393,10 @@ type HomeViewProps = {
   onShowHistory: () => void
   onShowCommunity: () => void
   onNotify: () => void
+  onToast: (message: string) => void
 }
+
+type PopularPost = { id: string; board: string; title: string; likes: number; liked: boolean }
 
 function HomeView({
   profile,
@@ -240,7 +407,43 @@ function HomeView({
   onShowHistory,
   onShowCommunity,
   onNotify,
+  onToast,
 }: HomeViewProps) {
+  const [popularPosts, setPopularPosts] = useState<PopularPost[]>([])
+  /** 좋아요 — 커뮤니티 목록과 같은 방식 (useLikeToggle 참고) */
+  const toggleLikeRequest = useLikeToggle({
+    onChange: (postId, { liked, likeCount }) =>
+      setPopularPosts((current) =>
+        current.map((post) => (post.id === postId ? { ...post, liked, likes: likeCount } : post)),
+      ),
+    onError: () => onToast('좋아요를 반영하지 못했어요. 잠시 후 다시 시도해 주세요.'),
+  })
+  const toggleLike = (post: PopularPost) => toggleLikeRequest(post.id, { liked: post.liked, likeCount: post.likes })
+
+  useEffect(() => {
+    let active = true
+    Promise.all([getBoards(), getPosts({ page: 0, size: 20 })])
+      .then(([boards, page]) => {
+        if (!active) return
+        setPopularPosts(
+          [...page.items]
+            .sort((a, b) => b.likeCount - a.likeCount)
+            .slice(0, 3)
+            .map((post) => ({
+              id: String(post.id),
+              board: boards.find((board) => board.id === post.boardId)?.name ?? '전체',
+              title: post.title,
+              likes: post.likeCount,
+              liked: post.likedByMe,
+            })),
+        )
+      })
+      .catch(() => setPopularPosts([]))
+    return () => {
+      active = false
+    }
+  }, [])
+
   return (
     <main className="mx-auto w-full max-w-[1010px] px-5 pt-5 pb-10 md:px-8 md:pt-6">
       {/* 인사말 · 알림 버튼을 아래 카드들과 같은 폭(946)에 맞춰요 */}
@@ -257,20 +460,28 @@ function HomeView({
       </header>
 
       <div className="space-y-lg">
-        <HeroCard
-          title={
-            <>
-              <span className="text-text-brand">선배</span>에게 묻는{'\n'}
-              <span className="text-text-brand">가장 솔직한</span> 학교 이야기
-            </>
-          }
-          description="기숙사, 전공, 취업 질문에 선배 경험으로 답해요."
-          actionText="채팅 시작하기"
-          onAction={onStartChat}
-        />
+        <div className="animate-fade-up">
+          <HeroCard
+            title={
+              <>
+                <span className="text-text-brand">선배</span>에게 묻는{'\n'}
+                <span className="text-text-brand">가장 솔직한</span> 학교 이야기
+              </>
+            }
+            description="기숙사, 전공, 취업 질문에 선배 경험으로 답해요."
+            actionText="채팅 시작하기"
+            onAction={onStartChat}
+          />
+        </div>
 
         <div className="grid grid-cols-1 items-start gap-lg md:grid-cols-2 xl:grid-cols-3">
-          <HomePanel title="이어서 하기" actionText="더보기" onAction={onShowHistory}>
+          <HomePanel
+            title="이어서 하기"
+            actionText="더보기"
+            onAction={onShowHistory}
+            className="animate-fade-up"
+            style={stagger(1, 60)}
+          >
             {recentConversations.length === 0 ? (
               <li className="py-md text-caption text-text-secondary">아직 대화가 없어요.</li>
             ) : (
@@ -285,19 +496,32 @@ function HomeView({
             )}
           </HomePanel>
 
-          <HomePanel title="커뮤니티 인기글" actionText="더보기" onAction={onShowCommunity}>
+          <HomePanel
+            title="커뮤니티 인기글"
+            actionText="더보기"
+            onAction={onShowCommunity}
+            className="animate-fade-up"
+            style={stagger(2, 60)}
+          >
             {popularPosts.map((post) => (
               <PopularPostRow
                 key={post.id}
                 board={post.board}
                 title={post.title}
                 likeCount={post.likes}
+                liked={post.liked}
                 onClick={() => onOpenPost(post.id)}
+                onToggleLike={() => toggleLike(post)}
               />
             ))}
           </HomePanel>
 
-          <HomePanel title="질문 잘하는 방법" divided={false} className="md:col-span-2 xl:col-span-1">
+          <HomePanel
+            title="질문 잘하는 방법"
+            divided={false}
+            className="animate-fade-up md:col-span-2 xl:col-span-1"
+            style={stagger(3, 60)}
+          >
             <TipCard step={1} caption="질문 전에," text="학과·전공을 먼저 골라요" />
             <TipCard step={2} caption="“기숙사 어때” 보단," text="“1학년 기숙사 평일 루틴 알려줘”" />
           </HomePanel>
@@ -310,29 +534,45 @@ function HomeView({
 type NewChatViewProps = {
   department: string
   major: string
+  departmentOptions: string[]
+  majorOptions: string[]
+  suggestions: QuestionSuggestion[]
+  /** 추천 질문을 처음 불러오는 중 (카드 자리에 회색 자리표시) */
+  suggestionsLoading: boolean
+  onRefreshSuggestions: () => void
   onDepartmentChange: (value: string) => void
   onMajorChange: (value: string) => void
   onAsk: (question: string) => void
   /** 입력창으로 보내기 (첨부 포함). 새 대화를 만들었으면 true */
-  onSubmit: (attachments: LocalAttachment[], question: string) => boolean
+  onSubmit: (attachments: LocalAttachment[], question: string, onCreated?: (id: string) => void) => Promise<boolean>
 }
 
-function NewChatView({ department, major, onDepartmentChange, onMajorChange, onAsk, onSubmit }: NewChatViewProps) {
+function NewChatView({
+  department,
+  major,
+  departmentOptions,
+  majorOptions,
+  suggestions,
+  suggestionsLoading,
+  onRefreshSuggestions,
+  onDepartmentChange,
+  onMajorChange,
+  onAsk,
+  onSubmit,
+}: NewChatViewProps) {
   const [suggestionOffset, setSuggestionOffset] = useState(0)
   const [draft, setDraft] = useState('')
   const draftAttachments = useAttachmentDraft()
   const canSend = (draft.trim() !== '' || draftAttachments.attachments.length > 0) && !draftAttachments.hasUnready
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!canSend) return
-    if (onSubmit(draftAttachments.attachments, draft)) {
+    if (await onSubmit(draftAttachments.attachments, draft, draftAttachments.handOff)) {
       draftAttachments.handOff()
       setDraft('')
     }
   }
-  const rotatedSuggestions = suggestedQuestions.map(
-    (_, index) => suggestedQuestions[(index + suggestionOffset) % suggestedQuestions.length],
-  )
+  const rotatedSuggestions = suggestions.map((_, index) => suggestions[(index + suggestionOffset) % suggestions.length])
 
   return (
     <main className="relative flex min-h-[calc(100vh-105px)] flex-1 flex-col px-5 pt-5 pb-4 md:min-h-screen md:px-8">
@@ -341,18 +581,20 @@ function NewChatView({ department, major, onDepartmentChange, onMajorChange, onA
         <div className="flex flex-wrap items-center gap-2">
           <Select
             variant="inline"
+            size="sm"
             label="학과"
             placeholder="선택"
-            options={DEPARTMENTS}
+            options={departmentOptions}
             value={department}
             onChange={onDepartmentChange}
             className="w-[230px]"
           />
           <Select
             variant="inline"
+            size="sm"
             label="전공"
             placeholder="선택"
-            options={MAJORS}
+            options={majorOptions}
             value={major}
             onChange={onMajorChange}
             className="w-[160px]"
@@ -372,19 +614,40 @@ function NewChatView({ department, major, onDepartmentChange, onMajorChange, onA
           <IconButton
             icon={RefreshCw}
             label="추천 질문 순서 바꾸기"
-            onClick={() => setSuggestionOffset((offset) => offset + 1)}
+            onClick={() => {
+              setSuggestionOffset((offset) => offset + 1)
+              onRefreshSuggestions()
+            }}
           />
         </div>
         <div className="mt-xs grid grid-cols-1 gap-sm text-left sm:grid-cols-2">
-          {rotatedSuggestions.map((question) => (
-            <QuestionCard
-              key={question.title}
-              question={question.title}
-              category={question.category}
-              icon={question.icon}
-              onClick={() => onAsk(question.title)}
-            />
-          ))}
+          {suggestionsLoading ? (
+            Array.from({ length: 4 }, (_, index) => (
+              <div
+                key={index}
+                role={index === 0 ? 'status' : undefined}
+                aria-label={index === 0 ? '추천 질문 불러오는 중' : undefined}
+                className="h-[132px] animate-pulse rounded-lg border border-border-subtle bg-bg-surface p-md"
+              >
+                <div className="size-8 rounded-sm bg-bg-canvas" />
+                <div className="mt-sm h-3.5 w-3/4 rounded-full bg-bg-canvas" />
+                <div className="mt-2 h-3 w-1/4 rounded-full bg-bg-canvas" />
+              </div>
+            ))
+          ) : rotatedSuggestions.length ? (
+            rotatedSuggestions.map((question, index) => (
+              <div key={question.id ?? question.title} className="animate-fade-up" style={stagger(index, 50)}>
+                <QuestionCard
+                  question={question.title}
+                  category={question.category}
+                  icon={question.icon}
+                  onClick={() => onAsk(question.title)}
+                />
+              </div>
+            ))
+          ) : (
+            <p className="py-md text-caption text-text-secondary">추천 질문을 불러오지 못했어요.</p>
+          )}
         </div>
       </section>
 
@@ -416,43 +679,87 @@ function NewChatView({ department, major, onDepartmentChange, onMajorChange, onA
 }
 
 type ConversationViewProps = {
+  onCheckLocation: () => void
   title: string
+  category: string
+  messages: ChatMessage[]
+  /** 서버에 더 오래된 메시지가 있으면 맨 위에 "이전 메시지 보기" */
+  hasMoreMessages: boolean
+  onLoadOlder: () => Promise<void>
+  /** 대화 옵션 → 대화 삭제 (확인 팝업 뒤) */
+  onDelete: () => Promise<void>
+  suggestions: QuestionSuggestion[]
+  isSending: boolean
   /** 추천 질문을 눌렀을 때 새 대화로 묻기 */
   onAsk: (question: string) => void
   draft: string
-  attachments: LocalAttachment[]
   onDraftChange: (value: string) => void
-  onSubmit: (attachments: LocalAttachment[], question: string) => boolean
+  onSubmit: (attachments: LocalAttachment[], question: string) => Promise<boolean>
   onToast: (message: string) => void
 }
 
 function ConversationView({
+  onCheckLocation,
   title,
+  category,
+  messages,
+  hasMoreMessages,
+  onLoadOlder,
+  onDelete,
+  suggestions,
+  isSending,
   draft,
-  attachments,
   onAsk,
   onDraftChange,
   onSubmit,
   onToast,
 }: ConversationViewProps) {
-  const answer: MockAnswer = attachments.length > 0 ? getAttachmentAnswer(attachments) : getMockAnswer(title)
-  const answerMarkdown = toMarkdown(answer)
-  const relatedQuestions = suggestedQuestions
+  const relatedQuestions = suggestions
     .map(({ title: question }) => question)
     .filter((question) => question !== title)
     .slice(0, 3)
   const draftAttachments = useAttachmentDraft()
   const canSend = (draft.trim() !== '' || draftAttachments.attachments.length > 0) && !draftAttachments.hasUnready
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const scrollRef = useRef<HTMLElement>(null)
+  const scrollMarkRef = useRef<{ firstId?: number; lastId?: number; height: number }>({ height: 0 })
 
-  function handleConversationSubmit() {
+  // 2) 추가로 많이 묻는 질문: 첫 질문의 답변이 나왔을 때만 보여 줘요. 다음 질문부터는 숨겨요.
+  const userMessageCount = messages.filter(({ role }) => role === 'USER').length
+  const showRelatedQuestions =
+    !isSending && userMessageCount === 1 && messages.at(-1)?.role === 'ASSISTANT' && relatedQuestions.length > 0
+
+  // 새 메시지 · 답변 대기 표시가 생기면 맨 아래로, 이전 메시지를 위에 붙였을 때는 보던 위치를 그대로 유지해요
+  useLayoutEffect(() => {
+    const element = scrollRef.current
+    if (!element) return
+    const mark = scrollMarkRef.current
+    const firstId = messages[0]?.id
+    const lastId = messages.at(-1)?.id
+    const prepended = mark.lastId !== undefined && lastId === mark.lastId && firstId !== mark.firstId
+    if (prepended) element.scrollTop += element.scrollHeight - mark.height
+    else element.scrollTo({ top: element.scrollHeight, behavior: mark.height ? 'smooth' : 'auto' })
+    scrollMarkRef.current = { firstId, lastId, height: element.scrollHeight }
+  }, [messages, isSending])
+
+  async function loadOlder() {
+    setLoadingOlder(true)
+    await onLoadOlder()
+    setLoadingOlder(false)
+  }
+
+  async function handleConversationSubmit() {
     if (!canSend) return
-    const accepted = onSubmit(draftAttachments.attachments, draft)
+    const accepted = await onSubmit(draftAttachments.attachments, draft)
     if (accepted) draftAttachments.handOff()
   }
 
   async function copyAnswer() {
     try {
-      await navigator.clipboard.writeText(answerMarkdown)
+      await navigator.clipboard.writeText(
+        messages.filter((message) => message.role === 'ASSISTANT').at(-1)?.content ?? '',
+      )
       onToast('답변을 복사했어요.')
     } catch {
       onToast('이 브라우저에서는 복사할 수 없어요.')
@@ -460,57 +767,71 @@ function ConversationView({
   }
 
   return (
-    <main className="relative flex min-h-[calc(100vh-105px)] flex-1 flex-col px-5 pt-5 pb-4 md:min-h-screen md:px-8">
+    // AppLayout(fitScreen)이 화면 높이에 맞춰 주고, 여기서는 남은 높이를 채운 뒤 메시지 영역만 스크롤해요
+    <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-5 pb-4 md:px-8">
       <header className="flex items-start justify-between">
         <div>
-          <h1 className="text-title">{answer.category}</h1>
-          <p className="mt-1 text-caption text-text-secondary">소프트웨어개발과 · {answer.category}</p>
+          <h1 className="text-title">{title}</h1>
+          <p className="mt-1 text-caption text-text-secondary">{category}</p>
         </div>
-        <IconButton icon={Ellipsis} label="대화 옵션" onClick={() => onToast('대화 옵션은 준비 중이에요.')} />
+        <div className="flex gap-2">
+          <IconButton icon={MapPin} label="현재 위치 확인" onClick={onCheckLocation} />
+          <ActionMenu
+            label="대화 옵션"
+            items={[{ label: '대화 삭제', icon: Trash2, danger: true, onSelect: () => setDeleteOpen(true) }]}
+          />
+        </div>
       </header>
 
-      <section className="mx-auto flex w-full max-w-[720px] flex-1 flex-col justify-end gap-md py-xl">
-        {attachments.length > 0 && (
-          <div className="flex flex-wrap justify-end gap-2" aria-label="전송한 첨부 파일">
-            {attachments.map((attachment) =>
-              attachment.format === 'pdf' ? (
-                <PdfChip key={attachment.id} name={attachment.file.name} />
-              ) : (
-                <ImageThumb key={attachment.id} src={attachment.previewUrl} alt={attachment.file.name} />
-              ),
-            )}
-          </div>
-        )}
-        <UserBubble>{title}</UserBubble>
-        <div className="flex items-start gap-3">
-          <LogoMark size={40} />
-          <div className="min-w-0 flex-1">
-            <AnswerBubble
-              content={answerMarkdown}
-              footer={
-                <AnswerReactions
-                  reactions={[
-                    { key: 'copy', label: '복사' },
-                    { key: 'save', label: '저장' },
-                    { key: 'share', label: '공유' },
-                  ]}
-                  onSelect={(key) => {
-                    if (key === 'copy') void copyAnswer()
-                    else onToast(key === 'save' ? '답변 저장은 준비 중이에요.' : '공유는 준비 중이에요.')
-                  }}
-                />
-              }
-            />
-            {answer.showMap && (
-              <div className="mt-sm max-w-[360px]">
-                {/* TODO: 실제 지도 연동 전까지는 MapCard 그림만 보여 줘요 */}
-                <MapCard label="광주소프트웨어마이스터고 위치" onClick={() => onToast('지도 보기는 준비 중이에요.')} />
+      <section
+        ref={scrollRef}
+        aria-label="대화 내용"
+        className="-mx-5 min-h-0 flex-1 overflow-y-auto px-5 md:-mx-8 md:px-8"
+      >
+        <div className="mx-auto flex min-h-full w-full max-w-[720px] flex-col justify-end gap-md py-xl">
+          {hasMoreMessages && (
+            <button
+              type="button"
+              onClick={() => void loadOlder()}
+              disabled={loadingOlder}
+              className="mx-auto rounded-full border border-border-subtle bg-bg-surface px-4 py-1.5 text-caption text-text-secondary transition hover:text-text-primary disabled:cursor-wait disabled:opacity-60"
+            >
+              {loadingOlder ? '불러오는 중…' : '이전 메시지 보기'}
+            </button>
+          )}
+          {messages.map((message) =>
+            message.role === 'USER' ? (
+              <div key={message.id} className="animate-fade-up space-y-2">
+                <UserBubble>{message.content}</UserBubble>
+                <MessageAttachments attachments={message.attachments} />
               </div>
-            )}
-            <div className="mt-sm">
-              <RelatedQuestions questions={relatedQuestions} onSelect={onAsk} />
-            </div>
-          </div>
+            ) : (
+              <div key={message.id} className="flex animate-fade-up items-start gap-3">
+                <LogoMark size={40} />
+                <div className="min-w-0 flex-1">
+                  <AnswerBubble
+                    content={message.content}
+                    footer={
+                      <AnswerReactions
+                        reactions={[
+                          { key: 'copy', label: '복사' },
+                          { key: 'save', label: '저장' },
+                          { key: 'share', label: '공유' },
+                        ]}
+                        onSelect={(key) => {
+                          if (key === 'copy') void copyAnswer()
+                          else onToast(key === 'save' ? '답변 저장은 준비 중이에요.' : '공유는 준비 중이에요.')
+                        }}
+                      />
+                    }
+                  />
+                  <MessageAttachments attachments={message.attachments} />
+                </div>
+              </div>
+            ),
+          )}
+          {isSending && <WaitingAnswer />}
+          {showRelatedQuestions && <RelatedQuestions questions={relatedQuestions} onSelect={onAsk} />}
         </div>
       </section>
 
@@ -522,9 +843,9 @@ function ConversationView({
         attachments={draftAttachments.attachments}
         onRemoveAttachment={draftAttachments.removeAttachment}
         error={draftAttachments.error}
-        canSend={canSend}
+        canSend={canSend && !isSending}
       />
-      <p className="mt-2.5 text-center text-caption text-text-tertiary">현재는 화면 확인용 목업 답변입니다.</p>
+      <p className="mt-2.5 text-center text-caption text-text-tertiary">선배 답변은 참고용으로 확인해 주세요.</p>
 
       <AttachDropzone
         open={draftAttachments.dropzoneOpen}
@@ -532,7 +853,138 @@ function ConversationView({
         onFiles={draftAttachments.addFiles}
         accept={ATTACHMENT_ACCEPT}
       />
+
+      <ConfirmDialog
+        open={deleteOpen}
+        title="대화를 삭제할까요?"
+        description="이 대화와 모든 메시지가 영구 삭제돼요."
+        confirmText="삭제"
+        tone="danger"
+        onCancel={() => setDeleteOpen(false)}
+        onConfirm={() => {
+          setDeleteOpen(false)
+          void onDelete()
+        }}
+      />
     </main>
+  )
+}
+
+/** 기다린 시간에 따라 바뀌는 문구 (AI 답변은 길면 1분 가까이 걸려요) */
+const WAITING_STEPS = [
+  { after: 0, text: '답변을 준비하고 있어요' },
+  { after: 5, text: '선배들의 경험을 찾아보고 있어요' },
+  { after: 15, text: '답변을 정리하고 있어요' },
+  { after: 30, text: '조금 오래 걸리고 있어요. 잠시만 기다려 주세요' },
+]
+
+/** 답변 기다리는 중 — 로고 옆 말풍선에서 점 세 개가 차례로 튀어요 */
+function WaitingAnswer() {
+  const [seconds, setSeconds] = useState(0)
+  useEffect(() => {
+    const timer = window.setInterval(() => setSeconds((value) => value + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const text = [...WAITING_STEPS].reverse().find(({ after }) => seconds >= after)?.text ?? WAITING_STEPS[0].text
+
+  return (
+    <div role="status" aria-live="polite" className="flex animate-fade-up items-start gap-3">
+      <span className="animate-soft-pulse rounded-full">
+        <LogoMark size={40} />
+      </span>
+      <div className="flex items-center gap-3 rounded-lg border border-border-subtle bg-bg-surface px-5 py-3.5 shadow-cloud-sm">
+        <span className="flex items-center gap-1" aria-hidden>
+          {[0, 1, 2].map((index) => (
+            <span
+              key={index}
+              className="size-1.5 animate-typing-dot rounded-full bg-icon-brand"
+              style={{ animationDelay: `${index * 160}ms` }}
+            />
+          ))}
+        </span>
+        {/* 문구가 바뀔 때마다 살짝 나타나요 */}
+        <span key={text} className="animate-fade-in text-label text-text-secondary">
+          {text}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function MessageAttachments({ attachments }: { attachments: AttachmentDto[] }) {
+  const [metadata, setMetadata] = useState<AttachmentDto[]>(attachments)
+  const [downloadUrls, setDownloadUrls] = useState<Record<number, string>>({})
+  const downloadUrlsRef = useRef<Record<number, string>>({})
+  const [error, setError] = useState('')
+
+  const attachmentIdsKey = attachments.map(({ id }) => id).join(',')
+
+  useEffect(() => {
+    if (!attachmentIdsKey) return
+    let active = true
+    Promise.all(attachmentIdsKey.split(',').map((id) => getAttachment(Number(id))))
+      .then((items) => {
+        if (active) setMetadata(items)
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [attachmentIdsKey])
+
+  useEffect(() => () => Object.values(downloadUrlsRef.current).forEach((url) => URL.revokeObjectURL(url)), [])
+
+  const visibleMetadata = metadata.map(({ id }) => id).join(',') === attachmentIdsKey ? metadata : attachments
+
+  async function downloadAttachment(attachment: AttachmentDto) {
+    try {
+      const content = await getAttachmentContent(attachment.id)
+      const url = URL.createObjectURL(content)
+      if (downloadUrlsRef.current[attachment.id]) URL.revokeObjectURL(downloadUrlsRef.current[attachment.id])
+      downloadUrlsRef.current = { ...downloadUrlsRef.current, [attachment.id]: url }
+      setDownloadUrls((current) => {
+        return { ...current, [attachment.id]: url }
+      })
+      setError('')
+    } catch {
+      setError('첨부 파일을 불러오지 못했어요.')
+    }
+  }
+
+  if (!attachments.length) return null
+  return (
+    <div className="flex flex-wrap gap-2">
+      {visibleMetadata.map((attachment) => (
+        <div
+          key={attachment.id}
+          className="rounded-md border border-border-subtle bg-bg-surface px-3 py-2 text-caption"
+        >
+          <span>{attachment.fileName}</span>
+          {downloadUrls[attachment.id] ? (
+            <a
+              className="ml-2 text-text-brand underline"
+              href={downloadUrls[attachment.id]}
+              download={attachment.fileName}
+            >
+              다운로드
+            </a>
+          ) : (
+            <button
+              className="ml-2 text-text-brand underline"
+              type="button"
+              onClick={() => void downloadAttachment(attachment)}
+            >
+              다운로드
+            </button>
+          )}
+        </div>
+      ))}
+      {error && (
+        <p role="alert" className="w-full text-caption text-text-danger">
+          {error}
+        </p>
+      )}
+    </div>
   )
 }
 

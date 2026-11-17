@@ -18,6 +18,8 @@ interface SelectProps {
    * compact: 값만 보이는 작은 알약 (커뮤니티 정렬 "최신순 ▾") — 라벨은 화면 낭독기에만 읽혀요
    */
   variant?: 'stacked' | 'inline' | 'compact'
+  /** inline 전용 글씨 크기 — md: 14px(기본) / sm: 13px · 값 medium (새 대화 학과 · 전공) */
+  size?: 'md' | 'sm'
   className?: string
 }
 
@@ -33,10 +35,12 @@ function Select({
   onChange,
   errorMessage,
   variant = 'stacked',
+  size = 'md',
   className = '',
 }: SelectProps) {
   const isInline = variant === 'inline'
   const isCompact = variant === 'compact'
+  const isSmall = size === 'sm'
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -123,7 +127,7 @@ function Select({
           className={`flex items-center justify-between gap-2 border bg-bg-surface text-left transition outline-none ${
             isCompact
               ? 'h-9 gap-1 rounded-full px-3.5 text-caption'
-              : `w-full rounded-sm px-4 ${isInline ? 'h-11 text-label' : 'h-[52px] text-body'}`
+              : `w-full rounded-sm px-4 ${isInline ? `h-11 ${isSmall ? 'text-caption' : 'text-label'}` : 'h-[52px] text-body'}`
           } ${borderClass}`}
         >
           {isInline && (
@@ -131,7 +135,9 @@ function Select({
               {label}
             </span>
           )}
-          <span className={`truncate ${value ? (isInline ? 'font-semibold' : '') : 'text-text-tertiary'}`}>
+          <span
+            className={`truncate ${value ? (isInline ? (isSmall ? 'font-medium' : 'font-semibold') : '') : 'text-text-tertiary'}`}
+          >
             {value || placeholder}
           </span>
           <svg

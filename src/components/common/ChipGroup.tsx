@@ -26,7 +26,7 @@ function ChipGroup<T extends string>({ label, options, value, onChange, classNam
             type="button"
             onClick={() => onChange(option.value)}
             aria-pressed={selected}
-            className={`h-9 shrink-0 rounded-full border px-3.5 text-label transition ${
+            className={`h-9 shrink-0 rounded-full border px-3.5 text-label transition duration-150 active:scale-95 ${
               selected
                 ? 'border-border-brand bg-bg-brand-soft font-medium text-text-brand'
                 : 'border-border-default bg-bg-surface text-text-secondary hover:border-border-brand'

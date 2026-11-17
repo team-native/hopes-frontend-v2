@@ -7,7 +7,7 @@ import PasswordForm from '../../components/auth/PasswordForm'
 import ResultPanel from '../../components/auth/ResultPanel'
 import StepProgress from '../../components/auth/StepProgress'
 import AuthLayout from '../../components/layout/AuthLayout'
-import { RETRY_LATER, getErrorCode } from '../../utils/error'
+import { RETRY_LATER, getErrorCode, getServerMessage } from '../../utils/error'
 import EmailStep from './components/EmailStep'
 
 /** 비밀번호 찾기 단계 이름 */
@@ -104,8 +104,8 @@ function FindPasswordPage() {
                     setStep(2)
                     return
                   }
-                  // 네트워크 · 서버 오류 등
-                  return `비밀번호를 바꾸지 못했어요. ${RETRY_LATER}`
+                  // 비밀번호 규칙 위반 · 계정 없음 등은 서버 문구로, 네트워크 · 서버 오류는 기본 문구로
+                  return getServerMessage(error) ?? `비밀번호를 바꾸지 못했어요. ${RETRY_LATER}`
                 }
               }}
               footer={footer}
