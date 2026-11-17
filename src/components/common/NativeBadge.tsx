@@ -16,12 +16,12 @@ function NativeLogo({ className }: { className?: string }) {
     <svg viewBox="2 8 46.5 27.5" className={className} aria-hidden>
       <defs>
         <linearGradient id={deep} x1="0" y1="1" x2="0.4" y2="0">
-          <stop offset="0" stopColor="#fdd967" />
-          <stop offset="1" stopColor="#fccf3a" />
+          <stop offset="0" className="[stop-color:var(--color-icon-native-from)]" />
+          <stop offset="1" className="[stop-color:var(--color-icon-native)]" />
         </linearGradient>
         <linearGradient id={soft} x1="0" y1="1" x2="0.4" y2="0">
-          <stop offset="0" stopColor="#fff0bd" />
-          <stop offset="1" stopColor="#fee9a3" />
+          <stop offset="0" className="[stop-color:var(--color-icon-native-soft-from)]" />
+          <stop offset="1" className="[stop-color:var(--color-icon-native-soft)]" />
         </linearGradient>
       </defs>
       <rect

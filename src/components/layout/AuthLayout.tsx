@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import cloudsImage from '../../assets/auth-clouds.png'
+import cloudsImage from '../../assets/auth/clouds.webp'
 import LogoMark from '../common/LogoMark'
 import NativeBadge from '../common/NativeBadge'
 
@@ -74,7 +74,10 @@ function Hero({ description }: { description: ReactNode }) {
   )
 }
 
-/** 오른쪽 아래 구름 장식 (디자인에서 받은 투명 배경 이미지를 그대로 사용) */
+/**
+ * 오른쪽 아래 구름 장식 (디자인에서 받은 투명 배경 이미지를 그대로 사용)
+ * 모바일에서는 폼 아래 글씨 뒤까지 올라오지 않게 조금 작게 보여 줘요.
+ */
 function Clouds() {
   return (
     <img
@@ -82,7 +85,7 @@ function Clouds() {
       alt=""
       aria-hidden
       draggable={false}
-      className="pointer-events-none absolute right-0 bottom-0 w-[600px] max-w-[90vw] select-none"
+      className="pointer-events-none absolute right-0 bottom-0 w-[600px] max-w-[70vw] select-none lg:max-w-none"
     />
   )
 }
