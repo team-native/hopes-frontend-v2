@@ -24,16 +24,28 @@ type TokenResponse = { accessToken: string; tokenType: string }
 function throwApiError(error: unknown): never {
   if (!axios.isAxiosError(error)) throw error
   const status = error.response?.status
-  const payload = error.response?.data as { code?: string; message?: string } | undefined
+  const responseData = error.response?.data as
+    | { code?: string; message?: string; error?: { code?: string; message?: string } }
+    | undefined
+  const payload = responseData?.error ?? responseData
+  const serverCode = payload?.code?.toUpperCase()
+  const isAlreadyRegisteredCode = [
+    'EMAIL_ALREADY_REGISTERED',
+    'EMAIL_ALREADY_EXISTS',
+    'DUPLICATE_EMAIL',
+    'USER_ALREADY_EXISTS',
+    'ACCOUNT_ALREADY_EXISTS',
+  ].includes(serverCode ?? '')
   const message = payload?.message
   const code =
-    payload?.code ??
+    (isAlreadyRegisteredCode ? 'EMAIL_ALREADY_REGISTERED' : undefined) ??
     (status === 401 ? 'INVALID_CREDENTIALS' : status === 409 ? 'EMAIL_ALREADY_REGISTERED' : undefined) ??
+    (/(이미|중복).*(가입|등록|존재)|이미.*이메일/.test(message ?? '') ? 'EMAIL_ALREADY_REGISTERED' : undefined) ??
     (status === 404 && /계정|이메일|사용자/.test(message ?? '') ? 'EMAIL_NOT_REGISTERED' : undefined) ??
     (status === 429 ? 'TOO_MANY_ATTEMPTS' : undefined) ??
     (status === 400 && /인증번호|코드/.test(message ?? '') ? 'INVALID_CODE' : undefined) ??
     (status === 400 && /이전.*비밀번호|기존.*비밀번호/.test(message ?? '') ? 'SAME_AS_OLD_PASSWORD' : undefined)
-  throw new Error(code ?? payload?.message ?? error.message)
+  throw new Error(code ?? message ?? error.message)
 }
 
 function persistToken(token: string, keepLogin: boolean) {
