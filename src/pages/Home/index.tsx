@@ -1,5 +1,5 @@
-import { BedDouble, Bell, Code, Ellipsis, FileText, Heart, MapPin, RefreshCw, type LucideIcon } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BedDouble, Bell, Code, FileText, Heart, MapPin, RefreshCw, Trash2, type LucideIcon } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import AttachDropzone from '../../components/attach/AttachDropzone'
 import AnswerBubble from '../../components/chat/AnswerBubble'
@@ -8,6 +8,8 @@ import AttachmentComposer from '../../components/chat/AttachmentComposer'
 import QuestionCard from '../../components/chat/QuestionCard'
 import RelatedQuestions from '../../components/chat/RelatedQuestions'
 import UserBubble from '../../components/chat/UserBubble'
+import ActionMenu from '../../components/common/ActionMenu'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
 import IconButton from '../../components/common/IconButton'
 import LogoMark from '../../components/common/LogoMark'
 import Select from '../../components/common/Select'
@@ -41,6 +43,8 @@ import {
 import type { Conversation, LocalAttachment } from '../../types/conversation'
 import type { Profile } from '../../types/profile'
 import { ATTACHMENT_ACCEPT } from '../../utils/attachments'
+import { getApiErrorMessage } from '../../utils/error'
+import { createId } from '../../utils/id'
 import { stagger } from '../../utils/motion'
 
 const QUESTION_ICONS = [BedDouble, FileText, Code, Heart]
@@ -57,7 +61,18 @@ function HomePage() {
   const screen: HomeScreen = conversationId ? 'conversation' : pathname.startsWith('/chat') ? 'chat' : 'home'
 
   const { goToSection, startNewChat, openConversation, openCommunityPost } = useAppNavigation()
-  const { conversations, getConversation, createConversation, sendMessage, loadConversation } = useConversations()
+  const {
+    conversations,
+    getConversation,
+    createConversation,
+    sendMessage,
+    loadConversation,
+    loadOlderMessages,
+    deleteConversation,
+  } = useConversations()
+  // 재시도 키: 같은 질문(내용 + 첨부)을 다시 보내면 같은 키를 써서 서버가 한 번만 저장해요.
+  // (답변이 늦게 와서 다시 눌러도 질문이 두 번 생기지 않아요. 성공하면 비워요)
+  const retryKeyRef = useRef<{ signature: string; key: string } | null>(null)
   const { profile } = useProfile()
   const conversation = conversationId ? getConversation(conversationId) : undefined
   const { toast, showToast } = useToast()
@@ -88,8 +103,8 @@ function HomePage() {
     loadedConversationIdRef.current = conversationId
     const current = getConversation(conversationId)
     if (current?.messages?.some(({ id }) => id < 0)) return
-    void loadConversation(conversationId).catch(() =>
-      showToast('대화를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'),
+    void loadConversation(conversationId).catch((error) =>
+      showToast(getApiErrorMessage(error, '대화를 불러오지 못했어요.')),
     )
   }, [conversationId, getConversation, loadConversation, showToast])
 
@@ -192,6 +207,15 @@ function HomePage() {
     )
   }
 
+  function requestKeyFor(text: string, attachments: LocalAttachment[]) {
+    const signature = [text, ...attachments.map(({ serverId }) => serverId)].join('\u0000')
+    if (retryKeyRef.current?.signature !== signature) {
+      const key = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : createId('message')
+      retryKeyRef.current = { signature, key }
+    }
+    return retryKeyRef.current.key
+  }
+
   async function startConversation(
     question: string,
     attachments: LocalAttachment[] = [],
@@ -200,14 +224,21 @@ function HomePage() {
     if (isSending) return false
     setIsSending(true)
     try {
-      await createConversation(question, attachments, { departmentId, specialtyId }, (id) => {
-        onConversationCreated?.(id)
-        openConversation(id)
-      })
+      await createConversation(
+        question,
+        attachments,
+        { departmentId, specialtyId },
+        (id) => {
+          onConversationCreated?.(id)
+          openConversation(id)
+        },
+        requestKeyFor(question, attachments),
+      )
+      retryKeyRef.current = null
       setDraft('')
       return true
-    } catch {
-      showToast('메시지를 보내지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } catch (error) {
+      showToast(getApiErrorMessage(error, '메시지를 보내지 못했어요.'))
       return false
     } finally {
       setIsSending(false)
@@ -223,15 +254,42 @@ function HomePage() {
     if (!text || isSending) return false
     if (!conversationId || screen !== 'conversation') return startConversation(text, attachments, onConversationCreated)
     setIsSending(true)
+    // 보내는 순간 입력창을 비워요. 실패하면 사용자가 다시 쓰지 않았을 때만 원래 질문을 되돌려 놔요.
+    setDraft('')
     try {
-      await sendMessage(conversationId, text, attachments, { departmentId, specialtyId })
-      setDraft('')
+      await sendMessage(
+        conversationId,
+        text,
+        attachments,
+        { departmentId, specialtyId },
+        requestKeyFor(text, attachments),
+      )
+      retryKeyRef.current = null
       return true
-    } catch {
-      showToast('메시지를 보내지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } catch (error) {
+      setDraft((current) => current || question)
+      showToast(getApiErrorMessage(error, '메시지를 보내지 못했어요.'))
       return false
     } finally {
       setIsSending(false)
+    }
+  }
+
+  async function removeConversation(id: string) {
+    try {
+      await deleteConversation(id)
+      showToast('대화를 삭제했어요.')
+      startNewChat()
+    } catch (error) {
+      showToast(getApiErrorMessage(error, '대화를 삭제하지 못했어요.'))
+    }
+  }
+
+  async function showOlderMessages(id: string) {
+    try {
+      await loadOlderMessages(id)
+    } catch (error) {
+      showToast(getApiErrorMessage(error, '이전 메시지를 불러오지 못했어요.'))
     }
   }
 
@@ -249,10 +307,10 @@ function HomePage() {
           measuredAt: new Date(timestamp).toISOString(),
         }
         try {
-          const result = await sendLocationCheck(id, request)
-          showToast(String(result.message ?? '위치를 확인했어요.'))
-        } catch {
-          showToast('위치를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.')
+          const { locationResult } = await sendLocationCheck(id, request)
+          showToast(locationResult.message)
+        } catch (error) {
+          showToast(getApiErrorMessage(error, '위치를 확인하지 못했어요.'))
         }
       },
       () => showToast('브라우저에서 위치 권한을 허용해 주세요.'),
@@ -261,7 +319,11 @@ function HomePage() {
   }
 
   return (
-    <AppLayout activeMenu={screen === 'home' ? 'home' : 'chat'} activeConversationId={conversation?.id}>
+    <AppLayout
+      activeMenu={screen === 'home' ? 'home' : 'chat'}
+      activeConversationId={conversation?.id}
+      fitScreen={screen === 'conversation' && Boolean(conversation)}
+    >
       {screen === 'home' ? (
         <HomeView
           profile={profile}
@@ -301,6 +363,9 @@ function HomePage() {
           onSubmit={submitQuestion}
           onToast={showToast}
           messages={conversation.messages ?? []}
+          hasMoreMessages={Boolean(conversation.hasMoreMessages)}
+          onLoadOlder={() => showOlderMessages(conversation.id)}
+          onDelete={() => removeConversation(conversation.id)}
           isSending={isSending}
         />
       ) : (
@@ -617,6 +682,11 @@ type ConversationViewProps = {
   title: string
   category: string
   messages: ChatMessage[]
+  /** 서버에 더 오래된 메시지가 있으면 맨 위에 "이전 메시지 보기" */
+  hasMoreMessages: boolean
+  onLoadOlder: () => Promise<void>
+  /** 대화 옵션 → 대화 삭제 (확인 팝업 뒤) */
+  onDelete: () => Promise<void>
   suggestions: QuestionSuggestion[]
   isSending: boolean
   /** 추천 질문을 눌렀을 때 새 대화로 묻기 */
@@ -632,6 +702,9 @@ function ConversationView({
   title,
   category,
   messages,
+  hasMoreMessages,
+  onLoadOlder,
+  onDelete,
   suggestions,
   isSending,
   draft,
@@ -646,6 +719,34 @@ function ConversationView({
     .slice(0, 3)
   const draftAttachments = useAttachmentDraft()
   const canSend = (draft.trim() !== '' || draftAttachments.attachments.length > 0) && !draftAttachments.hasUnready
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const scrollRef = useRef<HTMLElement>(null)
+  const scrollMarkRef = useRef<{ firstId?: number; lastId?: number; height: number }>({ height: 0 })
+
+  // 2) 추가로 많이 묻는 질문: 첫 질문의 답변이 나왔을 때만 보여 줘요. 다음 질문부터는 숨겨요.
+  const userMessageCount = messages.filter(({ role }) => role === 'USER').length
+  const showRelatedQuestions =
+    !isSending && userMessageCount === 1 && messages.at(-1)?.role === 'ASSISTANT' && relatedQuestions.length > 0
+
+  // 새 메시지 · 답변 대기 표시가 생기면 맨 아래로, 이전 메시지를 위에 붙였을 때는 보던 위치를 그대로 유지해요
+  useLayoutEffect(() => {
+    const element = scrollRef.current
+    if (!element) return
+    const mark = scrollMarkRef.current
+    const firstId = messages[0]?.id
+    const lastId = messages.at(-1)?.id
+    const prepended = mark.lastId !== undefined && lastId === mark.lastId && firstId !== mark.firstId
+    if (prepended) element.scrollTop += element.scrollHeight - mark.height
+    else element.scrollTo({ top: element.scrollHeight, behavior: mark.height ? 'smooth' : 'auto' })
+    scrollMarkRef.current = { firstId, lastId, height: element.scrollHeight }
+  }, [messages, isSending])
+
+  async function loadOlder() {
+    setLoadingOlder(true)
+    await onLoadOlder()
+    setLoadingOlder(false)
+  }
 
   async function handleConversationSubmit() {
     if (!canSend) return
@@ -665,7 +766,8 @@ function ConversationView({
   }
 
   return (
-    <main className="relative flex min-h-[calc(100vh-105px)] flex-1 flex-col px-5 pt-5 pb-4 md:min-h-screen md:px-8">
+    // AppLayout(fitScreen)이 화면 높이에 맞춰 주고, 여기서는 남은 높이를 채운 뒤 메시지 영역만 스크롤해요
+    <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-5 pb-4 md:px-8">
       <header className="flex items-start justify-between">
         <div>
           <h1 className="text-title">{title}</h1>
@@ -673,48 +775,67 @@ function ConversationView({
         </div>
         <div className="flex gap-2">
           <IconButton icon={MapPin} label="현재 위치 확인" onClick={onCheckLocation} />
-          <IconButton icon={Ellipsis} label="대화 옵션" onClick={() => onToast('대화 옵션은 준비 중이에요.')} />
+          <ActionMenu
+            label="대화 옵션"
+            items={[{ label: '대화 삭제', icon: Trash2, danger: true, onSelect: () => setDeleteOpen(true) }]}
+          />
         </div>
       </header>
 
-      <section className="mx-auto flex w-full max-w-[720px] flex-1 flex-col justify-end gap-md overflow-y-auto py-xl">
-        {messages.map((message) =>
-          message.role === 'USER' ? (
-            <div key={message.id} className="animate-fade-up space-y-2">
-              <UserBubble>{message.content}</UserBubble>
-              <MessageAttachments attachments={message.attachments} />
-            </div>
-          ) : (
-            <div key={message.id} className="flex animate-fade-up items-start gap-3">
-              <LogoMark size={40} />
-              <div className="min-w-0 flex-1">
-                <AnswerBubble
-                  content={message.content}
-                  footer={
-                    <AnswerReactions
-                      reactions={[
-                        { key: 'copy', label: '복사' },
-                        { key: 'save', label: '저장' },
-                        { key: 'share', label: '공유' },
-                      ]}
-                      onSelect={(key) => {
-                        if (key === 'copy') void copyAnswer()
-                        else onToast(key === 'save' ? '답변 저장은 준비 중이에요.' : '공유는 준비 중이에요.')
-                      }}
-                    />
-                  }
-                />
+      <section
+        ref={scrollRef}
+        aria-label="대화 내용"
+        className="-mx-5 min-h-0 flex-1 overflow-y-auto px-5 md:-mx-8 md:px-8"
+      >
+        <div className="mx-auto flex min-h-full w-full max-w-[720px] flex-col justify-end gap-md py-xl">
+          {hasMoreMessages && (
+            <button
+              type="button"
+              onClick={() => void loadOlder()}
+              disabled={loadingOlder}
+              className="mx-auto rounded-full border border-border-subtle bg-bg-surface px-4 py-1.5 text-caption text-text-secondary transition hover:text-text-primary disabled:cursor-wait disabled:opacity-60"
+            >
+              {loadingOlder ? '불러오는 중…' : '이전 메시지 보기'}
+            </button>
+          )}
+          {messages.map((message) =>
+            message.role === 'USER' ? (
+              <div key={message.id} className="animate-fade-up space-y-2">
+                <UserBubble>{message.content}</UserBubble>
                 <MessageAttachments attachments={message.attachments} />
               </div>
-            </div>
-          ),
-        )}
-        {isSending && (
-          <p role="status" className="text-caption text-text-secondary">
-            답변을 기다리고 있어요…
-          </p>
-        )}
-        <RelatedQuestions questions={relatedQuestions} onSelect={onAsk} />
+            ) : (
+              <div key={message.id} className="flex animate-fade-up items-start gap-3">
+                <LogoMark size={40} />
+                <div className="min-w-0 flex-1">
+                  <AnswerBubble
+                    content={message.content}
+                    footer={
+                      <AnswerReactions
+                        reactions={[
+                          { key: 'copy', label: '복사' },
+                          { key: 'save', label: '저장' },
+                          { key: 'share', label: '공유' },
+                        ]}
+                        onSelect={(key) => {
+                          if (key === 'copy') void copyAnswer()
+                          else onToast(key === 'save' ? '답변 저장은 준비 중이에요.' : '공유는 준비 중이에요.')
+                        }}
+                      />
+                    }
+                  />
+                  <MessageAttachments attachments={message.attachments} />
+                </div>
+              </div>
+            ),
+          )}
+          {isSending && (
+            <p role="status" className="text-caption text-text-secondary">
+              답변을 기다리고 있어요…
+            </p>
+          )}
+          {showRelatedQuestions && <RelatedQuestions questions={relatedQuestions} onSelect={onAsk} />}
+        </div>
       </section>
 
       <AttachmentComposer
@@ -734,6 +855,19 @@ function ConversationView({
         onClose={draftAttachments.closeDropzone}
         onFiles={draftAttachments.addFiles}
         accept={ATTACHMENT_ACCEPT}
+      />
+
+      <ConfirmDialog
+        open={deleteOpen}
+        title="대화를 삭제할까요?"
+        description="이 대화와 모든 메시지가 영구 삭제돼요."
+        confirmText="삭제"
+        tone="danger"
+        onCancel={() => setDeleteOpen(false)}
+        onConfirm={() => {
+          setDeleteOpen(false)
+          void onDelete()
+        }}
       />
     </main>
   )

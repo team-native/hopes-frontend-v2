@@ -14,6 +14,11 @@ interface AppLayoutProps {
   activeMenu?: SidebarMenu | null
   /** 지금 보고 있는 대화 id (최근 대화에서 강조) */
   activeConversationId?: string
+  /**
+   * true면 화면 높이에 딱 맞춰요(페이지 전체는 스크롤 안 됨). 채팅 화면처럼 안쪽 영역만 스크롤할 때 써요.
+   * 모바일 위쪽 메뉴 높이를 빼고 남은 높이를 children이 채워요(children은 flex-1 · min-h-0).
+   */
+  fitScreen?: boolean
   children: ReactNode
 }
 
@@ -21,14 +26,14 @@ interface AppLayoutProps {
  * 로그인 후 화면 공통 틀
  * 데스크톱은 공통 Sidebar, 모바일(md 미만)은 상단 바 + 메뉴 탭을 보여 줘요.
  */
-function AppLayout({ activeMenu = null, activeConversationId, children }: AppLayoutProps) {
+function AppLayout({ activeMenu = null, activeConversationId, fitScreen = false, children }: AppLayoutProps) {
   const { startNewChat } = useAppNavigation()
   const { conversations } = useConversations()
   const { profile } = useProfile()
   const navigate = useNavigate()
 
   return (
-    <div className="flex min-h-screen bg-bg-canvas text-text-primary">
+    <div className={`flex bg-bg-canvas text-text-primary ${fitScreen ? 'h-dvh overflow-hidden' : 'min-h-screen'}`}>
       <div className="sticky top-0 hidden h-screen md:block">
         <Sidebar
           activeMenu={activeMenu}
@@ -43,7 +48,7 @@ function AppLayout({ activeMenu = null, activeConversationId, children }: AppLay
 
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileNav activeMenu={activeMenu} onNewChat={startNewChat} />
-        <div className="flex min-w-0 flex-1 animate-fade-in flex-col">{children}</div>
+        <div className="flex min-h-0 min-w-0 flex-1 animate-fade-in flex-col">{children}</div>
       </div>
     </div>
   )

@@ -2,14 +2,21 @@ import type { AttachmentFormat } from '../types/conversation'
 
 // 클라이언트 검증은 사용자 피드백용이다. 최종 검증은 반드시 서버에서 다시 한다. (docs/attachment-upload.md)
 
-export const MAX_ATTACHMENT_COUNT = 5
-export const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024
+// 서버(hopes-server application.yml hopes.attachments) 기본값과 같게 맞춰요. 서버 값이 바뀌면 여기도 바꿔 주세요.
+/** 한 메시지에 붙일 수 있는 첨부 개수 (max-count) */
+export const MAX_ATTACHMENT_COUNT = 3
+/** 파일당 최대 크기 5MB (max-file-bytes) */
+export const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024
+/** 한 메시지 첨부 합계 12MB (max-total-bytes) */
+export const MAX_ATTACHMENT_TOTAL_SIZE = 12 * 1024 * 1024
+/** PDF 최대 쪽수 (max-pdf-pages) */
+export const MAX_PDF_PAGES = 50
 
 const ATTACHMENT_RULES: Record<string, { format: AttachmentFormat; mimeTypes: string[] }> = {
   jpg: { format: 'jpeg', mimeTypes: ['image/jpeg', 'image/pjpeg'] },
   jpeg: { format: 'jpeg', mimeTypes: ['image/jpeg', 'image/pjpeg'] },
   png: { format: 'png', mimeTypes: ['image/png'] },
-  heic: { format: 'heic', mimeTypes: ['image/heic', 'image/heif'] },
+  // HEIC는 서버가 받지 않아요 (PNG/JPEG/PDF만 지원)
   pdf: { format: 'pdf', mimeTypes: ['application/pdf'] },
 }
 

@@ -22,7 +22,7 @@ function AttachDropzone({
   onClose,
   onFiles,
   accept,
-  description = '이미지(JPG·PNG·HEIC)와 PDF를 첨부할 수 있어요',
+  description = '이미지(JPG·PNG)와 PDF를 3개까지, 파일당 5MB까지 첨부할 수 있어요',
 }: AttachDropzoneProps) {
   const [dragActive, setDragActive] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
