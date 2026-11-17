@@ -92,7 +92,7 @@ npm run dev
 
 | 피그마                 | 컴포넌트                   | 주요 props                                                                                                                       |
 | ---------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| —                      | `Button`                   | `size`: `lg`(꽉 찬 50) · `sm` / `variant`: `primary` · `secondary` · `soft` / `loading`, `inactive`                              |
+| —                      | `Button`                   | `size`: `lg`(꽉 찬 50) · `sm` / `variant`: `primary` · `secondary` · `soft` · `danger`(빨강, 회원탈퇴) / `loading`, `inactive`   |
 | —                      | `TextField`                | `label`, `errorMessage`, `rightSlot` (오른쪽 아이콘)                                                                             |
 | Form/Text Area         | `TextArea`                 | `label?`, `rows`, `errorMessage`                                                                                                 |
 | Form/Search Field      | `SearchField`              | `value`, `onChange`, `onSearch`                                                                                                  |
@@ -159,13 +159,14 @@ npm run dev
 
 ### 설정 · 알림
 
-| 피그마                                   | 컴포넌트                                         | 위치                         |
-| ---------------------------------------- | ------------------------------------------------ | ---------------------------- |
-| Settings/Prompt · Contact · Account Card | `PromptCard` · `ContactCard` · `AccountCard`     | `settings/SettingsCards.tsx` |
-| Web/Settings Nav                         | `SettingsNav` — `active`, `onSelect`, `onLogout` | `settings/SettingsCards.tsx` |
-| Notify/Notice Row                        | `NoticeRow`                                      | `feedback/Feedback.tsx`      |
-| Feedback/Inline Error                    | `InlineError`                                    | `feedback/Feedback.tsx`      |
-| Feedback/Empty State                     | `EmptyState`                                     | `feedback/Feedback.tsx`      |
+| 피그마                                   | 컴포넌트                                                                                                    | 위치                         |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Settings/Prompt · Contact · Account Card | `PromptCard` · `ContactCard` · `AccountCard`                                                                | `settings/SettingsCards.tsx` |
+| Web/Settings Nav                         | `SettingsNav` — `active`, `onSelect`, `onLogout`                                                            | `settings/SettingsCards.tsx` |
+| Settings/Withdraw Card                   | `WithdrawCard` — `password`, `onPasswordChange`, `error`, `loading`, `onSubmit`, `notice` (메뉴 `withdraw`) | `settings/SettingsCards.tsx` |
+| Notify/Notice Row                        | `NoticeRow`                                                                                                 | `feedback/Feedback.tsx`      |
+| Feedback/Inline Error                    | `InlineError`                                                                                               | `feedback/Feedback.tsx`      |
+| Feedback/Empty State                     | `EmptyState`                                                                                                | `feedback/Feedback.tsx`      |
 
 ### 화면 작업 중 추가한 공통 부품
 

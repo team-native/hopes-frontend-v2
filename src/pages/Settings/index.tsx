@@ -20,13 +20,14 @@ import {
   ContactCard,
   PromptCard,
   SettingsNav,
+  WithdrawCard,
   type SettingsMenu,
 } from '../../components/settings/SettingsCards'
 import SettingToggleRow from '../../components/settings/SettingToggleRow'
-import TextField from '../../components/common/TextField'
 import useProfile from '../../hooks/useProfile'
 import useConversations from '../../hooks/useConversations'
 import useToast from '../../hooks/useToast'
+import { RETRY_LATER, getErrorCode } from '../../utils/error'
 
 // API 연동 전까지 설정값은 이 브라우저(localStorage)에만 저장한다.
 const SETTINGS_STORAGE_KEY = 'hopes.settings'
@@ -87,9 +88,11 @@ function SettingsPage() {
   const [message, setMessage] = useState('')
   const [contactErrors, setContactErrors] = useState({ email: false, message: false })
   const [logoutOpen, setLogoutOpen] = useState(false)
-  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false)
+  const [withdrawPassword, setWithdrawPassword] = useState('')
+  const [withdrawError, setWithdrawError] = useState('')
+  const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false)
+  const [withdrawing, setWithdrawing] = useState(false)
   const [deleteChatsOpen, setDeleteChatsOpen] = useState(false)
-  const [accountPassword, setAccountPassword] = useState('')
   const [settingsError, setSettingsError] = useState(false)
   const [recommendationConsent, setRecommendationConsent] = useState(false)
   const [consentPolicyVersion, setConsentPolicyVersion] = useState('')
@@ -128,6 +131,33 @@ function SettingsPage() {
       setConsentPolicyVersion(consent.policyVersion)
     } catch {
       showToast('추천 설정을 저장하지 못했어요. 다시 시도해 주세요.')
+    }
+  }
+
+  /** "탈퇴하기" — 비밀번호를 입력했으면 확인 팝업을 띄워요 */
+  function requestWithdraw() {
+    if (withdrawing) return
+    if (!withdrawPassword) {
+      setWithdrawError('현재 비밀번호를 입력해 주세요.')
+      return
+    }
+    setWithdrawConfirmOpen(true)
+  }
+
+  /** 팝업에서 "탈퇴하기" — 서버가 비밀번호를 확인하고 계정을 삭제해요 (성공하면 deleteAccount가 토큰도 지워요) */
+  async function confirmWithdraw() {
+    setWithdrawConfirmOpen(false)
+    setWithdrawing(true)
+    try {
+      await deleteAccount(withdrawPassword)
+      navigate('/login', { replace: true })
+    } catch (error) {
+      setWithdrawError(
+        getErrorCode(error) === 'INVALID_PASSWORD'
+          ? '비밀번호가 맞지 않아요. 다시 확인해 주세요.'
+          : `탈퇴하지 못했어요. ${RETRY_LATER}`,
+      )
+      setWithdrawing(false)
     }
   }
 
@@ -277,10 +307,20 @@ function SettingsPage() {
                     />
                   ))}
                 </ListCard>
-                <Button variant="secondary" className="text-text-danger" onClick={() => setDeleteAccountOpen(true)}>
-                  회원 탈퇴
-                </Button>
               </>
+            )}
+
+            {activeMenu === 'withdraw' && (
+              <WithdrawCard
+                password={withdrawPassword}
+                onPasswordChange={(value) => {
+                  setWithdrawPassword(value)
+                  setWithdrawError('')
+                }}
+                error={withdrawError}
+                loading={withdrawing}
+                onSubmit={requestWithdraw}
+              />
             )}
           </div>
         </div>
@@ -322,35 +362,13 @@ function SettingsPage() {
         }}
       />
       <ConfirmDialog
-        open={deleteAccountOpen}
-        title="계정을 탈퇴할까요?"
-        description={
-          <div className="space-y-sm">
-            <p>계정과 대화, 메시지, 문의가 영구 삭제돼요.</p>
-            <TextField
-              label="비밀번호 확인"
-              type="password"
-              value={accountPassword}
-              onChange={(event) => setAccountPassword(event.target.value)}
-            />
-          </div>
-        }
-        confirmText="탈퇴"
+        open={withdrawConfirmOpen}
+        title="정말 탈퇴할까요?"
+        description="계정과 대화 기록이 모두 삭제되고 되돌릴 수 없어요."
+        confirmText="탈퇴하기"
         tone="danger"
-        onCancel={() => {
-          setDeleteAccountOpen(false)
-          setAccountPassword('')
-        }}
-        onConfirm={async () => {
-          try {
-            await deleteAccount(accountPassword)
-            setDeleteAccountOpen(false)
-            setAccountPassword('')
-            navigate('/login', { replace: true })
-          } catch {
-            showToast('회원 탈퇴를 완료하지 못했어요. 비밀번호를 확인해 주세요.')
-          }
-        }}
+        onCancel={() => setWithdrawConfirmOpen(false)}
+        onConfirm={() => void confirmWithdraw()}
       />
       <Toast message={toast} />
     </AppLayout>

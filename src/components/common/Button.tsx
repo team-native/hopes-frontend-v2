@@ -4,8 +4,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode
   /** lg: 가로 꽉 찬 큰 버튼(50) / sm: 글자만큼 작은 버튼(36) */
   size?: 'lg' | 'sm'
-  /** primary: 파랑 / secondary: 흰색 + 테두리 / soft: 연파랑 배경 + 파란 글자 */
-  variant?: 'primary' | 'secondary' | 'soft'
+  /** primary: 파랑 / secondary: 흰색 + 테두리 / soft: 연파랑 배경 + 파란 글자 / danger: 빨강 (회원탈퇴 등) */
+  variant?: 'primary' | 'secondary' | 'soft' | 'danger'
   /** true면 로딩 색 + loadingText 표시, 클릭 막힘 */
   loading?: boolean
   /** 로딩 중 글자 (예: "로그인 중...") */
@@ -28,6 +28,9 @@ function variantClass(variant: NonNullable<ButtonProps['variant']>, inactive: bo
   }
   if (variant === 'soft') {
     return 'bg-bg-brand-soft text-text-brand enabled:hover:brightness-[0.97] disabled:opacity-50'
+  }
+  if (variant === 'danger') {
+    return 'bg-bg-danger text-text-on-brand enabled:hover:brightness-95 disabled:opacity-60'
   }
   // primary
   const color = inactive
