@@ -64,9 +64,14 @@ export async function deleteAccount(password: string): Promise<void> {
   try {
     await client.delete('/api/account', { data: { password } })
   } catch (error) {
-    // 비밀번호가 틀리면 400 → 화면에서 "비밀번호가 맞지 않아요"로 안내 (401은 세션 만료라 client가 토큰을 지워요)
-    // TODO: 서버 에러 응답(code)이 정해지면 그 값으로 구분
-    if (axios.isAxiosError(error) && error.response?.status === 400) throw new Error('INVALID_PASSWORD')
+    // 서버는 비밀번호 불일치와 로그인 만료를 둘 다 401 + code "UNAUTHORIZED"로 줘서 message로 구분해요.
+    // (hopes-server HopesServices.deleteAccount: "비밀번호가 일치하지 않습니다" / "로그인이 필요합니다")
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      const message = (error.response.data as { message?: string } | undefined)?.message ?? ''
+      if (message.includes('비밀번호')) throw new Error('INVALID_PASSWORD')
+      // 로그인 만료 — client는 이 요청의 401에서 토큰을 지우지 않으므로 여기서 로그아웃 처리
+      clearToken()
+    }
     throwApiError(error)
   }
   localStorage.removeItem('hopes:access-token')
