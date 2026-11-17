@@ -1,11 +1,33 @@
 import axios from 'axios'
+import { clearToken, getToken } from '../utils/token'
 
-// 모든 API 요청은 이 인스턴스를 사용하세요.
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 })
+
+client.interceptors.request.use((config) => {
+  const token = getToken()
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  config.headers['X-Hopes-Client'] = 'WEB'
+  return config
+})
+
+client.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (
+      axios.isAxiosError(error) &&
+      error.response?.status === 401 &&
+      getToken() &&
+      !error.config?.url?.endsWith('/api/login')
+    ) {
+      clearToken()
+    }
+    return Promise.reject(error)
+  },
+)
 
 export default client

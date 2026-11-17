@@ -19,6 +19,8 @@ function FindPasswordPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [email, setEmail] = useState('')
+  const [verificationCode, setVerificationCode] = useState('')
+  const [verificationError, setVerificationError] = useState('')
   const [isDone, setIsDone] = useState(false)
 
   return (
@@ -53,6 +55,8 @@ function FindPasswordPage() {
               defaultEmail={email}
               onSent={(sentEmail) => {
                 setEmail(sentEmail)
+                setVerificationCode('')
+                setVerificationError('')
                 setStep(2)
               }}
             />
@@ -61,10 +65,16 @@ function FindPasswordPage() {
           {step === 2 && (
             <CodeStep
               email={email}
+              description="인증번호는 새 비밀번호를 저장할 때 서버에서 확인해요."
+              initialError={verificationError}
               resendCode={sendPasswordResetCode}
               verifyCode={verifyPasswordResetCode}
-              onChangeEmail={() => setStep(1)}
+              onChangeEmail={() => {
+                setVerificationError('')
+                setStep(1)
+              }}
               onVerified={() => setStep(3)}
+              onCodeVerified={setVerificationCode}
               footer={footer}
             />
           )}
@@ -83,11 +93,16 @@ function FindPasswordPage() {
               submitText="비밀번호 변경"
               onSubmit={async (password) => {
                 try {
-                  await resetPassword(email, password)
+                  await resetPassword(email, verificationCode, password)
                   setIsDone(true)
                 } catch (error) {
                   if (getErrorCode(error) === 'SAME_AS_OLD_PASSWORD') {
                     return '이전에 쓴 비밀번호와 같아요. 다른 비밀번호를 입력해 주세요.'
+                  }
+                  if (getErrorCode(error) === 'INVALID_CODE') {
+                    setVerificationError('인증번호가 맞지 않아요. 다시 확인해 주세요.')
+                    setStep(2)
+                    return
                   }
                   // 네트워크 · 서버 오류 등
                   return `비밀번호를 바꾸지 못했어요. ${RETRY_LATER}`

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { login } from '../../../api/auth'
 import Button from '../../../components/common/Button'
 import Checkbox from '../../../components/common/Checkbox'
@@ -9,6 +9,7 @@ import { useOnlineStatus } from '../../../hooks/useOnlineStatus'
 import { RETRY_LATER, getErrorCode } from '../../../utils/error'
 
 function LoginForm() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [keepLogin, setKeepLogin] = useState(true)
@@ -29,7 +30,7 @@ function LoginForm() {
     setRequestError('')
     try {
       await login({ email, password, keepLogin })
-      // TODO: 로그인 성공 시 이동할 페이지
+      navigate('/', { replace: true })
     } catch (error) {
       // 요청 도중 연결이 끊긴 경우엔 위쪽 오프라인 배너가 대신 안내해요.
       if (!navigator.onLine) return

@@ -1,15 +1,67 @@
-import { useState, type ReactNode } from 'react'
-import { mockProfile } from '../mocks/profile'
+import { useEffect, useState, type ReactNode } from 'react'
+import client from '../api/client'
 import type { Profile } from '../types/profile'
+import { getToken } from '../utils/token'
 import { ProfileContext } from './profileContext'
 
-// 사이드바·홈·마이페이지가 같은 프로필 상태를 보도록 앱 전역에서 관리한다.
-export function ProfileProvider({ children }: { children: ReactNode }) {
-  const [profile, setProfile] = useState(mockProfile)
+type UserResponse = {
+  username: string
+  email: string
+  nickname: string
+  profileInfo: string
+  major?: string | null
+  cohort?: number | null
+}
 
-  function updateProfile(changes: Partial<Profile>) {
-    // TODO: 프로필 수정 API 연동 후 응답값으로 갱신
-    setProfile((current) => ({ ...current, ...changes }))
+function toProfile(user: UserResponse): Profile {
+  return {
+    id: user.username,
+    name: user.nickname || user.username,
+    bio: user.profileInfo ?? '',
+    department: user.major ?? '',
+    generation: user.cohort ? `${user.cohort}기` : '',
+    email: user.email,
+  }
+}
+
+const EMPTY_PROFILE: Profile = { id: '', name: '', bio: '', department: '', generation: '', email: '' }
+
+export function ProfileProvider({ children }: { children: ReactNode }) {
+  const [profile, setProfile] = useState(EMPTY_PROFILE)
+
+  useEffect(() => {
+    let active = true
+    const loadProfile = async () => {
+      if (!getToken()) {
+        setProfile(EMPTY_PROFILE)
+        return
+      }
+      try {
+        const { data } = await client.get<UserResponse>('/api/mypage')
+        if (active) setProfile(toProfile(data))
+      } catch {
+        // The current screen can still render while the session is unavailable.
+      }
+    }
+    const onLogout = () => {
+      if (active) setProfile(EMPTY_PROFILE)
+    }
+    window.addEventListener('hopes:authenticated', loadProfile)
+    window.addEventListener('hopes:logged-out', onLogout)
+    void loadProfile()
+    return () => {
+      active = false
+      window.removeEventListener('hopes:authenticated', loadProfile)
+      window.removeEventListener('hopes:logged-out', onLogout)
+    }
+  }, [])
+
+  async function updateProfile(changes: Partial<Profile>) {
+    const { data } = await client.patch<UserResponse>('/api/mypage', {
+      nickname: changes.name,
+      profileInfo: changes.bio,
+    })
+    setProfile(toProfile(data))
   }
 
   return <ProfileContext.Provider value={{ profile, updateProfile }}>{children}</ProfileContext.Provider>

@@ -1,4 +1,7 @@
 import { useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
+import client from '../../api/client'
+import { logout } from '../../api/auth'
 import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
@@ -67,6 +70,7 @@ const NOTIFICATION_ITEMS: { key: keyof NotificationSettings; title: string; desc
 ]
 
 function SettingsPage() {
+  const navigate = useNavigate()
   const { profile } = useProfile()
   const { toast, showToast } = useToast()
   const [initialSettings] = useState(loadSettings)
@@ -83,13 +87,18 @@ function SettingsPage() {
     showToast(saved ? '설정을 이 기기에 저장했어요' : '설정을 저장하지 못했어요')
   }
 
-  function sendContact(event: FormEvent<HTMLFormElement>) {
+  async function sendContact(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const errors = { email: !EMAIL_PATTERN.test(email.trim()), message: !message.trim() }
     setContactErrors(errors)
     if (errors.email || errors.message) return
-    // TODO: 문의 API 연동 후 실제 전송 및 성공/실패 처리
-    showToast('아직 문의 전송 기능이 준비 중이라 보내지 않았어요')
+    try {
+      await client.post('/api/setting/inquiry', { content: `회신 이메일: ${email.trim()}\n\n${message.trim()}` })
+      setMessage('')
+      showToast('문의를 보냈어요')
+    } catch {
+      showToast('문의를 보내지 못했어요. 잠시 후 다시 시도해 주세요.')
+    }
   }
 
   return (
@@ -212,10 +221,15 @@ function SettingsPage() {
         confirmText="로그아웃"
         tone="danger"
         onCancel={() => setLogoutOpen(false)}
-        onConfirm={() => {
+        onConfirm={async () => {
           setLogoutOpen(false)
-          // TODO: 로그인 연동 후 실제 로그아웃 처리
-          showToast('로그아웃은 아직 준비 중이에요')
+          try {
+            await logout()
+          } catch {
+            // The local session is cleared even when the server cannot be reached.
+          } finally {
+            navigate('/login', { replace: true })
+          }
         }}
       />
       <Toast message={toast} />
