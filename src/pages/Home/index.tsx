@@ -38,8 +38,10 @@ import {
   sendLocationCheck,
   type AttachmentDto,
   type ChatMessage,
+  type ChatNavigationRequest,
   type LocationRequest,
 } from '../../api/chats'
+import ChatLocationCard from '../../components/location/ChatLocationCard'
 import type { Conversation, LocalAttachment } from '../../types/conversation'
 import type { Profile } from '../../types/profile'
 import { ATTACHMENT_ACCEPT } from '../../utils/attachments'
@@ -207,8 +209,11 @@ function HomePage() {
     )
   }
 
-  function requestKeyFor(text: string, attachments: LocalAttachment[]) {
-    const signature = [text, ...attachments.map(({ serverId }) => serverId)].join('\u0000')
+  function requestKeyFor(text: string, attachments: LocalAttachment[], navigation?: ChatNavigationRequest) {
+    // 길찾기 정보(목적지 · 출발 · 엘리베이터)가 다르면 다른 요청이에요. 같은 키를 쓰면 서버가 409로 거절해요.
+    const signature = [text, ...attachments.map(({ serverId }) => serverId), JSON.stringify(navigation ?? {})].join(
+      '\u0000',
+    )
     if (retryKeyRef.current?.signature !== signature) {
       const key = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : createId('message')
       retryKeyRef.current = { signature, key }
@@ -249,26 +254,31 @@ function HomePage() {
     attachments: LocalAttachment[],
     question: string,
     onConversationCreated?: (id: string) => void,
+    navigation?: ChatNavigationRequest,
   ) {
     const text = question.trim() || (attachments.length > 0 ? '첨부 자료 요약해줘' : '')
     if (!text || isSending) return false
     if (!conversationId || screen !== 'conversation') return startConversation(text, attachments, onConversationCreated)
     setIsSending(true)
-    // 보내는 순간 입력창을 비워요(입력창에 쓴 질문을 보낼 때만. 추가 질문을 눌렀을 때 쓰던 글은 그대로 둬요).
-    // 실패하면 사용자가 다시 쓰지 않았을 때만 원래 질문을 되돌려 놔요.
-    setDraft((current) => (current === question ? '' : current))
+    // 입력창에 쓴 질문인지: 도면 카드(navigation) · 추가 질문 버튼은 앱이 만든 문구라 입력창과 상관없어요.
+    const fromComposer = !navigation && draft === question
+    // 보내는 순간 입력창을 비워요(입력창에 쓴 질문을 보낼 때만. 다른 경로로 보낼 때 쓰던 글은 그대로 둬요).
+    if (fromComposer) setDraft('')
     try {
       await sendMessage(
         conversationId,
         text,
         attachments,
         { departmentId, specialtyId },
-        requestKeyFor(text, attachments),
+        requestKeyFor(text, attachments, navigation),
+        navigation,
       )
       retryKeyRef.current = null
       return true
     } catch (error) {
-      setDraft((current) => current || question)
+      // 실패하면 입력창에서 보낸 질문만, 그사이 새로 쓰지 않았을 때 되돌려 놔요.
+      // (도면 카드 · 추가 질문 문구는 사용자가 쓴 글이 아니라서 입력창에 넣지 않아요)
+      if (fromComposer) setDraft((current) => current || question)
       showToast(getApiErrorMessage(error, '메시지를 보내지 못했어요.'))
       return false
     } finally {
@@ -359,6 +369,7 @@ function HomePage() {
           suggestions={suggestions}
           onCheckLocation={() => void checkChatLocation(conversation.id)}
           onAsk={(question) => void submitQuestion([], question)}
+          onNavigate={(question, navigation) => void submitQuestion([], question, undefined, navigation)}
           draft={draft}
           onDraftChange={setDraft}
           onSubmit={submitQuestion}
@@ -692,6 +703,8 @@ type ConversationViewProps = {
   isSending: boolean
   /** 추천 질문을 눌렀을 때 새 대화로 묻기 */
   onAsk: (question: string) => void
+  /** 도면 카드에서 목적지 선택 · 길찾기 요청 (같은 대화에 새 메시지로 보내요) */
+  onNavigate: (question: string, navigation: ChatNavigationRequest) => void
   draft: string
   onDraftChange: (value: string) => void
   onSubmit: (attachments: LocalAttachment[], question: string) => Promise<boolean>
@@ -710,6 +723,7 @@ function ConversationView({
   isSending,
   draft,
   onAsk,
+  onNavigate,
   onDraftChange,
   onSubmit,
   onToast,
@@ -826,6 +840,9 @@ function ConversationView({
                     }
                   />
                   <MessageAttachments attachments={message.attachments} />
+                  {message.location && (
+                    <ChatLocationCard location={message.location} onNavigate={onNavigate} disabled={isSending} />
+                  )}
                 </div>
               </div>
             ),
